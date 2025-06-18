@@ -1,6 +1,6 @@
 use anyhow::Result;
 use crossterm::{
-    event::{self, Event, KeyCode, KeyModifiers, KeyEventKind, MouseEvent, MouseEventKind, MouseButton},
+    event::{self, Event, KeyCode, KeyModifiers, MouseEvent, MouseEventKind, MouseButton},
     execute,
     terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
 };
@@ -82,12 +82,10 @@ impl App {
 
             let timeout = tick_rate.checked_sub(last_tick.elapsed()).unwrap_or_else(|| Duration::from_secs(0));
             
-            if crossterm::event::poll(timeout)? {                match event::read()? {
+            if crossterm::event::poll(timeout)? {
+                match event::read()? {
                     Event::Key(key) => {
-                        // Only process key press events, not key release
-                        if key.kind == KeyEventKind::Press {
-                            self.handle_input(key.code, key.modifiers).await?;
-                        }
+                        self.handle_input(key.code, key.modifiers).await?;
                     }
                     Event::Mouse(mouse) => {
                         self.handle_mouse_event(mouse).await?;
@@ -107,9 +105,12 @@ impl App {
         }
 
         Ok(())
-    }    async fn handle_input(&mut self, key: KeyCode, modifiers: KeyModifiers) -> Result<()> {        // Handle connect screen inputs when it's shown
+    }
+
+    async fn handle_input(&mut self, key: KeyCode, modifiers: KeyModifiers) -> Result<()> {
+        // Handle connect screen inputs when it's shown
         if self.show_connect_screen {
-            if let Some(connection_result) = self.connect_screen.handle_input(key, modifiers).await? {
+            if let Some(connection_result) = self.connect_screen.handle_input(key).await? {
                 match connection_result {
                     ConnectionStatus::Connected => {
                         self.connection_status = ConnectionStatus::Connected;
@@ -123,7 +124,7 @@ impl App {
                     _ => {}
                 }
             }
-            return Ok(()); // Early return to prevent double processing
+            return Ok(());
         }
 
         // Global hotkeys
@@ -139,13 +140,15 @@ impl App {
                 _ => {}
             }
             return Ok(());
-        }        // Regular key handling
+        }
+
+        // Regular key handling
         match key {
             KeyCode::Esc => {
                 // Close any open menus
                 self.menu_renderer.close_menu();
             }
-            KeyCode::Char('c') if modifiers.contains(KeyModifiers::CONTROL) => {
+            KeyCode::F1 => {
                 self.open_connect_dialog();
             }
             _ => {}
@@ -157,28 +160,6 @@ impl App {
     async fn handle_mouse_event(&mut self, mouse: MouseEvent) -> Result<()> {
         match mouse.kind {
             MouseEventKind::Down(MouseButton::Left) => {
-                // Handle connect screen mouse clicks when shown
-                if self.show_connect_screen {
-                    if let Some(button_id) = self.connect_screen.handle_mouse_click(mouse.column, mouse.row) {
-                        // Handle button action
-                        if let Some(connection_result) = self.connect_screen.handle_button_action(&button_id).await? {
-                            match connection_result {
-                                ConnectionStatus::Connected => {
-                                    self.connection_status = ConnectionStatus::Connected;
-                                    self.show_connect_screen = false;
-                                    self.status_message = "Connected to OPC UA server".to_string();
-                                }
-                                ConnectionStatus::Disconnected => {
-                                    self.show_connect_screen = false;
-                                    self.status_message = "Connection cancelled".to_string();
-                                }
-                                _ => {}
-                            }
-                        }
-                    }
-                    return Ok(());
-                }
-                
                 // Check if click is on menu bar (first row)
                 if mouse.row == 0 {
                     self.handle_menu_click(mouse.column).await?;
@@ -308,15 +289,15 @@ impl App {
     fn render_main_screen(&self, f: &mut Frame, area: Rect) {
         let welcome_text = vec![
             Span::raw("Welcome to OPC UA Client\n\n"),
-            Span::styled("Status: ", Style::default().fg(Color::Yellow)),            Span::raw(match self.connection_status {
+            Span::styled("Status: ", Style::default().fg(Color::Yellow)),
+            Span::raw(match self.connection_status {
                 ConnectionStatus::Connected => "Connected",
                 ConnectionStatus::Disconnected => "Disconnected",
                 ConnectionStatus::Connecting => "Connecting...",
-                ConnectionStatus::Error => "Error",
             }),
             Span::raw("\n\n"),
             Span::styled("Quick Actions:\n", Style::default().fg(Color::Green)),
-            Span::raw("• Ctrl+C or Alt+F → Connect to server\n"),
+            Span::raw("• F1 or Alt+F → Connect to server\n"),
             Span::raw("• Alt+X → Exit application\n"),
             Span::raw("\nUse the menu above for more options."),
         ];

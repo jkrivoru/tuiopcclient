@@ -7,6 +7,8 @@ mod client;
 mod config;
 mod menu;
 mod statusbar;
+mod screens;
+mod components;
 
 use ui::App;
 use client::OpcUaClientManager;

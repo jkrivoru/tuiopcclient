@@ -1,7 +1,17 @@
 use anyhow::{anyhow, Result};
 use std::collections::HashMap;
 
-use crate::ui::{SecurityPolicy, BrowseItem};
+use crate::screens::connect::SecurityPolicy;
+
+#[derive(Debug, Clone)]
+pub struct BrowseItem {
+    pub node_id: String,
+    pub display_name: String,
+    pub node_class: String,
+    pub is_folder: bool,
+    pub value: Option<String>,
+    pub data_type: Option<String>,
+}
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum ConnectionStatus {
