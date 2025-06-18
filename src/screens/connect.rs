@@ -1,6 +1,6 @@
 use anyhow::Result;
-use chrono;
 use crossterm::event::{KeyCode, KeyModifiers};
+use log::{info, debug};
 use ratatui::{
     layout::{Constraint, Direction, Layout, Rect},
     style::{Color, Style},
@@ -11,7 +11,7 @@ use std::time::Duration;
 use tokio::time;
 use tui_input::backend::crossterm::EventHandler;
 use tui_input::Input;
-use tui_textarea::TextArea;
+use tui_logger::{TuiLoggerWidget, TuiWidgetState, TuiWidgetEvent};
 
 use crate::client::ConnectionStatus;
 use crate::components::{Button, ButtonManager, ButtonColor};
@@ -80,26 +80,14 @@ pub struct ConnectScreen {
     // Input handling
     pub input_mode: InputMode,
     
+    // Logger widget state
+    pub logger_widget_state: TuiWidgetState,
+    
     // Button management
     pub button_manager: ButtonManager,
-      // Logging
-    pub connection_log_textarea: TextArea<'static>,
 }
 
-impl ConnectScreen {
-    pub fn new() -> Self {        // Initialize connection log textarea
-        let mut log_textarea = TextArea::default();
-        log_textarea.set_style(Style::default().fg(Color::Rgb(135, 135, 175))); // Light blue-grey
-        log_textarea.set_block(
-            Block::default()
-                .title("Connection Log")
-                .borders(Borders::ALL)
-        );
-        
-        // Set to read-only mode
-        log_textarea.set_cursor_line_style(Style::default());
-        log_textarea.set_line_number_style(Style::default());
-        
+impl ConnectScreen {    pub fn new() -> Self {
         let mut screen = Self {
             step: ConnectDialogStep::ServerUrl,
             server_url_input: Input::default().with_value("opc.tcp://localhost:4840".to_string()),
@@ -111,19 +99,19 @@ impl ConnectScreen {
             password_input: Input::default(),
             connect_in_progress: false,
             input_mode: InputMode::Editing,
+            logger_widget_state: TuiWidgetState::new(),
             button_manager: ButtonManager::new(),
-            connection_log_textarea: log_textarea,
-        };        // Add initial log messages using the proper method
-        screen.add_connection_log("OPC UA Client initialized");
-        screen.add_connection_log("Loading configuration from config.json");
-        screen.add_connection_log("Default server URL loaded");
-        screen.add_connection_log("Enter server URL and press Enter to discover endpoints");
-        screen.add_connection_log("Use PageUp/PageDown to scroll this log");
-        screen.add_connection_log("Alt+O to Connect, Alt+C to Cancel");
-        screen.add_connection_log("Connection log initialized");
-        screen.add_connection_log("Button manager created with hotkeys");
-        screen.add_connection_log("Input handlers configured");
-        screen.add_connection_log("Connect screen ready");
+        };        // Add initial log messages using the log crate
+        info!("OPC UA Client initialized");
+        info!("Loading configuration from config.json");
+        info!("Default server URL loaded");
+        info!("Enter server URL and press Enter to discover endpoints");
+        info!("Log Navigation: PageUp/PageDown to scroll, Home/End to jump, Escape to return to latest");
+        info!("Keyboard: Alt+O to Connect, Alt+C to Cancel");
+        info!("Connection log initialized");
+        debug!("Button manager created with hotkeys");
+        debug!("Input handlers configured");
+        info!("Connect screen ready");
         
         screen.setup_buttons_for_current_step();
         screen
@@ -145,16 +133,24 @@ impl ConnectScreen {
                     }
                     KeyCode::PageUp => {
                         // Scroll connection log up
-                        for _ in 0..5 {
-                            self.connection_log_textarea.move_cursor(tui_textarea::CursorMove::Up);
-                        }
+                        self.logger_widget_state.transition(TuiWidgetEvent::PrevPageKey);
                         Ok(None)
                     }
                     KeyCode::PageDown => {
                         // Scroll connection log down
-                        for _ in 0..5 {
-                            self.connection_log_textarea.move_cursor(tui_textarea::CursorMove::Down);
+                        self.logger_widget_state.transition(TuiWidgetEvent::NextPageKey);
+                        Ok(None)
+                    }
+                    KeyCode::Home => {
+                        // Go to the beginning - scroll up multiple pages
+                        for _ in 0..10 {
+                            self.logger_widget_state.transition(TuiWidgetEvent::PrevPageKey);
                         }
+                        Ok(None)
+                    }
+                    KeyCode::End => {
+                        // Go to the end (latest messages) - exit page mode
+                        self.logger_widget_state.transition(TuiWidgetEvent::EscapeKey);
                         Ok(None)
                     }
                     _ => {
@@ -198,16 +194,24 @@ impl ConnectScreen {
                     }
                     KeyCode::PageUp => {
                         // Scroll connection log up
-                        for _ in 0..5 {
-                            self.connection_log_textarea.move_cursor(tui_textarea::CursorMove::Up);
-                        }
+                        self.logger_widget_state.transition(TuiWidgetEvent::PrevPageKey);
                         Ok(None)
                     }
                     KeyCode::PageDown => {
                         // Scroll connection log down
-                        for _ in 0..5 {
-                            self.connection_log_textarea.move_cursor(tui_textarea::CursorMove::Down);
+                        self.logger_widget_state.transition(TuiWidgetEvent::NextPageKey);
+                        Ok(None)
+                    }
+                    KeyCode::Home => {
+                        // Go to the beginning - scroll up multiple pages
+                        for _ in 0..10 {
+                            self.logger_widget_state.transition(TuiWidgetEvent::PrevPageKey);
                         }
+                        Ok(None)
+                    }
+                    KeyCode::End => {
+                        // Go to the end (latest messages) - exit page mode
+                        self.logger_widget_state.transition(TuiWidgetEvent::EscapeKey);
                         Ok(None)
                     }
                     _ => Ok(None)
@@ -312,21 +316,27 @@ impl ConnectScreen {
                                         crossterm::event::KeyEvent::new(key, modifiers)
                                     ));
                                 }                            }
-                        }
-                        Ok(None)
-                    }
-                    KeyCode::PageUp => {
+                        }                        Ok(None)
+                    }                    KeyCode::PageUp => {
                         // Scroll connection log up
-                        for _ in 0..5 {
-                            self.connection_log_textarea.move_cursor(tui_textarea::CursorMove::Up);
-                        }
+                        self.logger_widget_state.transition(TuiWidgetEvent::PrevPageKey);
                         Ok(None)
                     }
                     KeyCode::PageDown => {
                         // Scroll connection log down
-                        for _ in 0..5 {
-                            self.connection_log_textarea.move_cursor(tui_textarea::CursorMove::Down);
+                        self.logger_widget_state.transition(TuiWidgetEvent::NextPageKey);
+                        Ok(None)
+                    }
+                    KeyCode::Home => {
+                        // Go to the beginning - scroll up multiple pages
+                        for _ in 0..10 {
+                            self.logger_widget_state.transition(TuiWidgetEvent::PrevPageKey);
                         }
+                        Ok(None)
+                    }
+                    KeyCode::End => {
+                        // Go to the end (latest messages) - exit page mode
+                        self.logger_widget_state.transition(TuiWidgetEvent::EscapeKey);
                         Ok(None)
                     }
                     _ => Ok(None)
@@ -337,7 +347,7 @@ impl ConnectScreen {
 
     async fn discover_endpoints(&mut self) -> Result<()> {
         self.connect_in_progress = true;
-        self.add_connection_log("Discovering endpoints...");
+        info!("Discovering endpoints...");
         
         // Simulate endpoint discovery
         time::sleep(Duration::from_millis(500)).await;
@@ -360,7 +370,7 @@ impl ConnectScreen {
         self.step = ConnectDialogStep::EndpointSelection;
         self.input_mode = InputMode::Normal;
         self.setup_buttons_for_current_step();
-        self.add_connection_log(&format!("Found {} endpoints", self.discovered_endpoints.len()));
+        info!("Found {} endpoints", self.discovered_endpoints.len());
         
         Ok(())
     }
@@ -372,19 +382,20 @@ impl ConnectScreen {
             AuthenticationType::UserPassword => format!("User: {}", self.username_input.value()),
         };
         
-        self.add_connection_log(&format!("Connecting with {}", auth_desc));
+        info!("Connecting with {}", auth_desc);
         
         // Simulate connection process
         time::sleep(Duration::from_millis(1000)).await;
         
         // For demo purposes, simulate successful connection
         self.connect_in_progress = false;
-        self.add_connection_log("Connected successfully!");
+        info!("Connected successfully!");
         
         Ok(Some(ConnectionStatus::Connected))
-    }
-
-    pub fn render(&mut self, f: &mut Frame, area: Rect) {
+    }    pub fn render(&mut self, f: &mut Frame, area: Rect) {
+        // Move events from hot buffer to main buffer
+        tui_logger::move_events();
+        
         let chunks = Layout::default()
             .direction(Direction::Vertical)
             .constraints([
@@ -397,7 +408,19 @@ impl ConnectScreen {
             ConnectDialogStep::EndpointSelection => self.render_endpoint_step(f, chunks[0]),
             ConnectDialogStep::Authentication => self.render_auth_step(f, chunks[0]),
         }        // Connection logs with scrolling support
-        f.render_widget(self.connection_log_textarea.widget(), chunks[1]);
+        let logger_widget = TuiLoggerWidget::default()
+            .block(
+                Block::default()
+                    .title("Connection Log")
+                    .borders(Borders::ALL)
+            )
+            .style_error(Style::default().fg(Color::Red))
+            .style_warn(Style::default().fg(Color::Yellow))
+            .style_info(Style::default().fg(Color::Rgb(135, 135, 175)))
+            .style_debug(Style::default().fg(Color::DarkGray))
+            .style_trace(Style::default().fg(Color::Gray))
+            .state(&self.logger_widget_state);
+        f.render_widget(logger_widget, chunks[1]);
     }
 
     fn render_server_url_step(&mut self, f: &mut Frame, area: Rect) {
@@ -621,41 +644,9 @@ impl ConnectScreen {
         let help = Paragraph::new(help_text)
             .style(Style::default().fg(Color::Gray))
             .block(Block::default().borders(Borders::ALL).title("Help"));
-        f.render_widget(help, chunks[4]);
-    }    pub fn add_connection_log(&mut self, message: &str) {
-        let timestamp = chrono::Utc::now().format("%Y-%m-%d %H:%M:%S");
-        
-        // Handle multiline messages with proper indentation
-        let lines: Vec<&str> = message.lines().collect();
-        if lines.is_empty() {
-            return;
-        }
-        
-        // First line gets the timestamp
-        let first_line = format!("{} {}", timestamp, lines[0]);
-        
-        // Move to end of textarea and add new line if not empty
-        self.connection_log_textarea.move_cursor(tui_textarea::CursorMove::End);
-        if !self.connection_log_textarea.is_empty() {
-            self.connection_log_textarea.insert_newline();
-        }
-        self.connection_log_textarea.insert_str(&first_line);
-        
-        // Additional lines get 2-space indentation
-        for line in lines.iter().skip(1) {
-            self.connection_log_textarea.insert_newline();
-            self.connection_log_textarea.insert_str(&format!("  {}", line));
-        }
-        
-        // Auto-scroll to bottom to show latest entry
-        self.connection_log_textarea.move_cursor(tui_textarea::CursorMove::End);
-        
-        // Limit the number of lines to prevent memory issues
-        while self.connection_log_textarea.lines().len() > 50 {
-            self.connection_log_textarea.move_cursor(tui_textarea::CursorMove::Head);
-            self.connection_log_textarea.delete_line_by_head();
-        }
-    }pub fn reset(&mut self) {
+        f.render_widget(help, chunks[4]);    }
+
+    pub fn reset(&mut self) {
         self.step = ConnectDialogStep::ServerUrl;
         self.discovered_endpoints.clear();
         self.selected_endpoint_index = 0;

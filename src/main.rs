@@ -15,7 +15,9 @@ use client::OpcUaClientManager;
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    env_logger::init();
+    // Initialize tui-logger with custom settings
+    tui_logger::init_logger(log::LevelFilter::Info).unwrap();
+    tui_logger::set_default_level(log::LevelFilter::Info);
     
     let client_manager = Arc::new(Mutex::new(OpcUaClientManager::new()));
     let mut app = App::new(client_manager);
