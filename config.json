@@ -1,0 +1,10 @@
+{
+  "server_url": "opc.tcp://localhost:4840",
+  "security_policy": "None",
+  "username": null,
+  "password": null,
+  "application_name": "OPC UA Rust Client",
+  "application_uri": "urn:OPC-UA-Rust-Client",
+  "session_timeout": 60000,
+  "keep_alive_interval": 1000
+}
