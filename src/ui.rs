@@ -280,37 +280,45 @@ impl App {
         self.statusbar_renderer.set_connection_status(self.connection_status.clone());
         self.statusbar_renderer.set_current_screen(Screen::Main);
         self.statusbar_renderer.set_status_message(self.status_message.clone());
-    }
-
-    fn ui(&mut self, f: &mut Frame) {
+    }    fn ui(&mut self, f: &mut Frame) {
         let size = f.size();
 
-        // Main layout with menu bar and status bar
-        let chunks = Layout::default()
-            .direction(Direction::Vertical)
-            .constraints([
-                Constraint::Length(1), // Menu bar
-                Constraint::Min(0),    // Main content
-                Constraint::Length(1), // Status bar
-            ])
-            .split(size);
-
-        // Menu bar
-        self.menu_renderer.render_menu_bar(f, chunks[0]);
-
-        // Main content
         if self.show_connect_screen {
-            self.connect_screen.render(f, chunks[1]);
+            // Connect screen: hide menu bar for a cleaner look
+            let chunks = Layout::default()
+                .direction(Direction::Vertical)
+                .constraints([
+                    Constraint::Min(0),    // Main content (connect screen)
+                    Constraint::Length(1), // Status bar
+                ])
+                .split(size);
+
+            self.connect_screen.render(f, chunks[0]);
+            self.statusbar_renderer.render_status_bar(f, chunks[1], None);
         } else {
+            // Main screen: show menu bar
+            let chunks = Layout::default()
+                .direction(Direction::Vertical)
+                .constraints([
+                    Constraint::Length(1), // Menu bar
+                    Constraint::Min(0),    // Main content
+                    Constraint::Length(1), // Status bar
+                ])
+                .split(size);
+
+            // Menu bar
+            self.menu_renderer.render_menu_bar(f, chunks[0]);
+            
+            // Main content
             self.render_main_screen(f, chunks[1]);
-        }
+            
+            // Status bar
+            self.statusbar_renderer.render_status_bar(f, chunks[2], self.menu_renderer.get_active_menu().as_ref());
 
-        // Status bar
-        self.statusbar_renderer.render_status_bar(f, chunks[2], self.menu_renderer.get_active_menu().as_ref());
-
-        // Render dropdown menus (must be last to appear on top)
-        if let Some(menu_type) = self.menu_renderer.get_active_menu() {
-            self.menu_renderer.render_dropdown_menu(f, menu_type);
+            // Render dropdown menus (must be last to appear on top)
+            if let Some(menu_type) = self.menu_renderer.get_active_menu() {
+                self.menu_renderer.render_dropdown_menu(f, menu_type);
+            }
         }
     }
 

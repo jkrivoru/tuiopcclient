@@ -1,9 +1,9 @@
 use crossterm::event::{KeyCode, KeyModifiers};
 use ratatui::{
-    layout::Rect,
+    layout::{Alignment, Rect},
     style::{Color, Style, Modifier},
     text::{Line, Span},
-    widgets::{Block, Borders, Paragraph},
+    widgets::{Block, Paragraph},
     Frame,
 };
 
@@ -175,64 +175,54 @@ impl Button {
         }
 
         ButtonAction::None
-    }
-
-    pub fn render(&mut self, f: &mut Frame, area: Rect) {
+    }    pub fn render(&mut self, f: &mut Frame, area: Rect) {
         // Store area for click detection
         self.area = Some(area);
 
-        let (border_style, text_style, bg_color) = match self.state {
+        let text_style = match self.state {
             ButtonState::Normal => {
                 let bg = self.get_background_color();
-                (
-                    Style::default().fg(Color::White).bg(bg),
-                    Style::default().fg(Color::White).bg(bg),
-                    bg,
-                )
+                Style::default().fg(Color::White).bg(bg)
             },
             ButtonState::Hovered => {
                 let bg = self.get_background_color();
-                (
-                    Style::default().fg(Color::Yellow).bg(bg),
-                    Style::default().fg(Color::Yellow).bg(bg),
-                    bg,
-                )
+                Style::default().fg(Color::Yellow).bg(bg)
             },
             ButtonState::MouseDown => {
                 let bg = self.get_lighter_background_color();
-                (
-                    Style::default().fg(Color::White).bg(bg),
-                    Style::default().fg(Color::White).bg(bg),
-                    bg,
-                )
+                Style::default().fg(Color::White).bg(bg)
             },
             ButtonState::Pressed => {
                 let bg = self.get_background_color();
-                (
-                    Style::default().fg(Color::Green).bg(bg),
-                    Style::default().fg(Color::Green).bg(bg),
-                    bg,
-                )
+                Style::default().fg(Color::Green).bg(bg)
+            },            ButtonState::Disabled => {
+                Style::default().fg(Color::DarkGray).bg(Color::Black)
             },
-            ButtonState::Disabled => (
-                Style::default().fg(Color::DarkGray).bg(Color::Black),
-                Style::default().fg(Color::DarkGray).bg(Color::Black),
-                Color::Black,
-            ),
         };
 
         // Create button text with hotkey highlighting
         let button_text = self.create_button_text(text_style);
 
-        let block = Block::default()
-            .borders(Borders::ALL)
-            .border_style(border_style);
+        // Calculate vertical centering - if area height is 3, we want the text in the middle row
+        let vertical_offset = if area.height >= 3 { 1 } else { 0 };
+        let centered_area = Rect {
+            x: area.x,
+            y: area.y + vertical_offset,
+            width: area.width,
+            height: 1, // Single line for text
+        };
 
+        // Render without borders for a cleaner look, with centered text
         let paragraph = Paragraph::new(button_text)
-            .block(block)
-            .style(text_style);
+            .style(text_style)
+            .alignment(Alignment::Center);
 
-        f.render_widget(paragraph, area);
+        // First fill the entire button area with background color
+        let background_block = Block::default().style(text_style);
+        f.render_widget(background_block, area);
+        
+        // Then render the centered text
+        f.render_widget(paragraph, centered_area);
     }
 
     fn get_background_color(&self) -> Color {
@@ -251,9 +241,7 @@ impl Button {
             ButtonColor::Blue => Color::LightBlue,
             ButtonColor::Default => Color::Gray,
         }
-    }
-
-    fn create_button_text(&self, base_style: Style) -> Line {
+    }    fn create_button_text(&self, base_style: Style) -> Line {
         let mut spans = Vec::new();
         
         if let Some(hotkey) = self.hotkey {
@@ -275,21 +263,11 @@ impl Button {
                 }
             }
             
-            // Add hotkey hint if not found in label
+            // If hotkey not found in label, just show the label without hint
             if !found_hotkey {
+                spans.clear();
                 spans.push(Span::styled(self.label.clone(), base_style));
-                spans.push(Span::styled(
-                    format!(" (Alt+{})", hotkey.to_uppercase()),
-                    Style::default().fg(Color::DarkGray),
-                ));
             }
-        } else if let Some(ctrl_key) = self.ctrl_key {
-            // Add ctrl key hint
-            spans.push(Span::styled(self.label.clone(), base_style));
-            spans.push(Span::styled(
-                format!(" (Ctrl+{})", ctrl_key.to_uppercase()),
-                Style::default().fg(Color::DarkGray),
-            ));
         } else {
             spans.push(Span::styled(self.label.clone(), base_style));
         }

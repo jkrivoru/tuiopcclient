@@ -2,13 +2,14 @@ use anyhow::Result;
 use crossterm::event::{KeyCode, KeyModifiers};
 use ratatui::{
     layout::{Constraint, Direction, Layout, Rect},
-    style::{Color, Style},
-    text::{Line, Span},
+    style::{Color, Style},    text::Line,
     widgets::{Block, Borders, List, ListItem, Paragraph, Wrap},
     Frame,
 };
 use std::time::Duration;
 use tokio::time;
+use tui_input::backend::crossterm::EventHandler;
+use tui_input::Input;
 
 use crate::client::ConnectionStatus;
 use crate::components::{Button, ButtonManager, ButtonColor};
@@ -65,17 +66,17 @@ pub enum InputMode {
 pub struct ConnectScreen {
     // Connection dialog state
     pub step: ConnectDialogStep,
-    pub server_url: String,    pub discovered_endpoints: Vec<EndpointInfo>,
+    pub server_url_input: Input,
+    pub discovered_endpoints: Vec<EndpointInfo>,
     pub selected_endpoint_index: usize,
     pub authentication_type: AuthenticationType,
     pub active_auth_field: AuthenticationField,
-    pub username: String,
-    pub password: String,
+    pub username_input: Input,
+    pub password_input: Input,
     pub connect_in_progress: bool,
     
     // Input handling
     pub input_mode: InputMode,
-    pub cursor_position: usize,
     
     // Button management
     pub button_manager: ButtonManager,
@@ -88,16 +89,15 @@ impl ConnectScreen {
     pub fn new() -> Self {
         let mut screen = Self {
             step: ConnectDialogStep::ServerUrl,
-            server_url: "opc.tcp://localhost:4840".to_string(),
+            server_url_input: Input::default().with_value("opc.tcp://localhost:4840".to_string()),
             discovered_endpoints: Vec::new(),
             selected_endpoint_index: 0,
             authentication_type: AuthenticationType::Anonymous,
             active_auth_field: AuthenticationField::Username,
-            username: String::new(),
-            password: String::new(),
+            username_input: Input::default(),
+            password_input: Input::default(),
             connect_in_progress: false,
             input_mode: InputMode::Editing,
-            cursor_position: 24, // Position at end of default URL
             button_manager: ButtonManager::new(),
             connection_logs: vec![
                 "[App Start] OPC UA Client initialized".to_string(),
@@ -107,7 +107,8 @@ impl ConnectScreen {
         
         screen.setup_buttons_for_current_step();
         screen
-    }    pub async fn handle_input(&mut self, key: KeyCode, modifiers: KeyModifiers) -> Result<Option<ConnectionStatus>> {        // Handle button input first
+    }    pub async fn handle_input(&mut self, key: KeyCode, modifiers: KeyModifiers) -> Result<Option<ConnectionStatus>> {
+        // Handle button input first
         if let Some(button_id) = self.button_manager.handle_key_input(key, modifiers) {
             return self.handle_button_action(&button_id).await;
         }
@@ -122,33 +123,16 @@ impl ConnectScreen {
                     }
                     KeyCode::Esc => {
                         Ok(Some(ConnectionStatus::Disconnected))
-                    }                    KeyCode::Char(c) => {
+                    }
+                    _ => {
+                        // Let tui-input handle the key event
                         if self.input_mode == InputMode::Editing {
-                            self.server_url.insert(self.cursor_position, c);
-                            self.cursor_position += 1;
+                            self.server_url_input.handle_event(&crossterm::event::Event::Key(
+                                crossterm::event::KeyEvent::new(key, modifiers)
+                            ));
                         }
                         Ok(None)
                     }
-                    KeyCode::Backspace => {
-                        if self.input_mode == InputMode::Editing && self.cursor_position > 0 {
-                            self.cursor_position -= 1;
-                            self.server_url.remove(self.cursor_position);
-                        }
-                        Ok(None)
-                    }
-                    KeyCode::Left => {
-                        if self.input_mode == InputMode::Editing && self.cursor_position > 0 {
-                            self.cursor_position -= 1;
-                        }
-                        Ok(None)
-                    }
-                    KeyCode::Right => {
-                        if self.input_mode == InputMode::Editing && self.cursor_position < self.server_url.len() {
-                            self.cursor_position += 1;
-                        }
-                        Ok(None)
-                    }
-                    _ => Ok(None)
                 }
             }
             ConnectDialogStep::EndpointSelection => {
@@ -165,30 +149,25 @@ impl ConnectScreen {
                         }
                         Ok(None)
                     }
-                    KeyCode::Enter | KeyCode::Tab => {
-                        // Move to authentication step
+                    KeyCode::Enter | KeyCode::Tab => {                        // Move to authentication step
                         self.step = ConnectDialogStep::Authentication;
                         if self.authentication_type == AuthenticationType::UserPassword {
                             self.active_auth_field = AuthenticationField::Username;
-                            self.cursor_position = self.username.len();
                             self.input_mode = InputMode::Editing;
                         } else {
                             self.input_mode = InputMode::Normal;
                         }
                         Ok(None)
                     }
-                    KeyCode::Esc => {
-                        // Go back to URL step
+                    KeyCode::Esc => {                        // Go back to URL step
                         self.step = ConnectDialogStep::ServerUrl;
-                        self.cursor_position = self.server_url.len();
                         Ok(None)
                     }
                     _ => Ok(None)
                 }
             }
             ConnectDialogStep::Authentication => {
-                match key {
-                    KeyCode::Up | KeyCode::Down => {
+                match key {                    KeyCode::Up | KeyCode::Down => {
                         // Toggle authentication type
                         self.authentication_type = match self.authentication_type {
                             AuthenticationType::Anonymous => AuthenticationType::UserPassword,
@@ -197,24 +176,17 @@ impl ConnectScreen {
                         
                         if self.authentication_type == AuthenticationType::UserPassword {
                             self.active_auth_field = AuthenticationField::Username;
-                            self.cursor_position = self.username.len();
                             self.input_mode = InputMode::Editing;
                         } else {
                             self.input_mode = InputMode::Normal;
                         }
                         Ok(None)
-                    }
-                    KeyCode::Tab => {
+                    }                    KeyCode::Tab => {
                         if self.authentication_type == AuthenticationType::UserPassword {
                             // Switch between username and password fields
                             self.active_auth_field = match self.active_auth_field {
                                 AuthenticationField::Username => AuthenticationField::Password,
                                 AuthenticationField::Password => AuthenticationField::Username,
-                            };
-                            // Update cursor position for the new field
-                            self.cursor_position = match self.active_auth_field {
-                                AuthenticationField::Username => self.username.len(),
-                                AuthenticationField::Password => self.password.len(),
                             };
                             self.input_mode = InputMode::Editing;
                         }
@@ -229,17 +201,18 @@ impl ConnectScreen {
                         self.step = ConnectDialogStep::EndpointSelection;
                         self.input_mode = InputMode::Normal;
                         Ok(None)
-                    }
-                    KeyCode::Char(c) => {
+                    }                    KeyCode::Char(c) => {
                         if self.authentication_type == AuthenticationType::UserPassword {
                             match self.active_auth_field {
                                 AuthenticationField::Username => {
-                                    self.username.insert(self.cursor_position, c);
-                                    self.cursor_position += 1;
+                                    self.username_input.handle_event(&crossterm::event::Event::Key(
+                                        crossterm::event::KeyEvent::new(key, modifiers)
+                                    ));
                                 }
                                 AuthenticationField::Password => {
-                                    self.password.insert(self.cursor_position, c);
-                                    self.cursor_position += 1;
+                                    self.password_input.handle_event(&crossterm::event::Event::Key(
+                                        crossterm::event::KeyEvent::new(key, modifiers)
+                                    ));
                                 }
                             }
                         }
@@ -249,35 +222,49 @@ impl ConnectScreen {
                         if self.authentication_type == AuthenticationType::UserPassword {
                             match self.active_auth_field {
                                 AuthenticationField::Username => {
-                                    if self.cursor_position > 0 {
-                                        self.cursor_position -= 1;
-                                        self.username.remove(self.cursor_position);
-                                    }
+                                    self.username_input.handle_event(&crossterm::event::Event::Key(
+                                        crossterm::event::KeyEvent::new(key, modifiers)
+                                    ));
                                 }
                                 AuthenticationField::Password => {
-                                    if self.cursor_position > 0 {
-                                        self.cursor_position -= 1;
-                                        self.password.remove(self.cursor_position);
-                                    }
+                                    self.password_input.handle_event(&crossterm::event::Event::Key(
+                                        crossterm::event::KeyEvent::new(key, modifiers)
+                                    ));
                                 }
                             }
                         }
                         Ok(None)
                     }
                     KeyCode::Left => {
-                        if self.authentication_type == AuthenticationType::UserPassword && self.cursor_position > 0 {
-                            self.cursor_position -= 1;
+                        if self.authentication_type == AuthenticationType::UserPassword {
+                            match self.active_auth_field {
+                                AuthenticationField::Username => {
+                                    self.username_input.handle_event(&crossterm::event::Event::Key(
+                                        crossterm::event::KeyEvent::new(key, modifiers)
+                                    ));
+                                }
+                                AuthenticationField::Password => {
+                                    self.password_input.handle_event(&crossterm::event::Event::Key(
+                                        crossterm::event::KeyEvent::new(key, modifiers)
+                                    ));
+                                }
+                            }
                         }
                         Ok(None)
                     }
                     KeyCode::Right => {
                         if self.authentication_type == AuthenticationType::UserPassword {
-                            let max_len = match self.active_auth_field {
-                                AuthenticationField::Username => self.username.len(),
-                                AuthenticationField::Password => self.password.len(),
-                            };
-                            if self.cursor_position < max_len {
-                                self.cursor_position += 1;
+                            match self.active_auth_field {
+                                AuthenticationField::Username => {
+                                    self.username_input.handle_event(&crossterm::event::Event::Key(
+                                        crossterm::event::KeyEvent::new(key, modifiers)
+                                    ));
+                                }
+                                AuthenticationField::Password => {
+                                    self.password_input.handle_event(&crossterm::event::Event::Key(
+                                        crossterm::event::KeyEvent::new(key, modifiers)
+                                    ));
+                                }
                             }
                         }
                         Ok(None)
@@ -294,17 +281,16 @@ impl ConnectScreen {
         
         // Simulate endpoint discovery
         time::sleep(Duration::from_millis(500)).await;
-        
-        // Mock discovered endpoints based on URL
+          // Mock discovered endpoints based on URL
         self.discovered_endpoints = vec![
             EndpointInfo {
-                endpoint_url: self.server_url.clone(),
+                endpoint_url: self.server_url_input.value().to_string(),
                 security_policy: SecurityPolicy::None,
                 security_mode: SecurityMode::None,
                 display_name: "None - No Security".to_string(),
             },
             EndpointInfo {
-                endpoint_url: self.server_url.clone(),
+                endpoint_url: self.server_url_input.value().to_string(),
                 security_policy: SecurityPolicy::Basic256Sha256,
                 security_mode: SecurityMode::SignAndEncrypt,
                 display_name: "Basic256Sha256 - Sign & Encrypt".to_string(),
@@ -321,10 +307,9 @@ impl ConnectScreen {
 
     async fn connect_with_settings(&mut self) -> Result<Option<ConnectionStatus>> {
         self.connect_in_progress = true;
-        
-        let auth_desc = match self.authentication_type {
+          let auth_desc = match self.authentication_type {
             AuthenticationType::Anonymous => "Anonymous".to_string(),
-            AuthenticationType::UserPassword => format!("User: {}", self.username),
+            AuthenticationType::UserPassword => format!("User: {}", self.username_input.value()),
         };
         
         self.add_connection_log(&format!("Connecting with {}", auth_desc));
@@ -366,81 +351,67 @@ impl ConnectScreen {
 
     fn render_server_url_step(&mut self, f: &mut Frame, area: Rect) {
         let chunks = Layout::default()
-            .direction(Direction::Vertical)
-            .constraints([
+            .direction(Direction::Vertical)            .constraints([
                 Constraint::Length(3),  // Title
                 Constraint::Length(3),  // URL input
                 Constraint::Length(3),  // Buttons
-                Constraint::Min(0),     // Help text
             ])
             .split(area);
 
         // Title
         let title = Paragraph::new("Connect to OPC UA Server - Step 1/3: Server URL")
-            .style(Style::default().fg(Color::Yellow))
+            .style(Style::default().fg(Color::White).bg(Color::Blue))
             .block(Block::default().borders(Borders::ALL));
-        f.render_widget(title, chunks[0]);
-
-        // URL input
-        let input_style = if self.input_mode == InputMode::Editing {
-            Style::default().fg(Color::Yellow).bg(Color::Blue)
-        } else {
-            Style::default().fg(Color::White)
-        };
+        f.render_widget(title, chunks[0]);        // URL input
+        let input_style = Style::default().fg(Color::Yellow);
         
-        let input_text = self.format_input_with_cursor(&self.server_url, true);
-        let input_block = Paragraph::new(input_text)
+        // Use tui-input's built-in scrolling and rendering
+        let width = chunks[1].width.max(3) - 3; // Account for borders
+        let scroll = self.server_url_input.visual_scroll(width as usize);
+        
+        let input_text = Paragraph::new(self.server_url_input.value())
+            .style(input_style)
+            .scroll((0, scroll as u16))
             .block(Block::default()
                 .title("Server URL")
-                .borders(Borders::ALL))
-            .style(input_style);
-        f.render_widget(input_block, chunks[1]);        // Buttons (2 buttons for step 1)
+                .borders(Borders::ALL)
+                .title_style(Style::default().fg(Color::Yellow)));
+        
+        f.render_widget(input_text, chunks[1]);
+        
+        // Position cursor if editing
+        if self.input_mode == InputMode::Editing {
+            let cursor_x = self.server_url_input.visual_cursor().max(scroll) - scroll + 1;
+            f.set_cursor(chunks[1].x + cursor_x as u16, chunks[1].y + 1);
+        }// Buttons (2 buttons for step 1) - left and right positioning, 50% wider
         let button_chunks = Layout::default()
             .direction(Direction::Horizontal)
             .constraints([
-                Constraint::Percentage(50),
-                Constraint::Percentage(50),
+                Constraint::Length(18), // Cancel button (12 * 1.5 = 18)
+                Constraint::Min(0),     // Space between
+                Constraint::Length(18), // Discover button (12 * 1.5 = 18)
             ])
             .split(chunks[2]);
 
         // Update button states based on current progress
         if self.connect_in_progress {
             self.button_manager.set_button_enabled("discover", false);
-        } else {
-            self.button_manager.set_button_enabled("discover", true);
-        }
-
-        // Render buttons using button manager
-        self.button_manager.render_buttons(f, &button_chunks);
-
-        // Help text
-        let help_text = if self.connect_in_progress {
-            "Please wait while discovering server endpoints..."
-        } else {
-            "Enter server URL above, then use buttons below or shortcuts\nAlt+D - Discover | Alt+X - Cancel | Tab - Navigate | Esc - Cancel"
-        };
-        
-        let help = Paragraph::new(help_text)
-            .style(Style::default().fg(Color::Gray))
-            .wrap(Wrap { trim: true })
-            .block(Block::default().borders(Borders::ALL).title("Help"));
-        f.render_widget(help, chunks[3]);
+        } else {            self.button_manager.set_button_enabled("discover", true);
+        }        // Render buttons using button manager (use chunks 0 and 2 for left/right positioning)
+        let button_rects = &[button_chunks[0], button_chunks[2]];
+        self.button_manager.render_buttons(f, button_rects);
     }
 
     fn render_endpoint_step(&mut self, f: &mut Frame, area: Rect) {
         let chunks = Layout::default()
-            .direction(Direction::Vertical)
-            .constraints([
+            .direction(Direction::Vertical)            .constraints([
                 Constraint::Length(3),  // Title
                 Constraint::Min(0),     // Endpoint list
                 Constraint::Length(3),  // Buttons
-                Constraint::Length(3),  // Help text
             ])
-            .split(area);
-
-        // Title
+            .split(area);// Title
         let title = Paragraph::new("Connect to OPC UA Server - Step 2/3: Select Endpoint")
-            .style(Style::default().fg(Color::Yellow))
+            .style(Style::default().fg(Color::White).bg(Color::Blue))
             .block(Block::default().borders(Borders::ALL));
         f.render_widget(title, chunks[0]);
 
@@ -459,35 +430,19 @@ impl ConnectScreen {
             .block(Block::default()
                 .title("Available Endpoints")
                 .borders(Borders::ALL))
-            .highlight_style(Style::default().bg(Color::Blue).fg(Color::White));
-        f.render_widget(endpoint_list, chunks[1]);
-
-        // Buttons
+            .highlight_style(Style::default().bg(Color::Blue).fg(Color::White));        f.render_widget(endpoint_list, chunks[1]);        // Buttons (3 buttons for step 2) - left, center, right positioning, 50% wider
         let button_chunks = Layout::default()
             .direction(Direction::Horizontal)
             .constraints([
-                Constraint::Percentage(33),
-                Constraint::Percentage(34),
-                Constraint::Percentage(33),
-            ])            .split(chunks[2]);
-
-        // Render buttons using button manager (3 buttons for step 2)
-        let button_chunks = Layout::default()
-            .direction(Direction::Horizontal)
-            .constraints([
-                Constraint::Percentage(33),
-                Constraint::Percentage(34),
-                Constraint::Percentage(33),
+                Constraint::Length(18), // Cancel button (12 * 1.5 = 18)
+                Constraint::Min(0),     // Space
+                Constraint::Length(18), // Back button (12 * 1.5 = 18)
+                Constraint::Min(0),     // Space
+                Constraint::Length(18), // Next button (12 * 1.5 = 18)
             ])
-            .split(chunks[2]);
-
-        self.button_manager.render_buttons(f, &button_chunks);
-
-        // Help text
-        let help = Paragraph::new("↑↓ - Navigate endpoints | Alt+N - Next | Alt+B - Back | Alt+X - Cancel")
-            .style(Style::default().fg(Color::Gray))
-            .block(Block::default().borders(Borders::ALL).title("Help"));
-        f.render_widget(help, chunks[3]);
+            .split(chunks[2]);        // Render buttons using button manager (use chunks 0, 2, 4 for left/center/right positioning)
+        let button_rects = &[button_chunks[0], button_chunks[2], button_chunks[4]];
+        self.button_manager.render_buttons(f, button_rects);
     }
 
     fn render_auth_step(&mut self, f: &mut Frame, area: Rect) {
@@ -500,11 +455,9 @@ impl ConnectScreen {
                 Constraint::Length(3),  // Buttons
                 Constraint::Min(0),     // Help text
             ])
-            .split(area);
-
-        // Title
+            .split(area);        // Title
         let title = Paragraph::new("Connect to OPC UA Server - Step 3/3: Authentication")
-            .style(Style::default().fg(Color::Yellow))
+            .style(Style::default().fg(Color::White).bg(Color::Blue))
             .block(Block::default().borders(Borders::ALL));
         f.render_widget(title, chunks[0]);
 
@@ -538,45 +491,62 @@ impl ConnectScreen {
                     Constraint::Length(3),  // Username
                     Constraint::Length(3),  // Password
                 ])
-                .split(chunks[2]);
-
-            // Username field
+                .split(chunks[2]);            // Username field
             let username_style = if self.active_auth_field == AuthenticationField::Username && self.input_mode == InputMode::Editing {
-                Style::default().fg(Color::Yellow).bg(Color::Blue)
+                Style::default().fg(Color::Yellow)
             } else {
                 Style::default().fg(Color::White)
             };
             
-            let username_text = self.format_input_with_cursor(&self.username, self.active_auth_field == AuthenticationField::Username);
-            let username_block = Paragraph::new(username_text)
+            let width = user_chunks[0].width.max(3) - 3;
+            let scroll = self.username_input.visual_scroll(width as usize);
+            
+            let username_text = Paragraph::new(self.username_input.value())
+                .style(username_style)
+                .scroll((0, scroll as u16))
                 .block(Block::default()
                     .title("Username")
-                    .borders(Borders::ALL))
-                .style(username_style);
-            f.render_widget(username_block, user_chunks[0]);
+                    .borders(Borders::ALL));
+            f.render_widget(username_text, user_chunks[0]);
+            
+            // Position cursor if editing username
+            if self.active_auth_field == AuthenticationField::Username && self.input_mode == InputMode::Editing {
+                let cursor_x = self.username_input.visual_cursor().max(scroll) - scroll + 1;
+                f.set_cursor(user_chunks[0].x + cursor_x as u16, user_chunks[0].y + 1);
+            }
 
             // Password field
             let password_style = if self.active_auth_field == AuthenticationField::Password && self.input_mode == InputMode::Editing {
-                Style::default().fg(Color::Yellow).bg(Color::Blue)
+                Style::default().fg(Color::Yellow)
             } else {
                 Style::default().fg(Color::White)
             };
             
-            let password_display = "*".repeat(self.password.len());
-            let password_text = self.format_input_with_cursor(&password_display, self.active_auth_field == AuthenticationField::Password);
-            let password_block = Paragraph::new(password_text)
+            let width = user_chunks[1].width.max(3) - 3;
+            let scroll = self.password_input.visual_scroll(width as usize);
+            let password_display = "*".repeat(self.password_input.value().len());
+            
+            let password_text = Paragraph::new(password_display)
+                .style(password_style)
+                .scroll((0, scroll as u16))
                 .block(Block::default()
                     .title("Password")
-                    .borders(Borders::ALL))
-                .style(password_style);
-            f.render_widget(password_block, user_chunks[1]);
-        }        // Buttons (3 buttons for step 3)
+                    .borders(Borders::ALL));
+            f.render_widget(password_text, user_chunks[1]);
+            
+            // Position cursor if editing password
+            if self.active_auth_field == AuthenticationField::Password && self.input_mode == InputMode::Editing {
+                let cursor_x = self.password_input.visual_cursor().max(scroll) - scroll + 1;
+                f.set_cursor(user_chunks[1].x + cursor_x as u16, user_chunks[1].y + 1);
+            }}        // Buttons (3 buttons for step 3) - left, center, right positioning, 50% wider
         let button_chunks = Layout::default()
             .direction(Direction::Horizontal)
             .constraints([
-                Constraint::Percentage(33),
-                Constraint::Percentage(34),
-                Constraint::Percentage(33),
+                Constraint::Length(18), // Cancel button (12 * 1.5 = 18)
+                Constraint::Min(0),     // Space
+                Constraint::Length(18), // Back button (12 * 1.5 = 18)
+                Constraint::Min(0),     // Space
+                Constraint::Length(18), // Connect button (12 * 1.5 = 18)
             ])
             .split(chunks[3]);
 
@@ -584,11 +554,11 @@ impl ConnectScreen {
         if self.connect_in_progress {
             self.button_manager.set_button_enabled("connect", false);
         } else {
-            self.button_manager.set_button_enabled("connect", true);
-        }
+            self.button_manager.set_button_enabled("connect", true);        }
 
-        // Render buttons using button manager
-        self.button_manager.render_buttons(f, &button_chunks);
+        // Render buttons using button manager (use chunks 0, 2, 4 for left/center/right positioning)
+        let button_rects = &[button_chunks[0], button_chunks[2], button_chunks[4]];
+        self.button_manager.render_buttons(f, button_rects);
 
         // Help text
         let help_text = if self.authentication_type == AuthenticationType::UserPassword {
@@ -601,35 +571,7 @@ impl ConnectScreen {
             .style(Style::default().fg(Color::Gray))
             .block(Block::default().borders(Borders::ALL).title("Help"));
         f.render_widget(help, chunks[4]);
-    }
-
-    fn format_input_with_cursor<'a>(&self, text: &'a str, show_cursor: bool) -> Line<'a> {
-        if !show_cursor || self.input_mode != InputMode::Editing {
-            return Line::from(text.to_string());
-        }
-
-        let mut spans = Vec::new();
-        
-        if self.cursor_position == 0 {
-            spans.push(Span::styled("█", Style::default().bg(Color::White).fg(Color::Black)));
-            spans.push(Span::raw(text));
-        } else if self.cursor_position >= text.len() {
-            spans.push(Span::raw(text));
-            spans.push(Span::styled("█", Style::default().bg(Color::White).fg(Color::Black)));
-        } else {
-            let (before, after) = text.split_at(self.cursor_position);
-            let cursor_char = after.chars().next().unwrap_or(' ');
-            let remaining = &after[cursor_char.len_utf8()..];
-            
-            spans.push(Span::raw(before));
-            spans.push(Span::styled(cursor_char.to_string(), Style::default().bg(Color::White).fg(Color::Black)));
-            spans.push(Span::raw(remaining));
-        }
-        
-        Line::from(spans)
-    }
-
-    pub fn add_connection_log(&mut self, message: &str) {
+    }    pub fn add_connection_log(&mut self, message: &str) {
         let timestamp = chrono::Utc::now().format("%H:%M:%S");
         self.connection_logs.push(format!("[{}] {}", timestamp, message));
         
@@ -642,11 +584,10 @@ impl ConnectScreen {
         self.discovered_endpoints.clear();
         self.selected_endpoint_index = 0;
         self.authentication_type = AuthenticationType::Anonymous;
-        self.username.clear();
-        self.password.clear();
+        self.username_input.reset();
+        self.password_input.reset();
         self.connect_in_progress = false;
         self.input_mode = InputMode::Editing;
-        self.cursor_position = self.server_url.len();
         self.setup_buttons_for_current_step();
     }
 
@@ -656,11 +597,10 @@ impl ConnectScreen {
         self.button_manager.clear();
         
         match self.step {
-            ConnectDialogStep::ServerUrl => {
-                // Step 1: Only Cancel and Discover
+            ConnectDialogStep::ServerUrl => {                // Step 1: Only Cancel and Discover
                 self.button_manager.add_button(
                     Button::new("cancel", "Cancel")
-                        .with_hotkey('x')
+                        .with_hotkey('c')
                         .with_color(ButtonColor::Red)
                 );
                 
@@ -672,11 +612,10 @@ impl ConnectScreen {
                         .with_enabled(!self.connect_in_progress)
                 );
             }
-            ConnectDialogStep::EndpointSelection => {
-                // Step 2: Cancel, Back, Next
+            ConnectDialogStep::EndpointSelection => {                // Step 2: Cancel, Back, Next
                 self.button_manager.add_button(
                     Button::new("cancel", "Cancel")
-                        .with_hotkey('x')
+                        .with_hotkey('c')
                         .with_color(ButtonColor::Red)
                 );
                 
@@ -693,11 +632,10 @@ impl ConnectScreen {
                         .with_enabled(!self.discovered_endpoints.is_empty())
                 );
             }
-            ConnectDialogStep::Authentication => {
-                // Step 3: Cancel, Back, Connect
+            ConnectDialogStep::Authentication => {                // Step 3: Cancel, Back, Connect
                 self.button_manager.add_button(
                     Button::new("cancel", "Cancel")
-                        .with_hotkey('x')
+                        .with_hotkey('c')
                         .with_color(ButtonColor::Red)
                 );
                 
@@ -706,10 +644,9 @@ impl ConnectScreen {
                         .with_hotkey('b')
                         .with_color(ButtonColor::Blue)
                 );
-                
-                self.button_manager.add_button(
+                  self.button_manager.add_button(
                     Button::new("connect", "Connect")
-                        .with_hotkey('c')
+                        .with_hotkey('o')
                         .with_ctrl_key('c')
                         .with_color(ButtonColor::Green)
                         .with_enabled(!self.connect_in_progress)
@@ -719,10 +656,8 @@ impl ConnectScreen {
     }      pub async fn handle_button_action(&mut self, button_id: &str) -> Result<Option<ConnectionStatus>> {
         match button_id {
             "back" => {
-                match self.step {
-                    ConnectDialogStep::EndpointSelection => {
+                match self.step {                    ConnectDialogStep::EndpointSelection => {
                         self.step = ConnectDialogStep::ServerUrl;
-                        self.cursor_position = self.server_url.len();
                         self.input_mode = InputMode::Editing;
                     }
                     ConnectDialogStep::Authentication => {
@@ -747,10 +682,8 @@ impl ConnectScreen {
                         }
                     }
                     ConnectDialogStep::EndpointSelection => {
-                        self.step = ConnectDialogStep::Authentication;
-                        if self.authentication_type == AuthenticationType::UserPassword {
+                        self.step = ConnectDialogStep::Authentication;                        if self.authentication_type == AuthenticationType::UserPassword {
                             self.active_auth_field = AuthenticationField::Username;
-                            self.cursor_position = self.username.len();
                             self.input_mode = InputMode::Editing;
                         } else {
                             self.input_mode = InputMode::Normal;
@@ -767,10 +700,10 @@ impl ConnectScreen {
             "cancel" => {
                 Ok(Some(ConnectionStatus::Disconnected))
             }
-            _ => Ok(None)
-        }
+            _ => Ok(None)        }
     }
-      pub fn handle_mouse_click(&mut self, column: u16, row: u16) -> Option<String> {
+
+    pub fn handle_mouse_click(&mut self, column: u16, row: u16) -> Option<String> {
         self.button_manager.handle_mouse_click(column, row)
     }
 
