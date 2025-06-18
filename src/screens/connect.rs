@@ -11,7 +11,7 @@ use std::time::Duration;
 use tokio::time;
 
 use crate::client::ConnectionStatus;
-use crate::components::{Button, ButtonManager};
+use crate::components::{Button, ButtonManager, ButtonColor};
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum ConnectDialogStep {
@@ -26,8 +26,7 @@ pub enum SecurityPolicy {
     Basic128Rsa15,
     Basic256,
     Basic256Sha256,
-    Aes128Sha256RsaOaep,
-    Aes256Sha256RsaPss,
+    Aes128Sha256RsaOaep,    Aes256Sha256RsaPss,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -395,13 +394,12 @@ impl ConnectScreen {
                 .title("Server URL")
                 .borders(Borders::ALL))
             .style(input_style);
-        f.render_widget(input_block, chunks[1]);        // Buttons
+        f.render_widget(input_block, chunks[1]);        // Buttons (2 buttons for step 1)
         let button_chunks = Layout::default()
             .direction(Direction::Horizontal)
             .constraints([
-                Constraint::Percentage(33),
-                Constraint::Percentage(34),
-                Constraint::Percentage(33),
+                Constraint::Percentage(50),
+                Constraint::Percentage(50),
             ])
             .split(chunks[2]);
 
@@ -411,10 +409,6 @@ impl ConnectScreen {
         } else {
             self.button_manager.set_button_enabled("discover", true);
         }
-        
-        if !self.discovered_endpoints.is_empty() {
-            self.button_manager.set_button_enabled("next", true);
-        }
 
         // Render buttons using button manager
         self.button_manager.render_buttons(f, &button_chunks);
@@ -423,7 +417,7 @@ impl ConnectScreen {
         let help_text = if self.connect_in_progress {
             "Please wait while discovering server endpoints..."
         } else {
-            "Enter server URL above, then use buttons below or shortcuts\nAlt+D - Discover | Alt+N - Next | Tab - Navigate | Esc - Cancel"
+            "Enter server URL above, then use buttons below or shortcuts\nAlt+D - Discover | Alt+X - Cancel | Tab - Navigate | Esc - Cancel"
         };
         
         let help = Paragraph::new(help_text)
@@ -477,11 +471,20 @@ impl ConnectScreen {
                 Constraint::Percentage(33),
             ])            .split(chunks[2]);
 
-        // Render buttons using button manager
+        // Render buttons using button manager (3 buttons for step 2)
+        let button_chunks = Layout::default()
+            .direction(Direction::Horizontal)
+            .constraints([
+                Constraint::Percentage(33),
+                Constraint::Percentage(34),
+                Constraint::Percentage(33),
+            ])
+            .split(chunks[2]);
+
         self.button_manager.render_buttons(f, &button_chunks);
 
         // Help text
-        let help = Paragraph::new("↑↓ - Navigate endpoints | Alt+S - Select | Alt+N - Next | Alt+B - Back")
+        let help = Paragraph::new("↑↓ - Navigate endpoints | Alt+N - Next | Alt+B - Back | Alt+X - Cancel")
             .style(Style::default().fg(Color::Gray))
             .block(Block::default().borders(Borders::ALL).title("Help"));
         f.render_widget(help, chunks[3]);
@@ -567,7 +570,7 @@ impl ConnectScreen {
                     .borders(Borders::ALL))
                 .style(password_style);
             f.render_widget(password_block, user_chunks[1]);
-        }        // Buttons
+        }        // Buttons (3 buttons for step 3)
         let button_chunks = Layout::default()
             .direction(Direction::Horizontal)
             .constraints([
@@ -589,9 +592,9 @@ impl ConnectScreen {
 
         // Help text
         let help_text = if self.authentication_type == AuthenticationType::UserPassword {
-            "↑↓ - Change auth type | Tab - Switch fields | Alt+C - Connect | Alt+X - Cancel"
+            "↑↓ - Change auth type | Tab - Switch fields | Alt+C - Connect | Alt+B - Back | Alt+X - Cancel"
         } else {
-            "↑↓ - Change auth type | Alt+C - Connect | Alt+X - Cancel"
+            "↑↓ - Change auth type | Alt+C - Connect | Alt+B - Back | Alt+X - Cancel"
         };
         
         let help = Paragraph::new(help_text)
@@ -649,75 +652,71 @@ impl ConnectScreen {
 
     pub fn is_connecting(&self) -> bool {
         self.connect_in_progress
-    }
-
-    fn setup_buttons_for_current_step(&mut self) {
+    }    fn setup_buttons_for_current_step(&mut self) {
         self.button_manager.clear();
         
         match self.step {
             ConnectDialogStep::ServerUrl => {
+                // Step 1: Only Cancel and Discover
                 self.button_manager.add_button(
-                    Button::new("back", "Back")
-                        .with_hotkey('b')
-                        .with_enabled(false) // First step, no back
+                    Button::new("cancel", "Cancel")
+                        .with_hotkey('x')
+                        .with_color(ButtonColor::Red)
                 );
                 
                 self.button_manager.add_button(
-                    Button::new("discover", "Discover Endpoints")
+                    Button::new("discover", "Discover")
                         .with_hotkey('d')
                         .with_ctrl_key('d')
+                        .with_color(ButtonColor::Green)
                         .with_enabled(!self.connect_in_progress)
-                );
-                
-                self.button_manager.add_button(
-                    Button::new("next", "Next")
-                        .with_hotkey('n')
-                        .with_enabled(false) // Only after discovery
                 );
             }
             ConnectDialogStep::EndpointSelection => {
+                // Step 2: Cancel, Back, Next
                 self.button_manager.add_button(
-                    Button::new("back", "Back")
-                        .with_hotkey('b')
-                        .with_enabled(true)
+                    Button::new("cancel", "Cancel")
+                        .with_hotkey('x')
+                        .with_color(ButtonColor::Red)
                 );
                 
                 self.button_manager.add_button(
-                    Button::new("select", "Select Endpoint")
-                        .with_hotkey('s')
-                        .with_enabled(!self.discovered_endpoints.is_empty())
+                    Button::new("back", "Back")
+                        .with_hotkey('b')
+                        .with_color(ButtonColor::Blue)
                 );
                 
                 self.button_manager.add_button(
                     Button::new("next", "Next")
                         .with_hotkey('n')
+                        .with_color(ButtonColor::Green)
                         .with_enabled(!self.discovered_endpoints.is_empty())
                 );
             }
             ConnectDialogStep::Authentication => {
+                // Step 3: Cancel, Back, Connect
+                self.button_manager.add_button(
+                    Button::new("cancel", "Cancel")
+                        .with_hotkey('x')
+                        .with_color(ButtonColor::Red)
+                );
+                
                 self.button_manager.add_button(
                     Button::new("back", "Back")
                         .with_hotkey('b')
-                        .with_enabled(true)
+                        .with_color(ButtonColor::Blue)
                 );
                 
                 self.button_manager.add_button(
                     Button::new("connect", "Connect")
                         .with_hotkey('c')
                         .with_ctrl_key('c')
+                        .with_color(ButtonColor::Green)
                         .with_enabled(!self.connect_in_progress)
-                );
-                
-                self.button_manager.add_button(
-                    Button::new("cancel", "Cancel")
-                        .with_hotkey('x')
-                        .with_enabled(true)
                 );
             }
         }
-    }
-    
-    pub async fn handle_button_action(&mut self, button_id: &str) -> Result<Option<ConnectionStatus>> {
+    }      pub async fn handle_button_action(&mut self, button_id: &str) -> Result<Option<ConnectionStatus>> {
         match button_id {
             "back" => {
                 match self.step {
@@ -734,12 +733,11 @@ impl ConnectScreen {
                 }
                 self.setup_buttons_for_current_step();
                 Ok(None)
-            }
-            "discover" => {
+            }            "discover" => {
                 self.discover_endpoints().await?;
                 Ok(None)
             }
-            "select" | "next" => {
+            "next" => {
                 match self.step {
                     ConnectDialogStep::ServerUrl => {
                         if !self.discovered_endpoints.is_empty() {
@@ -772,8 +770,15 @@ impl ConnectScreen {
             _ => Ok(None)
         }
     }
-    
-    pub fn handle_mouse_click(&mut self, column: u16, row: u16) -> Option<String> {
+      pub fn handle_mouse_click(&mut self, column: u16, row: u16) -> Option<String> {
         self.button_manager.handle_mouse_click(column, row)
+    }
+
+    pub fn handle_mouse_down(&mut self, column: u16, row: u16) -> bool {
+        self.button_manager.handle_mouse_down(column, row)
+    }
+
+    pub fn handle_mouse_up(&mut self, column: u16, row: u16) -> Option<String> {
+        self.button_manager.handle_mouse_up(column, row)
     }
 }

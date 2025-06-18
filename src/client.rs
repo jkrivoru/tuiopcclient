@@ -209,11 +209,8 @@ impl OpcUaClientManager {
     pub async fn write_node_value(&mut self, node_id: &str, value: &str) -> Result<()> {
         if self.connection_status != ConnectionStatus::Connected {
             return Err(anyhow!("Not connected to server"));
-        }
-
-        // In a real implementation, this would write to the OPC UA server
+        }        // In a real implementation, this would write to the OPC UA server
         // For demo purposes, we'll just simulate success
-        println!("Mock write: {} = {}", node_id, value);
         Ok(())
     }
 }

@@ -1,7 +1,7 @@
 use crossterm::event::{KeyCode, KeyModifiers};
 use ratatui::{
     layout::Rect,
-    style::{Color, Style},
+    style::{Color, Style, Modifier},
     text::{Line, Span},
     widgets::{Block, Borders, Paragraph},
     Frame,
@@ -12,7 +12,16 @@ pub enum ButtonState {
     Normal,
     Hovered,
     Pressed,
+    MouseDown, // New state for mouse down but not released
     Disabled,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum ButtonColor {
+    Red,      // Cancel/destructive actions
+    Green,    // Positive/continue actions
+    Blue,     // Neutral/back actions
+    Default,  // Default button color
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -28,6 +37,7 @@ pub struct Button {
     pub hotkey: Option<char>, // For Alt+key shortcuts
     pub ctrl_key: Option<char>, // For Ctrl+key shortcuts
     pub state: ButtonState,
+    pub color: ButtonColor,
     pub enabled: bool,
     pub area: Option<Rect>, // Set during rendering for click detection
 }
@@ -40,6 +50,7 @@ impl Button {
             hotkey: None,
             ctrl_key: None,
             state: ButtonState::Normal,
+            color: ButtonColor::Default,
             enabled: true,
             area: None,
         }
@@ -55,8 +66,12 @@ impl Button {
         self
     }
 
-    pub fn with_enabled(mut self, enabled: bool) -> Self {
-        self.enabled = enabled;
+    pub fn with_color(mut self, color: ButtonColor) -> Self {
+        self.color = color;
+        self
+    }
+
+    pub fn with_enabled(mut self, enabled: bool) -> Self {        self.enabled = enabled;
         self.state = if enabled { ButtonState::Normal } else { ButtonState::Disabled };
         self
     }
@@ -65,11 +80,15 @@ impl Button {
         if self.enabled {
             self.state = state;
         }
-    }
-
-    pub fn set_enabled(&mut self, enabled: bool) {
+    }    pub fn set_enabled(&mut self, enabled: bool) {
         self.enabled = enabled;
-        self.state = if enabled { ButtonState::Normal } else { ButtonState::Disabled };
+        // Only change state if we're not in a mouse interaction
+        if self.state != ButtonState::MouseDown {
+            self.state = if enabled { ButtonState::Normal } else { ButtonState::Disabled };
+        } else if !enabled {
+            // If being disabled while in MouseDown state, force disable
+            self.state = ButtonState::Disabled;
+        }
     }
 
     pub fn handle_key_input(&self, key: KeyCode, modifiers: KeyModifiers) -> ButtonAction {
@@ -95,10 +114,9 @@ impl Button {
                         }
                     }
                 }
-            }
-            _ => {}
+            }            _ => {}
         }
-
+        
         ButtonAction::None
     }
 
@@ -115,6 +133,45 @@ impl Button {
             {
                 return ButtonAction::Clicked;
             }
+        }        ButtonAction::None
+    }
+
+    pub fn handle_mouse_down(&mut self, column: u16, row: u16) -> bool {
+        if !self.enabled {
+            return false;
+        }
+
+        if let Some(area) = self.area {
+            if column >= area.x 
+                && column < area.x + area.width 
+                && row >= area.y 
+                && row < area.y + area.height 
+            {
+                self.state = ButtonState::MouseDown;
+                return true;
+            }
+        }        false
+    }
+
+    pub fn handle_mouse_up(&mut self, column: u16, row: u16) -> ButtonAction {
+        if !self.enabled {
+            return ButtonAction::None;
+        }
+
+        if self.state == ButtonState::MouseDown {
+            // Reset state first
+            self.state = ButtonState::Normal;
+            
+            // Check if mouse up is still within button area
+            if let Some(area) = self.area {
+                if column >= area.x 
+                    && column < area.x + area.width 
+                    && row >= area.y 
+                    && row < area.y + area.height 
+                {
+                    return ButtonAction::Clicked;
+                }
+            }
         }
 
         ButtonAction::None
@@ -124,22 +181,43 @@ impl Button {
         // Store area for click detection
         self.area = Some(area);
 
-        let (border_style, text_style) = match self.state {
-            ButtonState::Normal => (
-                Style::default().fg(Color::White),
-                Style::default().fg(Color::White),
-            ),
-            ButtonState::Hovered => (
-                Style::default().fg(Color::Yellow),
-                Style::default().fg(Color::Yellow),
-            ),
-            ButtonState::Pressed => (
-                Style::default().fg(Color::Green),
-                Style::default().fg(Color::Green),
-            ),
+        let (border_style, text_style, bg_color) = match self.state {
+            ButtonState::Normal => {
+                let bg = self.get_background_color();
+                (
+                    Style::default().fg(Color::White).bg(bg),
+                    Style::default().fg(Color::White).bg(bg),
+                    bg,
+                )
+            },
+            ButtonState::Hovered => {
+                let bg = self.get_background_color();
+                (
+                    Style::default().fg(Color::Yellow).bg(bg),
+                    Style::default().fg(Color::Yellow).bg(bg),
+                    bg,
+                )
+            },
+            ButtonState::MouseDown => {
+                let bg = self.get_lighter_background_color();
+                (
+                    Style::default().fg(Color::White).bg(bg),
+                    Style::default().fg(Color::White).bg(bg),
+                    bg,
+                )
+            },
+            ButtonState::Pressed => {
+                let bg = self.get_background_color();
+                (
+                    Style::default().fg(Color::Green).bg(bg),
+                    Style::default().fg(Color::Green).bg(bg),
+                    bg,
+                )
+            },
             ButtonState::Disabled => (
-                Style::default().fg(Color::DarkGray),
-                Style::default().fg(Color::DarkGray),
+                Style::default().fg(Color::DarkGray).bg(Color::Black),
+                Style::default().fg(Color::DarkGray).bg(Color::Black),
+                Color::Black,
             ),
         };
 
@@ -157,21 +235,39 @@ impl Button {
         f.render_widget(paragraph, area);
     }
 
+    fn get_background_color(&self) -> Color {
+        match self.color {
+            ButtonColor::Red => Color::Red,
+            ButtonColor::Green => Color::Green,
+            ButtonColor::Blue => Color::Blue,
+            ButtonColor::Default => Color::DarkGray,
+        }
+    }
+
+    fn get_lighter_background_color(&self) -> Color {
+        match self.color {
+            ButtonColor::Red => Color::LightRed,
+            ButtonColor::Green => Color::LightGreen,
+            ButtonColor::Blue => Color::LightBlue,
+            ButtonColor::Default => Color::Gray,
+        }
+    }
+
     fn create_button_text(&self, base_style: Style) -> Line {
         let mut spans = Vec::new();
         
         if let Some(hotkey) = self.hotkey {
-            // Find the hotkey character in the label and highlight it
+            // Find the hotkey character in the label and underline it
             let hotkey_lower = hotkey.to_lowercase().to_string();
             let label_chars: Vec<char> = self.label.chars().collect();
             let mut found_hotkey = false;
             
             for (_i, ch) in label_chars.iter().enumerate() {
                 if !found_hotkey && ch.to_lowercase().to_string() == hotkey_lower {
-                    // Highlight the hotkey character
+                    // Underline the hotkey character
                     spans.push(Span::styled(
                         ch.to_string(),
-                        base_style.fg(Color::Red),
+                        base_style.add_modifier(Modifier::UNDERLINED),
                     ));
                     found_hotkey = true;
                 } else {
@@ -248,29 +344,50 @@ impl ButtonManager {
         for button in &self.buttons {
             if button.handle_key_input(key, modifiers) == ButtonAction::Clicked {
                 return Some(button.id.clone());
-            }
-        }
-
+            }        }
+        
         None
     }
 
     pub fn handle_mouse_click(&mut self, column: u16, row: u16) -> Option<String> {
         for (idx, button) in self.buttons.iter().enumerate() {
-            if button.handle_mouse_click(column, row) == ButtonAction::Clicked {
-                self.focused_button = Some(idx);
+            if button.handle_mouse_click(column, row) == ButtonAction::Clicked {                self.focused_button = Some(idx);
                 return Some(button.id.clone());
             }
         }
         None
     }
 
-    pub fn render_buttons(&mut self, f: &mut Frame, areas: &[Rect]) {
-        // Update button states based on focus
+    pub fn handle_mouse_down(&mut self, column: u16, row: u16) -> bool {
+        for button in &mut self.buttons {
+            if button.handle_mouse_down(column, row) {
+                return true;
+            }
+        }
+        false
+    }
+
+    pub fn handle_mouse_up(&mut self, column: u16, row: u16) -> Option<String> {
         for (idx, button) in self.buttons.iter_mut().enumerate() {
-            if Some(idx) == self.focused_button && button.enabled {
-                button.set_state(ButtonState::Hovered);
-            } else if button.enabled {
-                button.set_state(ButtonState::Normal);
+            if button.handle_mouse_up(column, row) == ButtonAction::Clicked {
+                self.focused_button = Some(idx);
+                return Some(button.id.clone());
+            }        }
+        None
+    }
+
+    pub fn render_buttons(&mut self, f: &mut Frame, areas: &[Rect]) {
+        // Don't automatically reset button states - let them manage their own state
+        // Only update focus highlighting when no buttons are in MouseDown state
+        let has_mouse_down = self.buttons.iter().any(|b| b.state == ButtonState::MouseDown);
+        
+        if !has_mouse_down {
+            for (idx, button) in self.buttons.iter_mut().enumerate() {
+                if Some(idx) == self.focused_button && button.enabled {
+                    button.set_state(ButtonState::Hovered);
+                } else if button.enabled && button.state != ButtonState::MouseDown {
+                    button.set_state(ButtonState::Normal);
+                }
             }
         }
 

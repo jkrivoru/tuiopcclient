@@ -152,14 +152,36 @@ impl App {
         }
 
         Ok(())
-    }
-
-    async fn handle_mouse_event(&mut self, mouse: MouseEvent) -> Result<()> {
-        match mouse.kind {
-            MouseEventKind::Down(MouseButton::Left) => {
-                // Handle connect screen mouse clicks when shown
+    }    async fn handle_mouse_event(&mut self, mouse: MouseEvent) -> Result<()> {
+        // Ignore mouse move events to prevent spam
+        if let MouseEventKind::Moved = mouse.kind {
+            return Ok(());
+        }
+        
+        match mouse.kind {MouseEventKind::Down(MouseButton::Left) => {
+                // Handle connect screen mouse down when shown
                 if self.show_connect_screen {
-                    if let Some(button_id) = self.connect_screen.handle_mouse_click(mouse.column, mouse.row) {
+                    self.connect_screen.handle_mouse_down(mouse.column, mouse.row);
+                    return Ok(());
+                }
+                
+                // Check if click is on menu bar (first row)
+                if mouse.row == 0 {
+                    self.handle_menu_click(mouse.column).await?;
+                }
+                // Check if click is on dropdown menu
+                else if let Some(menu_type) = self.menu_renderer.get_active_menu() {
+                    self.handle_dropdown_click(menu_type, mouse.column, mouse.row).await?;
+                }
+                // Click elsewhere closes menu
+                else {
+                    self.menu_renderer.close_menu();
+                }
+            }
+            MouseEventKind::Up(MouseButton::Left) => {
+                // Handle connect screen mouse up when shown
+                if self.show_connect_screen {
+                    if let Some(button_id) = self.connect_screen.handle_mouse_up(mouse.column, mouse.row) {
                         // Handle button action
                         if let Some(connection_result) = self.connect_screen.handle_button_action(&button_id).await? {
                             match connection_result {
@@ -178,21 +200,8 @@ impl App {
                     }
                     return Ok(());
                 }
-                
-                // Check if click is on menu bar (first row)
-                if mouse.row == 0 {
-                    self.handle_menu_click(mouse.column).await?;
-                }
-                // Check if click is on dropdown menu
-                else if let Some(menu_type) = self.menu_renderer.get_active_menu() {
-                    self.handle_dropdown_click(menu_type, mouse.column, mouse.row).await?;
-                }
-                // Click elsewhere closes menu
-                else {
-                    self.menu_renderer.close_menu();
-                }
             }
-            _ => {}
+            _ => {} // Ignore other mouse events like Move
         }
         Ok(())
     }
