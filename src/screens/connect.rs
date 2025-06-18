@@ -1,15 +1,17 @@
 use anyhow::Result;
+use chrono;
 use crossterm::event::{KeyCode, KeyModifiers};
 use ratatui::{
     layout::{Constraint, Direction, Layout, Rect},
-    style::{Color, Style},    text::Line,
-    widgets::{Block, Borders, List, ListItem, Paragraph, Wrap},
+    style::{Color, Style},
+    widgets::{Block, Borders, List, ListItem, Paragraph},
     Frame,
 };
 use std::time::Duration;
 use tokio::time;
 use tui_input::backend::crossterm::EventHandler;
 use tui_input::Input;
+use tui_textarea::TextArea;
 
 use crate::client::ConnectionStatus;
 use crate::components::{Button, ButtonManager, ButtonColor};
@@ -80,13 +82,24 @@ pub struct ConnectScreen {
     
     // Button management
     pub button_manager: ButtonManager,
-    
-    // Logging
-    pub connection_logs: Vec<String>,
+      // Logging
+    pub connection_log_textarea: TextArea<'static>,
 }
 
 impl ConnectScreen {
-    pub fn new() -> Self {
+    pub fn new() -> Self {        // Initialize connection log textarea
+        let mut log_textarea = TextArea::default();
+        log_textarea.set_style(Style::default().fg(Color::Rgb(135, 135, 175))); // Light blue-grey
+        log_textarea.set_block(
+            Block::default()
+                .title("Connection Log")
+                .borders(Borders::ALL)
+        );
+        
+        // Set to read-only mode
+        log_textarea.set_cursor_line_style(Style::default());
+        log_textarea.set_line_number_style(Style::default());
+        
         let mut screen = Self {
             step: ConnectDialogStep::ServerUrl,
             server_url_input: Input::default().with_value("opc.tcp://localhost:4840".to_string()),
@@ -99,15 +112,22 @@ impl ConnectScreen {
             connect_in_progress: false,
             input_mode: InputMode::Editing,
             button_manager: ButtonManager::new(),
-            connection_logs: vec![
-                "[App Start] OPC UA Client initialized".to_string(),
-                "[Ready] Enter server URL and press Enter to discover endpoints".to_string()
-            ],
-        };
+            connection_log_textarea: log_textarea,
+        };        // Add initial log messages using the proper method
+        screen.add_connection_log("OPC UA Client initialized");
+        screen.add_connection_log("Loading configuration from config.json");
+        screen.add_connection_log("Default server URL loaded");
+        screen.add_connection_log("Enter server URL and press Enter to discover endpoints");
+        screen.add_connection_log("Use PageUp/PageDown to scroll this log");
+        screen.add_connection_log("Alt+O to Connect, Alt+C to Cancel");
+        screen.add_connection_log("Connection log initialized");
+        screen.add_connection_log("Button manager created with hotkeys");
+        screen.add_connection_log("Input handlers configured");
+        screen.add_connection_log("Connect screen ready");
         
         screen.setup_buttons_for_current_step();
         screen
-    }    pub async fn handle_input(&mut self, key: KeyCode, modifiers: KeyModifiers) -> Result<Option<ConnectionStatus>> {
+    }pub async fn handle_input(&mut self, key: KeyCode, modifiers: KeyModifiers) -> Result<Option<ConnectionStatus>> {
         // Handle button input first
         if let Some(button_id) = self.button_manager.handle_key_input(key, modifiers) {
             return self.handle_button_action(&button_id).await;
@@ -120,9 +140,22 @@ impl ConnectScreen {
                         // Discover endpoints
                         self.discover_endpoints().await?;
                         Ok(None)
-                    }
-                    KeyCode::Esc => {
+                    }                    KeyCode::Esc => {
                         Ok(Some(ConnectionStatus::Disconnected))
+                    }
+                    KeyCode::PageUp => {
+                        // Scroll connection log up
+                        for _ in 0..5 {
+                            self.connection_log_textarea.move_cursor(tui_textarea::CursorMove::Up);
+                        }
+                        Ok(None)
+                    }
+                    KeyCode::PageDown => {
+                        // Scroll connection log down
+                        for _ in 0..5 {
+                            self.connection_log_textarea.move_cursor(tui_textarea::CursorMove::Down);
+                        }
+                        Ok(None)
                     }
                     _ => {
                         // Let tui-input handle the key event
@@ -158,9 +191,23 @@ impl ConnectScreen {
                             self.input_mode = InputMode::Normal;
                         }
                         Ok(None)
-                    }
-                    KeyCode::Esc => {                        // Go back to URL step
+                    }                    KeyCode::Esc => {
+                        // Go back to URL step
                         self.step = ConnectDialogStep::ServerUrl;
+                        Ok(None)
+                    }
+                    KeyCode::PageUp => {
+                        // Scroll connection log up
+                        for _ in 0..5 {
+                            self.connection_log_textarea.move_cursor(tui_textarea::CursorMove::Up);
+                        }
+                        Ok(None)
+                    }
+                    KeyCode::PageDown => {
+                        // Scroll connection log down
+                        for _ in 0..5 {
+                            self.connection_log_textarea.move_cursor(tui_textarea::CursorMove::Down);
+                        }
                         Ok(None)
                     }
                     _ => Ok(None)
@@ -201,7 +248,7 @@ impl ConnectScreen {
                         self.step = ConnectDialogStep::EndpointSelection;
                         self.input_mode = InputMode::Normal;
                         Ok(None)
-                    }                    KeyCode::Char(c) => {
+                    }                    KeyCode::Char(_c) => {
                         if self.authentication_type == AuthenticationType::UserPassword {
                             match self.active_auth_field {
                                 AuthenticationField::Username => {
@@ -264,8 +311,21 @@ impl ConnectScreen {
                                     self.password_input.handle_event(&crossterm::event::Event::Key(
                                         crossterm::event::KeyEvent::new(key, modifiers)
                                     ));
-                                }
-                            }
+                                }                            }
+                        }
+                        Ok(None)
+                    }
+                    KeyCode::PageUp => {
+                        // Scroll connection log up
+                        for _ in 0..5 {
+                            self.connection_log_textarea.move_cursor(tui_textarea::CursorMove::Up);
+                        }
+                        Ok(None)
+                    }
+                    KeyCode::PageDown => {
+                        // Scroll connection log down
+                        for _ in 0..5 {
+                            self.connection_log_textarea.move_cursor(tui_textarea::CursorMove::Down);
                         }
                         Ok(None)
                     }
@@ -336,17 +396,8 @@ impl ConnectScreen {
         match self.step {            ConnectDialogStep::ServerUrl => self.render_server_url_step(f, chunks[0]),
             ConnectDialogStep::EndpointSelection => self.render_endpoint_step(f, chunks[0]),
             ConnectDialogStep::Authentication => self.render_auth_step(f, chunks[0]),
-        }
-
-        // Connection logs
-        let log_text = self.connection_logs.join("\n");
-        let logs_block = Paragraph::new(log_text)
-            .block(Block::default()
-                .title("Connection Log")
-                .borders(Borders::ALL))
-            .style(Style::default().fg(Color::Gray))
-            .wrap(Wrap { trim: true });
-        f.render_widget(logs_block, chunks[1]);
+        }        // Connection logs with scrolling support
+        f.render_widget(self.connection_log_textarea.widget(), chunks[1]);
     }
 
     fn render_server_url_step(&mut self, f: &mut Frame, area: Rect) {
@@ -572,14 +623,39 @@ impl ConnectScreen {
             .block(Block::default().borders(Borders::ALL).title("Help"));
         f.render_widget(help, chunks[4]);
     }    pub fn add_connection_log(&mut self, message: &str) {
-        let timestamp = chrono::Utc::now().format("%H:%M:%S");
-        self.connection_logs.push(format!("[{}] {}", timestamp, message));
+        let timestamp = chrono::Utc::now().format("%Y-%m-%d %H:%M:%S");
         
-        // Keep only last 50 log entries
-        if self.connection_logs.len() > 50 {
-            self.connection_logs.remove(0);
+        // Handle multiline messages with proper indentation
+        let lines: Vec<&str> = message.lines().collect();
+        if lines.is_empty() {
+            return;
         }
-    }    pub fn reset(&mut self) {
+        
+        // First line gets the timestamp
+        let first_line = format!("{} {}", timestamp, lines[0]);
+        
+        // Move to end of textarea and add new line if not empty
+        self.connection_log_textarea.move_cursor(tui_textarea::CursorMove::End);
+        if !self.connection_log_textarea.is_empty() {
+            self.connection_log_textarea.insert_newline();
+        }
+        self.connection_log_textarea.insert_str(&first_line);
+        
+        // Additional lines get 2-space indentation
+        for line in lines.iter().skip(1) {
+            self.connection_log_textarea.insert_newline();
+            self.connection_log_textarea.insert_str(&format!("  {}", line));
+        }
+        
+        // Auto-scroll to bottom to show latest entry
+        self.connection_log_textarea.move_cursor(tui_textarea::CursorMove::End);
+        
+        // Limit the number of lines to prevent memory issues
+        while self.connection_log_textarea.lines().len() > 50 {
+            self.connection_log_textarea.move_cursor(tui_textarea::CursorMove::Head);
+            self.connection_log_textarea.delete_line_by_head();
+        }
+    }pub fn reset(&mut self) {
         self.step = ConnectDialogStep::ServerUrl;
         self.discovered_endpoints.clear();
         self.selected_endpoint_index = 0;
