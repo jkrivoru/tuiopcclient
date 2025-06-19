@@ -177,25 +177,23 @@ impl Button {
         ButtonAction::None
     }    pub fn render(&mut self, f: &mut Frame, area: Rect) {
         // Store area for click detection
-        self.area = Some(area);
-
-        let text_style = match self.state {
-            ButtonState::Normal => {
+        self.area = Some(area);        let text_style = match self.state {            ButtonState::Normal => {
                 let bg = self.get_background_color();
-                Style::default().fg(Color::White).bg(bg)
+                let fg = self.get_text_color();
+                Style::default().fg(fg).bg(bg)
             },
             ButtonState::Hovered => {
                 let bg = self.get_background_color();
                 Style::default().fg(Color::Yellow).bg(bg)
-            },
-            ButtonState::MouseDown => {
+            },            ButtonState::MouseDown => {
                 let bg = self.get_lighter_background_color();
-                Style::default().fg(Color::White).bg(bg)
-            },
-            ButtonState::Pressed => {
+                let fg = self.get_text_color();
+                Style::default().fg(fg).bg(bg)
+            },            ButtonState::Pressed => {
                 let bg = self.get_background_color();
-                Style::default().fg(Color::Green).bg(bg)
-            },            ButtonState::Disabled => {
+                let fg = self.get_text_color();
+                Style::default().fg(fg).bg(bg)
+            },ButtonState::Disabled => {
                 Style::default().fg(Color::DarkGray).bg(Color::Black)
             },
         };
@@ -210,11 +208,8 @@ impl Button {
             y: area.y + vertical_offset,
             width: area.width,
             height: 1, // Single line for text
-        };
-
-        // Render without borders for a cleaner look, with centered text
+        };        // Render without borders for a cleaner look, with centered text
         let paragraph = Paragraph::new(button_text)
-            .style(text_style)
             .alignment(Alignment::Center);
 
         // First fill the entire button area with background color
@@ -223,9 +218,7 @@ impl Button {
         
         // Then render the centered text
         f.render_widget(paragraph, centered_area);
-    }
-
-    fn get_background_color(&self) -> Color {
+    }    fn get_background_color(&self) -> Color {
         match self.color {
             ButtonColor::Red => Color::Red,
             ButtonColor::Green => Color::Green,
@@ -241,11 +234,18 @@ impl Button {
             ButtonColor::Blue => Color::LightBlue,
             ButtonColor::Default => Color::Gray,
         }
+    }    fn get_text_color(&self) -> Color {
+        match self.color {
+            ButtonColor::Red => Color::White,
+            ButtonColor::Green => Color::Black,        // Standard text color for green button
+            ButtonColor::Blue => Color::White,
+            ButtonColor::Default => Color::White,
+        }
     }    fn create_button_text(&self, base_style: Style) -> Line {
         let mut spans = Vec::new();
         
-        // Add bold modifier to base style for all text
-        let bold_style = base_style.add_modifier(Modifier::BOLD);
+        // Use the text color from base_style and add bold modifier
+        let text_style = Style::default().fg(base_style.fg.unwrap_or(Color::White)).add_modifier(Modifier::BOLD);
         
         if let Some(hotkey) = self.hotkey {
             // Find the hotkey character in the label and underline it
@@ -258,21 +258,21 @@ impl Button {
                     // Underline and bold the hotkey character
                     spans.push(Span::styled(
                         ch.to_string(),
-                        bold_style.add_modifier(Modifier::UNDERLINED),
+                        text_style.add_modifier(Modifier::UNDERLINED),
                     ));
                     found_hotkey = true;
                 } else {
-                    spans.push(Span::styled(ch.to_string(), bold_style));
+                    spans.push(Span::styled(ch.to_string(), text_style));
                 }
             }
             
             // If hotkey not found in label, just show the label with bold
             if !found_hotkey {
                 spans.clear();
-                spans.push(Span::styled(self.label.clone(), bold_style));
+                spans.push(Span::styled(self.label.clone(), text_style));
             }
         } else {
-            spans.push(Span::styled(self.label.clone(), bold_style));
+            spans.push(Span::styled(self.label.clone(), text_style));
         }
 
         Line::from(spans)
@@ -301,15 +301,7 @@ impl ButtonManager {
     pub fn clear(&mut self) {
         self.buttons.clear();
         self.focused_button = None;
-    }
-
-    pub fn handle_key_input(&mut self, key: KeyCode, modifiers: KeyModifiers) -> Option<String> {
-        // Handle Tab navigation between buttons
-        if key == KeyCode::Tab && !self.buttons.is_empty() {
-            self.focus_next_button();
-            return None;
-        }
-
+    }    pub fn handle_key_input(&mut self, key: KeyCode, modifiers: KeyModifiers) -> Option<String> {
         // Handle Enter on focused button
         if key == KeyCode::Enter {
             if let Some(focused_idx) = self.focused_button {

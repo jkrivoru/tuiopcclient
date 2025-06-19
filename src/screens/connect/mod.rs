@@ -9,6 +9,7 @@ mod logic;
 mod render;
 mod render_server_url;
 mod render_endpoint;
+mod render_security;
 mod render_auth;
 mod mouse;
 

@@ -17,24 +17,91 @@ impl ConnectScreen {    pub async fn discover_endpoints(&mut self) -> Result<()>
         }
         
         // Simulate endpoint discovery with a longer delay to show popup
-        time::sleep(Duration::from_millis(1500)).await;
-          // Mock discovered endpoints based on URL
+        time::sleep(Duration::from_millis(1500)).await;        // Mock discovered endpoints based on URL - comprehensive test data
+        let base_url = self.get_server_url();
+        
         self.discovered_endpoints = vec![
+            // No Security
             EndpointInfo {
-                endpoint_url: self.get_server_url(),
+                endpoint_url: base_url.clone(),
                 security_policy: SecurityPolicy::None,
                 security_mode: SecurityMode::None,
                 display_name: "None - No Security".to_string(),
             },
+            
+            // Basic128Rsa15 combinations
             EndpointInfo {
-                endpoint_url: self.get_server_url(),
+                endpoint_url: base_url.clone(),
+                security_policy: SecurityPolicy::Basic128Rsa15,
+                security_mode: SecurityMode::Sign,
+                display_name: "Basic128Rsa15 - Sign Only".to_string(),
+            },
+            EndpointInfo {
+                endpoint_url: base_url.clone(),
+                security_policy: SecurityPolicy::Basic128Rsa15,
+                security_mode: SecurityMode::SignAndEncrypt,
+                display_name: "Basic128Rsa15 - Sign & Encrypt".to_string(),
+            },
+            
+            // Basic256 combinations
+            EndpointInfo {
+                endpoint_url: base_url.clone(),
+                security_policy: SecurityPolicy::Basic256,
+                security_mode: SecurityMode::Sign,
+                display_name: "Basic256 - Sign Only".to_string(),
+            },
+            EndpointInfo {
+                endpoint_url: base_url.clone(),
+                security_policy: SecurityPolicy::Basic256,
+                security_mode: SecurityMode::SignAndEncrypt,
+                display_name: "Basic256 - Sign & Encrypt".to_string(),
+            },
+            
+            // Basic256Sha256 combinations (most common)
+            EndpointInfo {
+                endpoint_url: base_url.clone(),
+                security_policy: SecurityPolicy::Basic256Sha256,
+                security_mode: SecurityMode::Sign,
+                display_name: "Basic256Sha256 - Sign Only".to_string(),
+            },
+            EndpointInfo {
+                endpoint_url: base_url.clone(),
                 security_policy: SecurityPolicy::Basic256Sha256,
                 security_mode: SecurityMode::SignAndEncrypt,
                 display_name: "Basic256Sha256 - Sign & Encrypt".to_string(),
             },
+            
+            // Aes128Sha256RsaOaep combinations
+            EndpointInfo {
+                endpoint_url: base_url.clone(),
+                security_policy: SecurityPolicy::Aes128Sha256RsaOaep,
+                security_mode: SecurityMode::Sign,
+                display_name: "Aes128Sha256RsaOaep - Sign Only".to_string(),
+            },
+            EndpointInfo {
+                endpoint_url: base_url.clone(),
+                security_policy: SecurityPolicy::Aes128Sha256RsaOaep,
+                security_mode: SecurityMode::SignAndEncrypt,
+                display_name: "Aes128Sha256RsaOaep - Sign & Encrypt".to_string(),
+            },
+            
+            // Aes256Sha256RsaPss combinations (most secure)
+            EndpointInfo {
+                endpoint_url: base_url.clone(),
+                security_policy: SecurityPolicy::Aes256Sha256RsaPss,
+                security_mode: SecurityMode::Sign,
+                display_name: "Aes256Sha256RsaPss - Sign Only".to_string(),
+            },
+            EndpointInfo {
+                endpoint_url: base_url.clone(),
+                security_policy: SecurityPolicy::Aes256Sha256RsaPss,
+                security_mode: SecurityMode::SignAndEncrypt,
+                display_name: "Aes256Sha256RsaPss - Sign & Encrypt".to_string(),
+            },
         ];
-        
-        info!("Found {} endpoints", self.discovered_endpoints.len());
+          info!("Found {} endpoints with various security configurations", self.discovered_endpoints.len());
+        info!("Endpoints range from no security to high-security configurations");
+        info!("Use Up/Down arrows to navigate, Enter to select endpoint");
         
         Ok(())
     }
@@ -59,8 +126,7 @@ impl ConnectScreen {    pub async fn discover_endpoints(&mut self) -> Result<()>
         Ok(Some(ConnectionStatus::Connected))
     }    pub async fn handle_button_action(&mut self, button_id: &str) -> Result<Option<ConnectionStatus>> {
         match button_id {
-            "cancel" => Ok(Some(ConnectionStatus::Disconnected)),
-            "next" => {
+            "cancel" => Ok(Some(ConnectionStatus::Disconnected)),            "next" => {
                 match self.step {
                     ConnectDialogStep::ServerUrl => {
                         // Set flags for showing popup and triggering discovery
@@ -69,6 +135,38 @@ impl ConnectScreen {    pub async fn discover_endpoints(&mut self) -> Result<()>
                         Ok(None) // Return immediately to show the popup
                     }
                     ConnectDialogStep::EndpointSelection => {
+                        // Check if security configuration is needed
+                        if self.needs_security_configuration() {
+                            // Move to security configuration step
+                            self.step = ConnectDialogStep::SecurityConfiguration;
+                            self.active_security_field = SecurityField::ClientCertificate;
+                            self.input_mode = InputMode::Editing;
+                        } else {
+                            // Skip security and move directly to authentication step
+                            self.step = ConnectDialogStep::Authentication;
+                            if self.authentication_type == AuthenticationType::UserPassword {
+                                self.active_auth_field = AuthenticationField::Username;
+                                self.input_mode = InputMode::Editing;
+                            } else {
+                                self.input_mode = InputMode::Normal;
+                            }
+                        }
+                        self.setup_buttons_for_current_step();
+                        Ok(None)
+                    }
+                    ConnectDialogStep::SecurityConfiguration => {
+                        // Validate security fields before proceeding
+                        let validation_errors = self.validate_security_fields();
+                        if !validation_errors.is_empty() {
+                            // Log validation errors
+                            for error in &validation_errors {
+                                log::error!("Security Validation: {}", error);
+                            }
+                            // Don't proceed if there are validation errors
+                            return Ok(None);
+                        }
+                        
+                        // Move to authentication step
                         self.step = ConnectDialogStep::Authentication;
                         if self.authentication_type == AuthenticationType::UserPassword {
                             self.active_auth_field = AuthenticationField::Username;
@@ -81,8 +179,7 @@ impl ConnectScreen {    pub async fn discover_endpoints(&mut self) -> Result<()>
                     }
                     _ => Ok(None)
                 }
-            }
-            "back" => {
+            }            "back" => {
                 match self.step {
                     ConnectDialogStep::EndpointSelection => {
                         self.step = ConnectDialogStep::ServerUrl;
@@ -90,9 +187,22 @@ impl ConnectScreen {    pub async fn discover_endpoints(&mut self) -> Result<()>
                         self.setup_buttons_for_current_step();
                         Ok(None)
                     }
-                    ConnectDialogStep::Authentication => {
+                    ConnectDialogStep::SecurityConfiguration => {
                         self.step = ConnectDialogStep::EndpointSelection;
                         self.input_mode = InputMode::Normal;
+                        self.setup_buttons_for_current_step();
+                        Ok(None)
+                    }
+                    ConnectDialogStep::Authentication => {
+                        // Check if we came from security configuration or endpoint selection
+                        if self.needs_security_configuration() {
+                            self.step = ConnectDialogStep::SecurityConfiguration;
+                            self.active_security_field = SecurityField::ClientCertificate;
+                            self.input_mode = InputMode::Editing;
+                        } else {
+                            self.step = ConnectDialogStep::EndpointSelection;
+                            self.input_mode = InputMode::Normal;
+                        }
                         self.setup_buttons_for_current_step();
                         Ok(None)
                     }
@@ -124,8 +234,7 @@ impl ConnectScreen {    pub async fn discover_endpoints(&mut self) -> Result<()>
                         .with_color(ButtonColor::Green)
                         .with_enabled(!self.connect_in_progress)
                 );
-            }
-            ConnectDialogStep::EndpointSelection => {
+            }            ConnectDialogStep::EndpointSelection => {
                 // Step 2: Cancel, Back, Next
                 self.button_manager.add_button(
                     Button::new("cancel", "Cancel")
@@ -145,8 +254,28 @@ impl ConnectScreen {    pub async fn discover_endpoints(&mut self) -> Result<()>
                         .with_color(ButtonColor::Green)
                 );
             }
+            ConnectDialogStep::SecurityConfiguration => {
+                // Step 3: Cancel, Back, Next
+                self.button_manager.add_button(
+                    Button::new("cancel", "Cancel")
+                        .with_hotkey('c')
+                        .with_color(ButtonColor::Red)
+                );
+                
+                self.button_manager.add_button(
+                    Button::new("back", "Back")
+                        .with_hotkey('b')
+                        .with_color(ButtonColor::Blue)
+                );
+                
+                self.button_manager.add_button(
+                    Button::new("next", "Next")
+                        .with_hotkey('n')
+                        .with_color(ButtonColor::Green)
+                );
+            }
             ConnectDialogStep::Authentication => {
-                // Step 3: Cancel, Back, Connect
+                // Step 4: Cancel, Back, Connect
                 self.button_manager.add_button(
                     Button::new("cancel", "Cancel")
                         .with_hotkey('c')

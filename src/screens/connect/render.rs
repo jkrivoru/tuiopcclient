@@ -18,11 +18,10 @@ impl ConnectScreen {
                 Constraint::Min(0),     // Main connect area
                 Constraint::Length(8),  // Connection logs
             ])
-            .split(area);
-
-        match self.step {
+            .split(area);        match self.step {
             ConnectDialogStep::ServerUrl => self.render_server_url_step(f, chunks[0]),
             ConnectDialogStep::EndpointSelection => self.render_endpoint_step(f, chunks[0]),
+            ConnectDialogStep::SecurityConfiguration => self.render_security_step(f, chunks[0]),
             ConnectDialogStep::Authentication => self.render_auth_step(f, chunks[0]),
         }
 
@@ -52,13 +51,15 @@ impl ConnectScreen {
         if self.connect_in_progress && self.step == ConnectDialogStep::ServerUrl {
             self.render_connecting_popup(f, area);
         }
-    }pub fn render_help_line(&self, f: &mut Frame, area: Rect) {
-        let help_text = match self.step {
+    }pub fn render_help_line(&self, f: &mut Frame, area: Rect) {        let help_text = match self.step {
             ConnectDialogStep::ServerUrl => {
                 "PageUp/PageDown - scroll log | Esc/Alt+C - Cancel | Enter/Alt+N - Next"
             }
             ConnectDialogStep::EndpointSelection => {
                 "↑↓ - Select endpoint | PageUp/PageDown - scroll log | Esc/Alt+B - Back | Enter/Alt+N - Next | Alt+C - Cancel"
+            }
+            ConnectDialogStep::SecurityConfiguration => {
+                "↑↓ - Navigate fields | Tab - Next field | Space - Toggle auto-trust | Alt+N - Next | Alt+B - Back | Alt+C - Cancel"
             }
             ConnectDialogStep::Authentication => {
                 if self.authentication_type == AuthenticationType::UserPassword {

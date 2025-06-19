@@ -17,10 +17,8 @@ impl ConnectScreen {
                 Constraint::Min(0),     // Space (removed help text)
                 Constraint::Length(3),  // Buttons
             ])
-            .split(area);
-
-        // Title
-        let title = Paragraph::new("Connect to OPC UA Server - Step 3/3: Authentication")
+            .split(area);        // Title
+        let title = Paragraph::new("Connect to OPC UA Server - Step 4/4: Authentication")
             .style(Style::default().fg(Color::White).bg(Color::Blue))
             .block(Block::default().borders(Borders::ALL));
         f.render_widget(title, chunks[0]);
