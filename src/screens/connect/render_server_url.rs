@@ -7,13 +7,13 @@ use ratatui::{
 use super::types::*;
 
 impl ConnectScreen {
-    pub(super) fn render_server_url_step(&mut self, f: &mut Frame, area: Rect) {
-        let chunks = Layout::default()
+    pub(super) fn render_server_url_step(&mut self, f: &mut Frame, area: Rect) {        let chunks = Layout::default()
             .direction(Direction::Vertical)
             .constraints([
                 Constraint::Length(3),  // Title
                 Constraint::Length(3),  // URL input
-                Constraint::Length(3),  // Buttons
+                Constraint::Min(0),     // Space (like other screens)
+                Constraint::Length(3),  // Buttons (aligned with other screens)
             ])
             .split(area);
 
@@ -44,17 +44,17 @@ impl ConnectScreen {
         if self.input_mode == InputMode::Editing {
             let cursor_x = self.server_url_input.visual_cursor().max(scroll) - scroll + 1;
             f.set_cursor(chunks[1].x + cursor_x as u16, chunks[1].y + 1);
-        }
-
-        // Buttons (2 buttons for step 1) - left and right positioning, 50% wider
+        }        // Buttons (2 buttons for step 1) - left and right positioning with margin, 50% wider
         let button_chunks = Layout::default()
             .direction(Direction::Horizontal)
             .constraints([
+                Constraint::Length(2),  // Left margin
                 Constraint::Length(18), // Cancel button (12 * 1.5 = 18)
                 Constraint::Min(0),     // Space between
                 Constraint::Length(18), // Next button (12 * 1.5 = 18)
+                Constraint::Length(2),  // Right margin
             ])
-            .split(chunks[2]);
+            .split(chunks[3]); // Changed from chunks[2] to chunks[3]
 
         // Update button states based on current progress
         if self.connect_in_progress {
@@ -63,8 +63,8 @@ impl ConnectScreen {
             self.button_manager.set_button_enabled("next", true);
         }
 
-        // Render buttons using button manager (use chunks 0 and 2 for left/right positioning)
-        let button_rects = &[button_chunks[0], button_chunks[2]];
+        // Render buttons using button manager (use chunks 1 and 3 for left/right positioning with margins)
+        let button_rects = &[button_chunks[1], button_chunks[3]];
         self.button_manager.render_buttons(f, button_rects);
     }
 }

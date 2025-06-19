@@ -14,8 +14,8 @@ impl ConnectScreen {
                 Constraint::Length(3),  // Title
                 Constraint::Length(5),  // Auth type selection
                 Constraint::Length(6),  // User details (if needed)
+                Constraint::Min(0),     // Space (removed help text)
                 Constraint::Length(3),  // Buttons
-                Constraint::Min(0),     // Help text
             ])
             .split(area);
 
@@ -103,21 +103,22 @@ impl ConnectScreen {
             // Position cursor if editing password
             if self.active_auth_field == AuthenticationField::Password && self.input_mode == InputMode::Editing {
                 let cursor_x = self.password_input.visual_cursor().max(scroll) - scroll + 1;
-                f.set_cursor(user_chunks[1].x + cursor_x as u16, user_chunks[1].y + 1);
-            }
+                f.set_cursor(user_chunks[1].x + cursor_x as u16, user_chunks[1].y + 1);            }
         }
 
-        // Buttons (3 buttons for step 3) - left, center, right positioning, 50% wider
+        // Buttons (3 buttons for step 3) - left, center, right positioning with margins, 50% wider
         let button_chunks = Layout::default()
             .direction(Direction::Horizontal)
             .constraints([
+                Constraint::Length(2),  // Left margin
                 Constraint::Length(18), // Cancel button (12 * 1.5 = 18)
                 Constraint::Min(0),     // Space
                 Constraint::Length(18), // Back button (12 * 1.5 = 18)
                 Constraint::Min(0),     // Space
                 Constraint::Length(18), // Connect button (12 * 1.5 = 18)
+                Constraint::Length(2),  // Right margin
             ])
-            .split(chunks[3]);
+            .split(chunks[4]);
 
         // Update button states based on current progress
         if self.connect_in_progress {
@@ -126,20 +127,8 @@ impl ConnectScreen {
             self.button_manager.set_button_enabled("connect", true);
         }
 
-        // Render buttons using button manager (use chunks 0, 2, 4 for left/center/right positioning)
-        let button_rects = &[button_chunks[0], button_chunks[2], button_chunks[4]];
+        // Render buttons using button manager (use chunks 1, 3, 5 for left/center/right positioning with margins)
+        let button_rects = &[button_chunks[1], button_chunks[3], button_chunks[5]];
         self.button_manager.render_buttons(f, button_rects);
-
-        // Help text
-        let help_text = if self.authentication_type == AuthenticationType::UserPassword {
-            "↑↓ - Change auth type | Tab - Switch fields | Alt+O - Connect | Alt+B - Back | Alt+C - Cancel"
-        } else {
-            "↑↓ - Change auth type | Alt+O - Connect | Alt+B - Back | Alt+C - Cancel"
-        };
-        
-        let help = Paragraph::new(help_text)
-            .style(Style::default().fg(Color::Gray))
-            .block(Block::default().borders(Borders::ALL).title("Help"));
-        f.render_widget(help, chunks[4]);
     }
 }

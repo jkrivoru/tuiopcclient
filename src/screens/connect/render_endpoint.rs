@@ -40,22 +40,22 @@ impl ConnectScreen {
                 .borders(Borders::ALL))
             .highlight_style(Style::default().bg(Color::Blue).fg(Color::White));
         
-        f.render_widget(endpoint_list, chunks[1]);
-
-        // Buttons (3 buttons for step 2) - left, center, right positioning, 50% wider
+        f.render_widget(endpoint_list, chunks[1]);        // Buttons (3 buttons for step 2) - left, center, right positioning with margins, 50% wider
         let button_chunks = Layout::default()
             .direction(Direction::Horizontal)
             .constraints([
+                Constraint::Length(2),  // Left margin
                 Constraint::Length(18), // Cancel button (12 * 1.5 = 18)
                 Constraint::Min(0),     // Space
                 Constraint::Length(18), // Back button (12 * 1.5 = 18)
                 Constraint::Min(0),     // Space
                 Constraint::Length(18), // Next button (12 * 1.5 = 18)
+                Constraint::Length(2),  // Right margin
             ])
             .split(chunks[2]);
 
-        // Render buttons using button manager (use chunks 0, 2, 4 for left/center/right positioning)
-        let button_rects = &[button_chunks[0], button_chunks[2], button_chunks[4]];
+        // Render buttons using button manager (use chunks 1, 3, 5 for left/center/right positioning with margins)
+        let button_rects = &[button_chunks[1], button_chunks[3], button_chunks[5]];
         self.button_manager.render_buttons(f, button_rects);
     }
 }
