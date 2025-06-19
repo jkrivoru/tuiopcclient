@@ -281,20 +281,20 @@ impl App {
         self.statusbar_renderer.set_current_screen(Screen::Main);
         self.statusbar_renderer.set_status_message(self.status_message.clone());
     }    fn ui(&mut self, f: &mut Frame) {
-        let size = f.size();
-
-        if self.show_connect_screen {
-            // Connect screen: hide menu bar for a cleaner look
+        let size = f.size();        if self.show_connect_screen {
+            // Connect screen: hide menu bar for a cleaner look, add help line
             let chunks = Layout::default()
                 .direction(Direction::Vertical)
                 .constraints([
                     Constraint::Min(0),    // Main content (connect screen)
+                    Constraint::Length(1), // Help line
                     Constraint::Length(1), // Status bar
                 ])
                 .split(size);
 
             self.connect_screen.render(f, chunks[0]);
-            self.statusbar_renderer.render_status_bar(f, chunks[1], None);
+            self.connect_screen.render_help_line(f, chunks[1]);
+            self.statusbar_renderer.render_status_bar(f, chunks[2], None);
         } else {
             // Main screen: show menu bar
             let chunks = Layout::default()

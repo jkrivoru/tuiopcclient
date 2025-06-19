@@ -244,6 +244,9 @@ impl Button {
     }    fn create_button_text(&self, base_style: Style) -> Line {
         let mut spans = Vec::new();
         
+        // Add bold modifier to base style for all text
+        let bold_style = base_style.add_modifier(Modifier::BOLD);
+        
         if let Some(hotkey) = self.hotkey {
             // Find the hotkey character in the label and underline it
             let hotkey_lower = hotkey.to_lowercase().to_string();
@@ -252,24 +255,24 @@ impl Button {
             
             for (_i, ch) in label_chars.iter().enumerate() {
                 if !found_hotkey && ch.to_lowercase().to_string() == hotkey_lower {
-                    // Underline the hotkey character
+                    // Underline and bold the hotkey character
                     spans.push(Span::styled(
                         ch.to_string(),
-                        base_style.add_modifier(Modifier::UNDERLINED),
+                        bold_style.add_modifier(Modifier::UNDERLINED),
                     ));
                     found_hotkey = true;
                 } else {
-                    spans.push(Span::styled(ch.to_string(), base_style));
+                    spans.push(Span::styled(ch.to_string(), bold_style));
                 }
             }
             
-            // If hotkey not found in label, just show the label without hint
+            // If hotkey not found in label, just show the label with bold
             if !found_hotkey {
                 spans.clear();
-                spans.push(Span::styled(self.label.clone(), base_style));
+                spans.push(Span::styled(self.label.clone(), bold_style));
             }
         } else {
-            spans.push(Span::styled(self.label.clone(), base_style));
+            spans.push(Span::styled(self.label.clone(), bold_style));
         }
 
         Line::from(spans)

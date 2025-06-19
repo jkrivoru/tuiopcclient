@@ -1,8 +1,8 @@
 use anyhow::Result;
 use crossterm::event::{KeyCode, KeyModifiers};
-use log::{info, debug};
+use log::{info, warn, error, debug};
 use ratatui::{
-    layout::{Constraint, Direction, Layout, Rect},
+    layout::{Alignment, Constraint, Direction, Layout, Rect},
     style::{Color, Style},
     widgets::{Block, Borders, List, ListItem, Paragraph},
     Frame,
@@ -11,7 +11,7 @@ use std::time::Duration;
 use tokio::time;
 use tui_input::backend::crossterm::EventHandler;
 use tui_input::Input;
-use tui_logger::{TuiLoggerWidget, TuiWidgetState, TuiWidgetEvent};
+use tui_logger::{TuiLoggerWidget, TuiWidgetState, TuiWidgetEvent, TuiLoggerLevelOutput};
 
 use crate::client::ConnectionStatus;
 use crate::components::{Button, ButtonManager, ButtonColor};
@@ -65,8 +65,7 @@ pub enum InputMode {
     Editing,
 }
 
-pub struct ConnectScreen {
-    // Connection dialog state
+pub struct ConnectScreen {    // Connection dialog state
     pub step: ConnectDialogStep,
     pub server_url_input: Input,
     pub discovered_endpoints: Vec<EndpointInfo>,
@@ -87,12 +86,11 @@ pub struct ConnectScreen {
     pub button_manager: ButtonManager,
 }
 
-impl ConnectScreen {    pub fn new() -> Self {
-        let mut screen = Self {
+impl ConnectScreen {    pub fn new() -> Self {        let mut screen = Self {
             step: ConnectDialogStep::ServerUrl,
             server_url_input: Input::default().with_value("opc.tcp://localhost:4840".to_string()),
             discovered_endpoints: Vec::new(),
-            selected_endpoint_index: 0,
+            selected_endpoint_index: usize::default(),
             authentication_type: AuthenticationType::Anonymous,
             active_auth_field: AuthenticationField::Username,
             username_input: Input::default(),
@@ -101,13 +99,14 @@ impl ConnectScreen {    pub fn new() -> Self {
             input_mode: InputMode::Editing,
             logger_widget_state: TuiWidgetState::new(),
             button_manager: ButtonManager::new(),
-        };        // Add initial log messages using the log crate
+        };// Add initial log messages using the log crate
         info!("OPC UA Client initialized");
         info!("Loading configuration from config.json");
+        warn!("Configuration file not found, using defaults");
         info!("Default server URL loaded");
-        info!("Enter server URL and press Enter to discover endpoints");
+        info!("Enter server URL and press Alt+N to discover endpoints");
         info!("Log Navigation: PageUp/PageDown to scroll, Home/End to jump, Escape to return to latest");
-        info!("Keyboard: Alt+O to Connect, Alt+C to Cancel");
+        info!("Keyboard: Alt+N to Next, Alt+C to Cancel");
         info!("Connection log initialized");
         debug!("Button manager created with hotkeys");
         debug!("Input handlers configured");
@@ -115,7 +114,7 @@ impl ConnectScreen {    pub fn new() -> Self {
         
         screen.setup_buttons_for_current_step();
         screen
-    }pub async fn handle_input(&mut self, key: KeyCode, modifiers: KeyModifiers) -> Result<Option<ConnectionStatus>> {
+    }    pub async fn handle_input(&mut self, key: KeyCode, modifiers: KeyModifiers) -> Result<Option<ConnectionStatus>> {
         // Handle button input first
         if let Some(button_id) = self.button_manager.handle_key_input(key, modifiers) {
             return self.handle_button_action(&button_id).await;
@@ -343,11 +342,18 @@ impl ConnectScreen {    pub fn new() -> Self {
                 }
             }
         }
-    }
-
-    async fn discover_endpoints(&mut self) -> Result<()> {
+    }    async fn discover_endpoints(&mut self) -> Result<()> {
         self.connect_in_progress = true;
         info!("Discovering endpoints...");
+        warn!("Using demo mode - actual endpoint discovery not implemented yet");
+        
+        // Check for invalid URL to demonstrate error logging
+        let url = self.server_url_input.value();
+        if !url.starts_with("opc.tcp://") {
+            error!("Invalid OPC UA server URL: must start with 'opc.tcp://'");
+            self.connect_in_progress = false;
+            return Ok(());
+        }
         
         // Simulate endpoint discovery
         time::sleep(Duration::from_millis(500)).await;
@@ -365,11 +371,10 @@ impl ConnectScreen {    pub fn new() -> Self {
                 security_mode: SecurityMode::SignAndEncrypt,
                 display_name: "Basic256Sha256 - Sign & Encrypt".to_string(),
             },
-        ];
-          self.connect_in_progress = false;
+        ];        self.connect_in_progress = false;
         self.step = ConnectDialogStep::EndpointSelection;
-        self.input_mode = InputMode::Normal;
         self.setup_buttons_for_current_step();
+        self.input_mode = InputMode::Normal;
         info!("Found {} endpoints", self.discovered_endpoints.len());
         
         Ok(())
@@ -414,9 +419,17 @@ impl ConnectScreen {    pub fn new() -> Self {
                     .title("Connection Log")
                     .borders(Borders::ALL)
             )
-            .style_error(Style::default().fg(Color::Red))
+            // Custom formatting: datetime + severity only, no callstack
+            .output_timestamp(Some("%Y-%m-%d %H:%M:%S".to_string()))
+            .output_level(Some(TuiLoggerLevelOutput::Long))
+            .output_target(false)  // Disable target/module name
+            .output_file(false)    // Disable file name
+            .output_line(false)    // Disable line number
+            .output_separator(' ') // Use space instead of colon
+            // Color coding: Info - standard (white), Warning - yellow, Error - red
+            .style_info(Style::default().fg(Color::White))
             .style_warn(Style::default().fg(Color::Yellow))
-            .style_info(Style::default().fg(Color::Rgb(135, 135, 175)))
+            .style_error(Style::default().fg(Color::Red))
             .style_debug(Style::default().fg(Color::DarkGray))
             .style_trace(Style::default().fg(Color::Gray))
             .state(&self.logger_widget_state);
@@ -463,15 +476,14 @@ impl ConnectScreen {    pub fn new() -> Self {
             .constraints([
                 Constraint::Length(18), // Cancel button (12 * 1.5 = 18)
                 Constraint::Min(0),     // Space between
-                Constraint::Length(18), // Discover button (12 * 1.5 = 18)
+                Constraint::Length(18), // Next button (12 * 1.5 = 18)
             ])
-            .split(chunks[2]);
-
-        // Update button states based on current progress
+            .split(chunks[2]);        // Update button states based on current progress
         if self.connect_in_progress {
-            self.button_manager.set_button_enabled("discover", false);
-        } else {            self.button_manager.set_button_enabled("discover", true);
-        }        // Render buttons using button manager (use chunks 0 and 2 for left/right positioning)
+            self.button_manager.set_button_enabled("next", false);
+        } else {
+            self.button_manager.set_button_enabled("next", true);
+        }// Render buttons using button manager (use chunks 0 and 2 for left/right positioning)
         let button_rects = &[button_chunks[0], button_chunks[2]];
         self.button_manager.render_buttons(f, button_rects);
     }
@@ -664,17 +676,16 @@ impl ConnectScreen {    pub fn new() -> Self {
         self.button_manager.clear();
         
         match self.step {
-            ConnectDialogStep::ServerUrl => {                // Step 1: Only Cancel and Discover
+            ConnectDialogStep::ServerUrl => {
+                // Step 1: Only Cancel and Next
                 self.button_manager.add_button(
                     Button::new("cancel", "Cancel")
                         .with_hotkey('c')
                         .with_color(ButtonColor::Red)
                 );
-                
-                self.button_manager.add_button(
-                    Button::new("discover", "Discover")
-                        .with_hotkey('d')
-                        .with_ctrl_key('d')
+                  self.button_manager.add_button(
+                    Button::new("next", "Next")
+                        .with_hotkey('n')
                         .with_color(ButtonColor::Green)
                         .with_enabled(!self.connect_in_progress)
                 );
@@ -735,27 +746,23 @@ impl ConnectScreen {    pub fn new() -> Self {
                 }
                 self.setup_buttons_for_current_step();
                 Ok(None)
-            }            "discover" => {
-                self.discover_endpoints().await?;
-                Ok(None)
-            }
-            "next" => {
+            }            "next" => {
                 match self.step {
                     ConnectDialogStep::ServerUrl => {
-                        if !self.discovered_endpoints.is_empty() {
-                            self.step = ConnectDialogStep::EndpointSelection;
-                            self.input_mode = InputMode::Normal;
-                            self.setup_buttons_for_current_step();
-                        }
+                        // Discover endpoints first
+                        self.discover_endpoints().await?;
                     }
                     ConnectDialogStep::EndpointSelection => {
-                        self.step = ConnectDialogStep::Authentication;                        if self.authentication_type == AuthenticationType::UserPassword {
-                            self.active_auth_field = AuthenticationField::Username;
-                            self.input_mode = InputMode::Editing;
-                        } else {
-                            self.input_mode = InputMode::Normal;
+                        if !self.discovered_endpoints.is_empty() {
+                            self.step = ConnectDialogStep::Authentication;
+                            if self.authentication_type == AuthenticationType::UserPassword {
+                                self.active_auth_field = AuthenticationField::Username;
+                                self.input_mode = InputMode::Editing;
+                            } else {
+                                self.input_mode = InputMode::Normal;
+                            }
+                            self.setup_buttons_for_current_step();
                         }
-                        self.setup_buttons_for_current_step();
                     }
                     _ => {}
                 }
@@ -780,5 +787,25 @@ impl ConnectScreen {    pub fn new() -> Self {
 
     pub fn handle_mouse_up(&mut self, column: u16, row: u16) -> Option<String> {
         self.button_manager.handle_mouse_up(column, row)
+    }    fn get_help_text(&self) -> String {
+        // Always show all help information in one line, context-aware for current step
+        match self.step {
+            ConnectDialogStep::ServerUrl => {
+                "PageUp / PageDown - scroll log | Alt+C - Cancel | Alt+N - Next".to_string()
+            }
+            ConnectDialogStep::EndpointSelection => {
+                "PageUp / PageDown - scroll log | Alt+C - Cancel | Alt+B - Back | Alt+N - Next".to_string()
+            }
+            ConnectDialogStep::Authentication => {
+                "PageUp / PageDown - scroll log | Alt+C - Cancel | Alt+B - Back | Alt+O - Connect".to_string()
+            }
+        }
     }
-}
+
+    pub fn render_help_line(&self, f: &mut Frame, area: Rect) {
+        let help_text = self.get_help_text();
+        let help_paragraph = Paragraph::new(help_text)
+            .style(Style::default().fg(Color::DarkGray))
+            .alignment(Alignment::Center);
+        f.render_widget(help_paragraph, area);
+    }}
