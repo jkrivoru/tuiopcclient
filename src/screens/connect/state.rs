@@ -8,6 +8,7 @@ impl ConnectScreen {    pub fn new() -> Self {
         let mut screen = Self {
             step: ConnectDialogStep::ServerUrl,
             server_url_input: Input::default().with_value("opc.tcp://localhost:4840".to_string()),
+            server_url_validation_error: None,
             discovered_endpoints: Vec::new(),
             selected_endpoint_index: usize::default(),
             authentication_type: AuthenticationType::Anonymous,
@@ -38,6 +39,8 @@ impl ConnectScreen {    pub fn new() -> Self {
         screen
     }    pub fn reset(&mut self) {
         self.step = ConnectDialogStep::ServerUrl;
+        self.server_url_input = Input::default().with_value("opc.tcp://localhost:4840".to_string());
+        self.server_url_validation_error = None;
         self.discovered_endpoints.clear();
         self.selected_endpoint_index = 0;
         self.authentication_type = AuthenticationType::Anonymous;

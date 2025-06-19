@@ -9,9 +9,8 @@ use super::types::*;
 impl ConnectScreen {    pub async fn discover_endpoints(&mut self) -> Result<()> {
         info!("Discovering endpoints...");
         warn!("Using demo mode - actual endpoint discovery not implemented yet");
-        
-        // Check for invalid URL to demonstrate error logging
-        let url = self.server_url_input.value();
+          // Check for invalid URL to demonstrate error logging
+        let url = self.get_server_url();
         if !url.starts_with("opc.tcp://") {
             error!("Invalid OPC UA server URL: must start with 'opc.tcp://'");
             return Ok(());
@@ -19,17 +18,16 @@ impl ConnectScreen {    pub async fn discover_endpoints(&mut self) -> Result<()>
         
         // Simulate endpoint discovery with a longer delay to show popup
         time::sleep(Duration::from_millis(1500)).await;
-        
-        // Mock discovered endpoints based on URL
+          // Mock discovered endpoints based on URL
         self.discovered_endpoints = vec![
             EndpointInfo {
-                endpoint_url: self.server_url_input.value().to_string(),
+                endpoint_url: self.get_server_url(),
                 security_policy: SecurityPolicy::None,
                 security_mode: SecurityMode::None,
                 display_name: "None - No Security".to_string(),
             },
             EndpointInfo {
-                endpoint_url: self.server_url_input.value().to_string(),
+                endpoint_url: self.get_server_url(),
                 security_policy: SecurityPolicy::Basic256Sha256,
                 security_mode: SecurityMode::SignAndEncrypt,
                 display_name: "Basic256Sha256 - Sign & Encrypt".to_string(),

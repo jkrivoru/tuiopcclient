@@ -17,13 +17,20 @@ impl ConnectScreen {
             ConnectDialogStep::EndpointSelection => self.handle_endpoint_selection_input(key, modifiers).await,
             ConnectDialogStep::Authentication => self.handle_authentication_input(key, modifiers).await,
         }
-    }
-
-    async fn handle_server_url_input(&mut self, key: KeyCode, modifiers: KeyModifiers) -> Result<Option<ConnectionStatus>> {
+    }    async fn handle_server_url_input(&mut self, key: KeyCode, modifiers: KeyModifiers) -> Result<Option<ConnectionStatus>> {
         match key {
             KeyCode::Enter | KeyCode::Tab => {
-                // Discover endpoints
-                self.discover_endpoints().await?;
+                // Validate URL first
+                self.validate_server_url();
+                if self.server_url_validation_error.is_none() {
+                    // Discover endpoints
+                    self.discover_endpoints().await?;
+                } else {
+                    // Show validation error in log
+                    if let Some(ref error) = self.server_url_validation_error {
+                        log::error!("URL Validation: {}", error);
+                    }
+                }
                 Ok(None)
             }
             KeyCode::Esc => {
@@ -50,13 +57,14 @@ impl ConnectScreen {
                 // Go to the end (latest messages) - exit page mode
                 self.logger_widget_state.transition(TuiWidgetEvent::EscapeKey);
                 Ok(None)
-            }
-            _ => {
+            }            _ => {
                 // Let tui-input handle the key event
                 if self.input_mode == InputMode::Editing {
                     self.server_url_input.handle_event(&crossterm::event::Event::Key(
                         crossterm::event::KeyEvent::new(key, modifiers)
                     ));
+                    // Validate on each keystroke
+                    self.validate_server_url();
                 }
                 Ok(None)
             }

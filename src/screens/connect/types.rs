@@ -56,6 +56,7 @@ pub struct ConnectScreen {
     // Connection dialog state
     pub step: ConnectDialogStep,
     pub server_url_input: Input,
+    pub server_url_validation_error: Option<String>,
     pub discovered_endpoints: Vec<EndpointInfo>,
     pub selected_endpoint_index: usize,
     pub authentication_type: AuthenticationType,
@@ -73,4 +74,34 @@ pub struct ConnectScreen {
     
     // Button management
     pub button_manager: ButtonManager,
+}
+
+impl ConnectScreen {    pub fn validate_server_url(&mut self) {
+        let url = self.server_url_input.value();
+        
+        if url.is_empty() {
+            self.server_url_validation_error = Some("Server URL cannot be empty".to_string());
+            return;
+        }
+        
+        // Create case-insensitive regex for validation
+        let case_insensitive_regex = regex::RegexBuilder::new(r"^opc\.tcp://([a-zA-Z0-9.-]+|\d{1,3}(\.\d{1,3}){3})(:\d{1,5})?$")
+            .case_insensitive(true)
+            .build()
+            .expect("Invalid regex pattern");
+        
+        if !case_insensitive_regex.is_match(url) {
+            self.server_url_validation_error = Some("Invalid URL format. Expected: opc.tcp://hostname:port or opc.tcp://ip:port".to_string());
+        } else {
+            self.server_url_validation_error = None;
+        }
+    }
+    
+    pub fn get_server_url(&self) -> String {
+        self.server_url_input.value().to_string()
+    }
+    
+    pub fn show_placeholder(&self) -> bool {
+        self.server_url_input.value().is_empty() && self.input_mode == InputMode::Editing
+    }
 }
