@@ -63,6 +63,7 @@ pub struct ConnectScreen {
     pub username_input: Input,
     pub password_input: Input,
     pub connect_in_progress: bool,
+    pub pending_discovery: bool, // New field to track if discovery should happen
     
     // Input handling
     pub input_mode: InputMode,

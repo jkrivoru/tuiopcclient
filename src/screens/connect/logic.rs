@@ -6,9 +6,7 @@ use crate::client::ConnectionStatus;
 use crate::components::{Button, ButtonColor};
 use super::types::*;
 
-impl ConnectScreen {
-    pub async fn discover_endpoints(&mut self) -> Result<()> {
-        self.connect_in_progress = true;
+impl ConnectScreen {    pub async fn discover_endpoints(&mut self) -> Result<()> {
         info!("Discovering endpoints...");
         warn!("Using demo mode - actual endpoint discovery not implemented yet");
         
@@ -16,12 +14,11 @@ impl ConnectScreen {
         let url = self.server_url_input.value();
         if !url.starts_with("opc.tcp://") {
             error!("Invalid OPC UA server URL: must start with 'opc.tcp://'");
-            self.connect_in_progress = false;
             return Ok(());
         }
         
-        // Simulate endpoint discovery
-        time::sleep(Duration::from_millis(500)).await;
+        // Simulate endpoint discovery with a longer delay to show popup
+        time::sleep(Duration::from_millis(1500)).await;
         
         // Mock discovered endpoints based on URL
         self.discovered_endpoints = vec![
@@ -39,10 +36,6 @@ impl ConnectScreen {
             },
         ];
         
-        self.connect_in_progress = false;
-        self.step = ConnectDialogStep::EndpointSelection;
-        self.setup_buttons_for_current_step();
-        self.input_mode = InputMode::Normal;
         info!("Found {} endpoints", self.discovered_endpoints.len());
         
         Ok(())
@@ -66,16 +59,16 @@ impl ConnectScreen {
         info!("Connected successfully!");
         
         Ok(Some(ConnectionStatus::Connected))
-    }
-
-    pub async fn handle_button_action(&mut self, button_id: &str) -> Result<Option<ConnectionStatus>> {
+    }    pub async fn handle_button_action(&mut self, button_id: &str) -> Result<Option<ConnectionStatus>> {
         match button_id {
             "cancel" => Ok(Some(ConnectionStatus::Disconnected)),
             "next" => {
                 match self.step {
                     ConnectDialogStep::ServerUrl => {
-                        self.discover_endpoints().await?;
-                        Ok(None)
+                        // Set flags for showing popup and triggering discovery
+                        self.connect_in_progress = true;
+                        self.pending_discovery = true;
+                        Ok(None) // Return immediately to show the popup
                     }
                     ConnectDialogStep::EndpointSelection => {
                         self.step = ConnectDialogStep::Authentication;
@@ -176,5 +169,22 @@ impl ConnectScreen {
                 );
             }
         }
+    }
+
+    // Method to be called from the main UI loop to handle pending operations
+    pub async fn handle_pending_operations(&mut self) -> Result<()> {
+        if self.pending_discovery {
+            self.pending_discovery = false;
+            
+            // Perform the actual discovery
+            self.discover_endpoints().await?;
+            
+            // After discovery, hide popup and transition to next step
+            self.connect_in_progress = false;
+            self.step = ConnectDialogStep::EndpointSelection;
+            self.setup_buttons_for_current_step();
+            self.input_mode = InputMode::Normal;
+        }
+        Ok(())
     }
 }

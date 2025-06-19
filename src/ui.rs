@@ -267,9 +267,14 @@ impl App {
             }
         }
         Ok(())
-    }
-
-    async fn on_tick(&mut self) {
+    }    async fn on_tick(&mut self) {
+        // Handle pending operations for connect screen
+        if self.show_connect_screen {
+            if let Err(e) = self.connect_screen.handle_pending_operations().await {
+                eprintln!("Error handling pending operations: {}", e);
+            }
+        }
+        
         // Update connection status
         if let Ok(client) = self.client_manager.try_lock() {
             self.connection_status = client.get_connection_status();
@@ -280,7 +285,7 @@ impl App {
         self.statusbar_renderer.set_connection_status(self.connection_status.clone());
         self.statusbar_renderer.set_current_screen(Screen::Main);
         self.statusbar_renderer.set_status_message(self.status_message.clone());
-    }    fn ui(&mut self, f: &mut Frame) {
+    }fn ui(&mut self, f: &mut Frame) {
         let size = f.size();        if self.show_connect_screen {
             // Connect screen: hide menu bar for a cleaner look, add help line
             let chunks = Layout::default()

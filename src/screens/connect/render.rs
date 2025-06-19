@@ -46,14 +46,16 @@ impl ConnectScreen {
             .style_error(Style::default().fg(Color::Red))
             .style_debug(Style::default().fg(Color::DarkGray))
             .style_trace(Style::default().fg(Color::Gray))
-            .state(&self.logger_widget_state);
-        f.render_widget(logger_widget, chunks[1]);
-    }
-
-    pub fn render_help_line(&self, f: &mut Frame, area: Rect) {
+            .state(&self.logger_widget_state);        f.render_widget(logger_widget, chunks[1]);
+        
+        // Show connecting popup if discovery is in progress
+        if self.connect_in_progress && self.step == ConnectDialogStep::ServerUrl {
+            self.render_connecting_popup(f, area);
+        }
+    }pub fn render_help_line(&self, f: &mut Frame, area: Rect) {
         let help_text = match self.step {
             ConnectDialogStep::ServerUrl => {
-                "PageUp/PageDown - scroll log | Esc - Cancel | Enter/Alt+N - Next | Alt+C - Cancel"
+                "PageUp/PageDown - scroll log | Esc/Alt+C - Cancel | Enter/Alt+N - Next"
             }
             ConnectDialogStep::EndpointSelection => {
                 "↑↓ - Select endpoint | PageUp/PageDown - scroll log | Esc/Alt+B - Back | Enter/Alt+N - Next | Alt+C - Cancel"
@@ -71,5 +73,38 @@ impl ConnectScreen {
             .style(Style::default().fg(Color::DarkGray))
             .alignment(Alignment::Center);
         f.render_widget(help_paragraph, area);
+    }
+    fn render_connecting_popup(&self, f: &mut Frame, area: Rect) {
+        // Calculate popup size and position (centered)
+        let popup_width = 30;
+        let popup_height = 5;
+        let x = (area.width.saturating_sub(popup_width)) / 2;
+        let y = (area.height.saturating_sub(popup_height)) / 2;
+        
+        let popup_area = Rect {
+            x,
+            y,
+            width: popup_width,
+            height: popup_height,
+        };
+        
+        // Clear the background area
+        f.render_widget(
+            Paragraph::new("")
+                .style(Style::default().bg(Color::Black))
+                .block(Block::default()),
+            popup_area,
+        );        // Render the popup
+        let popup = Paragraph::new("\nDiscovering Endpoints")
+            .style(Style::default().fg(Color::White).bg(Color::Blue))
+            .alignment(Alignment::Center)
+            .block(
+                Block::default()
+                    .title("Please Wait")
+                    .borders(Borders::ALL)
+                    .style(Style::default().fg(Color::White).bg(Color::Blue))
+            );
+        
+        f.render_widget(popup, popup_area);
     }
 }

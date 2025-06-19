@@ -4,8 +4,7 @@ use tui_logger::TuiWidgetState;
 use crate::components::ButtonManager;
 use super::types::*;
 
-impl ConnectScreen {
-    pub fn new() -> Self {
+impl ConnectScreen {    pub fn new() -> Self {
         let mut screen = Self {
             step: ConnectDialogStep::ServerUrl,
             server_url_input: Input::default().with_value("opc.tcp://localhost:4840".to_string()),
@@ -16,6 +15,7 @@ impl ConnectScreen {
             username_input: Input::default(),
             password_input: Input::default(),
             connect_in_progress: false,
+            pending_discovery: false,
             input_mode: InputMode::Editing,
             logger_widget_state: TuiWidgetState::new(),
             button_manager: ButtonManager::new(),
@@ -36,9 +36,7 @@ impl ConnectScreen {
         
         screen.setup_buttons_for_current_step();
         screen
-    }
-
-    pub fn reset(&mut self) {
+    }    pub fn reset(&mut self) {
         self.step = ConnectDialogStep::ServerUrl;
         self.discovered_endpoints.clear();
         self.selected_endpoint_index = 0;
@@ -46,6 +44,7 @@ impl ConnectScreen {
         self.username_input.reset();
         self.password_input.reset();
         self.connect_in_progress = false;
+        self.pending_discovery = false;
         self.input_mode = InputMode::Editing;
         self.setup_buttons_for_current_step();
     }
