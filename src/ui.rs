@@ -265,16 +265,13 @@ impl App {
             AppState::Connected(_) => {
                 // Show browse screen with help line
                 let chunks = Layout::default()
-                    .direction(Direction::Vertical)
-                    .constraints([
+                    .direction(Direction::Vertical)                    .constraints([
                         Constraint::Min(0),    // Browse screen
-                        Constraint::Length(1), // Help line
                     ])
                     .split(size);
 
                 if let Some(browse_screen) = &mut self.browse_screen {
                     browse_screen.render(f, chunks[0]);
-                    browse_screen.render_help_line(f, chunks[1]);
                 }
             }
         }
