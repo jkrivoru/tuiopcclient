@@ -1,5 +1,4 @@
 use super::types::{TreeNode, NodeType, NodeAttribute};
-use crate::client::{OpcUaClientManager, OpcUaNode};
 use opcua::types::{NodeId, NodeClass};
 use anyhow::Result;
 
@@ -12,25 +11,36 @@ impl super::BrowseScreen {
         self.selected_node_index = 0;
         self.expanded_nodes.clear();
         
-        // Get the root node (Objects folder)
-        let client_guard = self.client.read().await;
-        if !client_guard.is_connected() {
-            self.is_loading = false;
-            return Ok(());
+        // Add timeout to the entire loading process
+        let load_future = async {
+            // Get the root node (Objects folder)
+            let client_guard = self.client.read().await;
+            if !client_guard.is_connected() {
+                return Ok(Vec::new());
+            }
+
+            let root_node_id = client_guard.get_root_node().await?;
+            drop(client_guard);
+            
+            // Load the root level nodes
+            self.get_real_children(&root_node_id, 0, "").await
+        };        match tokio::time::timeout(tokio::time::Duration::from_secs(10), load_future).await {
+            Ok(Ok(children)) => {
+                self.tree_nodes = children;
+            }
+            Ok(Err(e)) => {
+                log::warn!("Failed to load real tree data: {}. Will use demo data on expand.", e);
+                // Don't fail completely, just leave tree_nodes empty
+            }
+            Err(_timeout) => {
+                log::warn!("Tree loading timed out. Will use demo data on expand.");
+                // Don't fail completely, just leave tree_nodes empty
+            }
         }
-        
-        let root_node_id = client_guard.get_root_node().await?;
-        drop(client_guard);
-        
-        // Load the root level nodes
-        let children = self.get_real_children(&root_node_id, 0, "").await?;
-        self.tree_nodes = children;
         
         self.is_loading = false;
         Ok(())
-    }
-    
-    pub async fn get_real_children(&self, parent_node_id: &NodeId, level: usize, parent_path: &str) -> Result<Vec<TreeNode>> {
+    }    pub async fn get_real_children(&self, parent_node_id: &NodeId, level: usize, parent_path: &str) -> Result<Vec<TreeNode>> {
         let client_guard = self.client.read().await;
         if !client_guard.is_connected() {
             return Ok(Vec::new());
@@ -39,9 +49,7 @@ impl super::BrowseScreen {
         let opcua_nodes = client_guard.browse_node(parent_node_id).await?;
         drop(client_guard);
         
-        let mut tree_nodes = Vec::new();
-        
-        for opcua_node in opcua_nodes {
+        let mut tree_nodes = Vec::new();        for opcua_node in opcua_nodes {
             let node_type = match opcua_node.node_class {
                 NodeClass::Object => NodeType::Object,
                 NodeClass::Variable => NodeType::Variable,

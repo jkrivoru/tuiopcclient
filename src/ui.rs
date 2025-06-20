@@ -276,24 +276,34 @@ impl App {
         match connection_result {
             ConnectionStatus::Connecting => {
                 // Get the server URL from the connect screen and attempt the actual connection
-                let server_url = self.connect_screen.get_server_url();
-                log::info!("Attempting real connection to: {}", server_url);
+                let server_url = self.connect_screen.get_server_url();                log::info!("Attempting real connection to: {}", server_url);
 
                 // Actually connect the client manager to the server
-                match self.client_manager.write().await.connect(&server_url).await {
+                let connection_result = {
+                    let mut client_guard = self.client_manager.write().await;
+                    client_guard.connect(&server_url).await
+                };
+                
+                match connection_result {
                     Ok(()) => {
                         log::info!("Client manager successfully connected to: {}", server_url);
                         
-                        // Update client manager status
-                        if let Ok(mut client) = self.client_manager.try_write() {
-                            client.set_connection_status(ConnectionStatus::Connected);
-                        }
-
-                        // Transition to browse screen
+                        // Update client manager status (ensure write lock is released quickly)
+                        {
+                            if let Ok(mut client) = self.client_manager.try_write() {
+                                client.set_connection_status(ConnectionStatus::Connected);
+                            }
+                        }                        // Transition to browse screen
                         self.app_state = AppState::Connected(server_url.clone());
-                        self.browse_screen = Some(BrowseScreen::new(server_url, self.client_manager.clone()));
-                    }
-                    Err(e) => {
+                        let mut browse_screen = BrowseScreen::new(server_url.clone(), self.client_manager.clone());
+                        
+                        // Load real tree data asynchronously
+                        if let Err(e) = browse_screen.load_real_tree().await {
+                            log::error!("Failed to load real tree data: {}. Using demo data.", e);
+                        }
+                        
+                        self.browse_screen = Some(browse_screen);
+                    }Err(e) => {
                         log::error!("Failed to connect client manager: {}", e);
                         self.connect_screen.reset();
                         // Set client manager to error state
@@ -302,13 +312,19 @@ impl App {
                         }
                     }
                 }
-            }
-            ConnectionStatus::Connected => {
+            }            ConnectionStatus::Connected => {
                 // This shouldn't happen anymore since perform_connection returns Connecting
                 log::warn!("Received Connected status directly - this should not happen");
                 let server_url = self.connect_screen.get_server_url();
                 self.app_state = AppState::Connected(server_url.clone());
-                self.browse_screen = Some(BrowseScreen::new(server_url, self.client_manager.clone()));
+                let mut browse_screen = BrowseScreen::new(server_url, self.client_manager.clone());
+                
+                // Load real tree data asynchronously
+                if let Err(e) = browse_screen.load_real_tree().await {
+                    log::error!("Failed to load real tree data: {}. Using demo data.", e);
+                }
+                
+                self.browse_screen = Some(browse_screen);
             }
             ConnectionStatus::Disconnected => {
                 // User cancelled connection or wants to quit
@@ -323,9 +339,7 @@ impl App {
                     client.set_connection_status(ConnectionStatus::Error(error));
                 }            }
         }
-    }
-
-    fn render_ui(&mut self, f: &mut Frame) {
+    }    fn render_ui(&mut self, f: &mut Frame) {
         let size = f.size();
 
         match &self.app_state {
@@ -337,7 +351,9 @@ impl App {
                         Constraint::Min(0),    // Connect screen
                         Constraint::Length(1), // Help line
                     ])
-                    .split(size);                self.connect_screen.render(f, chunks[0]);
+                    .split(size);
+
+                self.connect_screen.render(f, chunks[0]);
                 self.connect_screen.render_help_line(f, chunks[1]);
             }
             AppState::Connected(_) => {

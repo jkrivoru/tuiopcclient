@@ -63,9 +63,8 @@ pub struct BrowseScreen {
     pub is_loading: bool,
 }
 
-impl BrowseScreen {
-    pub fn new(server_url: String, client: Arc<RwLock<OpcUaClientManager>>) -> Self {
-        let mut browse_screen = Self {
+impl BrowseScreen {    pub fn new(server_url: String, client: Arc<RwLock<OpcUaClientManager>>) -> Self {
+        let browse_screen = Self {
             current_path: vec!["Root".to_string()],
             tree_nodes: Vec::new(),
             selected_node_index: 0,
@@ -79,14 +78,12 @@ impl BrowseScreen {
             last_click_time: None,
             last_click_position: None,
             client,
-            is_loading: false,
+            is_loading: true, // Start in loading state
         };
 
-        // Initialize with demo OPC UA tree structure (will be replaced with real data)
-        browse_screen.load_demo_tree();
-        browse_screen.update_selected_attributes();
+        // Real data will be loaded asynchronously via load_real_tree() from real_data.rs
         browse_screen
-    }    fn load_demo_tree(&mut self) {
+    }fn load_demo_tree(&mut self) {
         // Create a hierarchical OPC UA server structure
         self.tree_nodes = vec![
             TreeNode {
@@ -154,8 +151,7 @@ impl BrowseScreen {
                     value: format!("{:?}", node.node_type),
                 },
             ];
-        }
-    }
+        }    }
 
     pub fn get_selected_items(&self) -> Vec<String> {
         self.selected_items.iter().cloned().collect()

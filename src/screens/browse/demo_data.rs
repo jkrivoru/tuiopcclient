@@ -1,5 +1,4 @@
 use super::types::{TreeNode, NodeType};
-use opcua::types::{NodeId, ObjectId};
 
 // Helper function to create demo TreeNode instances
 fn create_demo_node(name: &str, node_id: &str, node_type: NodeType, level: usize, has_children: bool, parent_path: &str) -> TreeNode {
