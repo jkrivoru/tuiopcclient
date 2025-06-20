@@ -162,9 +162,7 @@ impl BrowseScreen {
                 }
             }
         }
-    }
-
-    fn get_demo_children(&self, parent_id: &str, level: usize, parent_path: &str) -> Vec<TreeNode> {
+    }    fn get_demo_children(&self, parent_id: &str, level: usize, parent_path: &str) -> Vec<TreeNode> {
         match parent_id {
             "i=85" => vec![ // Objects
                 TreeNode {
@@ -179,6 +177,24 @@ impl BrowseScreen {
                 TreeNode {
                     name: "DeviceSet".to_string(),
                     node_id: "i=5001".to_string(),
+                    node_type: NodeType::Object,
+                    level,
+                    has_children: true,
+                    is_expanded: false,
+                    parent_path: parent_path.to_string(),
+                },
+                TreeNode {
+                    name: "Simulation".to_string(),
+                    node_id: "ns=2;s=Simulation".to_string(),
+                    node_type: NodeType::Object,
+                    level,
+                    has_children: true,
+                    is_expanded: false,
+                    parent_path: parent_path.to_string(),
+                },
+                TreeNode {
+                    name: "DataAccess".to_string(),
+                    node_id: "ns=2;s=DataAccess".to_string(),
                     node_type: NodeType::Object,
                     level,
                     has_children: true,
@@ -205,6 +221,24 @@ impl BrowseScreen {
                     is_expanded: false,
                     parent_path: parent_path.to_string(),
                 },
+                TreeNode {
+                    name: "DataTypes".to_string(),
+                    node_id: "i=22".to_string(),
+                    node_type: NodeType::DataType,
+                    level,
+                    has_children: true,
+                    is_expanded: false,
+                    parent_path: parent_path.to_string(),
+                },
+                TreeNode {
+                    name: "ReferenceTypes".to_string(),
+                    node_id: "i=31".to_string(),
+                    node_type: NodeType::ReferenceType,
+                    level,
+                    has_children: true,
+                    is_expanded: false,
+                    parent_path: parent_path.to_string(),
+                },
             ],
             "i=2253" => vec![ // Server
                 TreeNode {
@@ -212,7 +246,7 @@ impl BrowseScreen {
                     node_id: "i=2268".to_string(),
                     node_type: NodeType::Object,
                     level,
-                    has_children: false,
+                    has_children: true,
                     is_expanded: false,
                     parent_path: parent_path.to_string(),
                 },
@@ -228,6 +262,24 @@ impl BrowseScreen {
                 TreeNode {
                     name: "ServerStatus".to_string(),
                     node_id: "i=2256".to_string(),
+                    node_type: NodeType::Variable,
+                    level,
+                    has_children: false,
+                    is_expanded: false,
+                    parent_path: parent_path.to_string(),
+                },
+                TreeNode {
+                    name: "ServiceLevel".to_string(),
+                    node_id: "i=2267".to_string(),
+                    node_type: NodeType::Variable,
+                    level,
+                    has_children: false,
+                    is_expanded: false,
+                    parent_path: parent_path.to_string(),
+                },
+                TreeNode {
+                    name: "Auditing".to_string(),
+                    node_id: "i=2994".to_string(),
                     node_type: NodeType::Variable,
                     level,
                     has_children: false,
@@ -254,7 +306,168 @@ impl BrowseScreen {
                     is_expanded: false,
                     parent_path: parent_path.to_string(),
                 },
+                TreeNode {
+                    name: "Device3".to_string(),
+                    node_id: "ns=2;s=Device3".to_string(),
+                    node_type: NodeType::Object,
+                    level,
+                    has_children: true,
+                    is_expanded: false,
+                    parent_path: parent_path.to_string(),
+                },
+                TreeNode {
+                    name: "Device4".to_string(),
+                    node_id: "ns=2;s=Device4".to_string(),
+                    node_type: NodeType::Object,
+                    level,
+                    has_children: true,
+                    is_expanded: false,
+                    parent_path: parent_path.to_string(),
+                },
+                TreeNode {
+                    name: "Device5".to_string(),
+                    node_id: "ns=2;s=Device5".to_string(),
+                    node_type: NodeType::Object,
+                    level,
+                    has_children: true,
+                    is_expanded: false,
+                    parent_path: parent_path.to_string(),
+                },
             ],
+            "ns=2;s=Simulation" => vec![ // Simulation
+                TreeNode {
+                    name: "RandomValues".to_string(),
+                    node_id: "ns=2;s=Simulation.RandomValues".to_string(),
+                    node_type: NodeType::Object,
+                    level,
+                    has_children: true,
+                    is_expanded: false,
+                    parent_path: parent_path.to_string(),
+                },
+                TreeNode {
+                    name: "Counters".to_string(),
+                    node_id: "ns=2;s=Simulation.Counters".to_string(),
+                    node_type: NodeType::Object,
+                    level,
+                    has_children: true,
+                    is_expanded: false,
+                    parent_path: parent_path.to_string(),
+                },
+                TreeNode {
+                    name: "SlowChangingValues".to_string(),
+                    node_id: "ns=2;s=Simulation.SlowChangingValues".to_string(),
+                    node_type: NodeType::Object,
+                    level,
+                    has_children: true,
+                    is_expanded: false,
+                    parent_path: parent_path.to_string(),
+                },
+            ],
+            "ns=2;s=DataAccess" => vec![ // DataAccess
+                TreeNode {
+                    name: "Dynamic".to_string(),
+                    node_id: "ns=2;s=DataAccess.Dynamic".to_string(),
+                    node_type: NodeType::Object,
+                    level,
+                    has_children: true,
+                    is_expanded: false,
+                    parent_path: parent_path.to_string(),
+                },
+                TreeNode {
+                    name: "Static".to_string(),
+                    node_id: "ns=2;s=DataAccess.Static".to_string(),
+                    node_type: NodeType::Object,
+                    level,
+                    has_children: true,
+                    is_expanded: false,
+                    parent_path: parent_path.to_string(),
+                },
+            ],
+            // Add more detailed children for devices
+            "ns=2;s=Device1" | "ns=2;s=Device2" | "ns=2;s=Device3" | "ns=2;s=Device4" | "ns=2;s=Device5" => vec![
+                TreeNode {
+                    name: "Temperature".to_string(),
+                    node_id: format!("{}.Temperature", parent_id),
+                    node_type: NodeType::Variable,
+                    level,
+                    has_children: false,
+                    is_expanded: false,
+                    parent_path: parent_path.to_string(),
+                },
+                TreeNode {
+                    name: "Pressure".to_string(),
+                    node_id: format!("{}.Pressure", parent_id),
+                    node_type: NodeType::Variable,
+                    level,
+                    has_children: false,
+                    is_expanded: false,
+                    parent_path: parent_path.to_string(),
+                },
+                TreeNode {
+                    name: "Status".to_string(),
+                    node_id: format!("{}.Status", parent_id),
+                    node_type: NodeType::Object,
+                    level,
+                    has_children: true,
+                    is_expanded: false,
+                    parent_path: parent_path.to_string(),
+                },
+                TreeNode {
+                    name: "Configuration".to_string(),
+                    node_id: format!("{}.Configuration", parent_id),
+                    node_type: NodeType::Object,
+                    level,
+                    has_children: true,
+                    is_expanded: false,
+                    parent_path: parent_path.to_string(),
+                },
+            ],
+            // Add many variables for testing scrolling
+            "ns=2;s=Simulation.RandomValues" => {
+                let mut vars = Vec::new();
+                for i in 1..=20 {
+                    vars.push(TreeNode {
+                        name: format!("Random{}", i),
+                        node_id: format!("ns=2;s=Simulation.RandomValues.Random{}", i),
+                        node_type: NodeType::Variable,
+                        level,
+                        has_children: false,
+                        is_expanded: false,
+                        parent_path: parent_path.to_string(),
+                    });
+                }
+                vars
+            },
+            "ns=2;s=Simulation.Counters" => {
+                let mut vars = Vec::new();
+                for i in 1..=15 {
+                    vars.push(TreeNode {
+                        name: format!("Counter{}", i),
+                        node_id: format!("ns=2;s=Simulation.Counters.Counter{}", i),
+                        node_type: NodeType::Variable,
+                        level,
+                        has_children: false,
+                        is_expanded: false,
+                        parent_path: parent_path.to_string(),
+                    });
+                }
+                vars
+            },
+            "ns=2;s=DataAccess.Dynamic" => {
+                let mut vars = Vec::new();
+                for i in 1..=25 {
+                    vars.push(TreeNode {
+                        name: format!("DynamicVar{}", i),
+                        node_id: format!("ns=2;s=DataAccess.Dynamic.DynamicVar{}", i),
+                        node_type: NodeType::Variable,
+                        level,
+                        has_children: false,
+                        is_expanded: false,
+                        parent_path: parent_path.to_string(),
+                    });
+                }
+                vars
+            },
             _ => vec![],
         }
     }
@@ -415,17 +628,10 @@ impl BrowseScreen {
                     break;
                 }
             }        }
-    }
-
-    fn update_scroll(&mut self) {
-        // Keep selected item visible in the tree view
-        let visible_height = 20; // This will be calculated from the actual render area
-        
-        if self.selected_node_index < self.scroll_offset {
-            self.scroll_offset = self.selected_node_index;
-        } else if self.selected_node_index >= self.scroll_offset + visible_height {
-            self.scroll_offset = self.selected_node_index.saturating_sub(visible_height - 1);
-        }
+    }    fn update_scroll(&mut self) {
+        // This will be updated with actual visible height in render
+        let visible_height = 20;
+        self.update_scroll_with_height(visible_height);
     }
 
     pub fn render(&mut self, f: &mut Frame, area: Rect) {
@@ -472,15 +678,17 @@ impl BrowseScreen {
         .style(Style::default().fg(Color::White));
 
         f.render_widget(header, area);
-    }
-
-    fn render_tree_view(&mut self, f: &mut Frame, area: Rect) {
+    }    fn render_tree_view(&mut self, f: &mut Frame, area: Rect) {
         let visible_height = area.height.saturating_sub(2) as usize; // Subtract borders
         self.update_scroll_with_height(visible_height);
         
         let start_idx = self.scroll_offset;
         let end_idx = (start_idx + visible_height).min(self.tree_nodes.len());
-        let visible_nodes = &self.tree_nodes[start_idx..end_idx];
+        let visible_nodes = if start_idx < self.tree_nodes.len() {
+            &self.tree_nodes[start_idx..end_idx]
+        } else {
+            &[]
+        };
 
         let items: Vec<ListItem> = visible_nodes
             .iter()
@@ -503,13 +711,15 @@ impl BrowseScreen {
                 // Create indentation based on level
                 let indent = "  ".repeat(node.level);
                 
+                // Use consistent width for expand icons
                 let expand_icon = if node.has_children {
-                    if node.is_expanded { "▼ " } else { "▶ " }
+                    if node.is_expanded { "▼" } else { "▶" }
                 } else {
-                    "  "
+                    " "
                 };
 
-                let name = format!("{}{}{} {}", indent, expand_icon, icon, node.name);
+                // Format: [indent][expand_icon] [type_icon] [name]
+                let name = format!("{}{} {} {}", indent, expand_icon, icon, node.name);
                 
                 let style = if is_selected {
                     Style::default().bg(Color::Blue).fg(Color::White).add_modifier(Modifier::BOLD)
@@ -517,19 +727,95 @@ impl BrowseScreen {
                     Style::default().fg(Color::White)
                 };
 
-                ListItem::new(name).style(style)
+                ListItem::new(Line::from(name)).style(style)
             })
             .collect();
+
+        // Add scroll indicator
+        let title = if self.tree_nodes.len() > visible_height {
+            format!("OPC UA Node Tree ({}/{} shown)", visible_nodes.len(), self.tree_nodes.len())
+        } else {
+            "OPC UA Node Tree".to_string()
+        };
 
         let list = List::new(items)
             .block(
                 Block::default()
-                    .title("OPC UA Node Tree")
+                    .title(title)
                     .borders(Borders::ALL)
                     .border_style(Style::default().fg(Color::Gray))
             );
 
         f.render_widget(list, area);
+        
+        // Render scrollbar if needed
+        if self.tree_nodes.len() > visible_height {
+            self.render_tree_scrollbar(f, area, visible_height);
+        }
+    }
+
+    fn render_tree_scrollbar(&self, f: &mut Frame, area: Rect, visible_height: usize) {
+        let scrollbar_area = Rect {
+            x: area.x + area.width - 1,
+            y: area.y + 1,
+            width: 1,
+            height: area.height.saturating_sub(2),
+        };
+
+        let scrollbar_height = scrollbar_area.height as usize;
+        if scrollbar_height < 3 {
+            return; // Too small to render meaningful scrollbar
+        }
+
+        let total_items = self.tree_nodes.len();
+        let track_height = scrollbar_height.saturating_sub(2); // Remove arrows
+        
+        // Calculate thumb size and position
+        let thumb_size = ((visible_height as f64 / total_items as f64) * track_height as f64).round() as usize;
+        let thumb_size = thumb_size.max(1).min(track_height);
+        
+        let max_scroll = total_items.saturating_sub(visible_height);
+        let scroll_ratio = if max_scroll > 0 {
+            self.scroll_offset as f64 / max_scroll as f64
+        } else {
+            0.0
+        };
+        
+        let max_thumb_pos = track_height.saturating_sub(thumb_size);
+        let thumb_pos = (scroll_ratio * max_thumb_pos as f64).round() as usize;
+
+        // Render scrollbar components
+        // Up arrow
+        f.render_widget(
+            Paragraph::new("↑").style(Style::default().fg(Color::White)),
+            Rect { x: scrollbar_area.x, y: scrollbar_area.y, width: 1, height: 1 }
+        );
+        
+        // Track
+        for i in 0..track_height {
+            let y = scrollbar_area.y + 1 + i as u16;
+            let symbol = if i >= thumb_pos && i < thumb_pos + thumb_size {
+                "█" // Thumb
+            } else {
+                "│" // Track
+            };
+            
+            f.render_widget(
+                Paragraph::new(symbol).style(Style::default().fg(Color::Gray)),
+                Rect { x: scrollbar_area.x, y, width: 1, height: 1 }
+            );
+        }
+        
+        // Down arrow
+        f.render_widget(
+            Paragraph::new("↓").style(Style::default().fg(Color::White)),
+            Rect { 
+                x: scrollbar_area.x, 
+                y: scrollbar_area.y + scrollbar_area.height - 1, 
+                width: 1, 
+                height: 1 
+            }
+        );
     }
 
     fn render_attributes_panel(&mut self, f: &mut Frame, area: Rect) {

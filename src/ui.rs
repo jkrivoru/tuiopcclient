@@ -24,6 +24,7 @@ use crate::screens::{BrowseScreen, ConnectScreen};
 pub struct App {
     client_manager: Arc<Mutex<OpcUaClientManager>>,
     should_quit: bool,
+    test_mode: bool,
 
     // App state
     app_state: AppState,
@@ -47,6 +48,17 @@ impl App {
             app_state: AppState::Connecting,
             connect_screen: ConnectScreen::new(),
             browse_screen: None,
+        }
+    }
+
+    pub fn new_with_browse_test(client_manager: Arc<Mutex<OpcUaClientManager>>) -> Self {
+        let test_server_url = "opc.tcp://test-server:4840".to_string();
+        Self {
+            client_manager,
+            should_quit: false,
+            app_state: AppState::Connected(test_server_url.clone()),
+            connect_screen: ConnectScreen::new(),
+            browse_screen: Some(BrowseScreen::new(test_server_url)),
         }
     }
 
