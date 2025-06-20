@@ -44,7 +44,6 @@ pub enum AuthenticationField {
 
 #[derive(Debug, Clone)]
 pub struct EndpointInfo {
-    pub endpoint_url: String,
     pub security_policy: SecurityPolicy,
     pub security_mode: SecurityMode,
     pub display_name: String,
@@ -122,12 +121,7 @@ impl ConnectScreen {    pub fn validate_server_url(&mut self) {
     
     pub fn get_server_url(&self) -> String {
         self.server_url_input.value().to_string()
-    }
-    
-    pub fn show_placeholder(&self) -> bool {
-        self.server_url_input.value().is_empty() && self.input_mode == InputMode::Editing
-    }
-    
+    }    
     pub fn update_endpoint_scroll(&mut self, visible_items: usize) {
         if self.discovered_endpoints.is_empty() {
             return;
@@ -211,24 +205,13 @@ impl ConnectScreen {    pub fn validate_server_url(&mut self) {
         }
         
         // Trusted server store is mandatory when auto-trust is disabled
-        if !self.auto_trust_server_cert {
-            if !store_path.is_empty() && !std::path::Path::new(store_path).exists() {
-                errors.push(format!("Trusted server store path not found: {}", store_path));
-            }
+        if !self.auto_trust_server_cert && !store_path.is_empty() && !std::path::Path::new(store_path).exists() {
+            errors.push(format!("Trusted server store path not found: {}", store_path));
         }
         
         errors
-    }
-    
-    pub fn get_security_validation_summary(&self) -> Option<String> {
-        let errors = self.validate_security_fields();
-        if errors.is_empty() {
-            None
-        } else {
-            Some(errors.join("; "))
-        }
-    }
-      pub fn has_certificate_validation_error(&self) -> bool {
+    }    
+    pub fn has_certificate_validation_error(&self) -> bool {
         if !self.show_security_validation {
             return false;
         }

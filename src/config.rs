@@ -1,6 +1,4 @@
 use serde::{Deserialize, Serialize};
-use std::fs;
-use anyhow::Result;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct OpcUaConfig {
@@ -26,19 +24,5 @@ impl Default for OpcUaConfig {
             session_timeout: 60000,
             keep_alive_interval: 1000,
         }
-    }
-}
-
-impl OpcUaConfig {
-    pub fn load_from_file(path: &str) -> Result<Self> {
-        let content = fs::read_to_string(path)?;
-        let config: OpcUaConfig = serde_json::from_str(&content)?;
-        Ok(config)
-    }
-
-    pub fn save_to_file(&self, path: &str) -> Result<()> {
-        let content = serde_json::to_string_pretty(self)?;
-        fs::write(path, content)?;
-        Ok(())
     }
 }

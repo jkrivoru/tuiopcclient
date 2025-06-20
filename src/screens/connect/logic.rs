@@ -16,14 +16,12 @@ impl ConnectScreen {    pub async fn discover_endpoints(&mut self) -> Result<()>
             return Ok(());
         }
         
-        // Simulate endpoint discovery with a longer delay to show popup
-        time::sleep(Duration::from_millis(1500)).await;        // Mock discovered endpoints based on URL - comprehensive test data
-        let base_url = self.get_server_url();
-        
+        // Simulate endpoint discovery with a longer delay to show popup        time::sleep(Duration::from_millis(1500)).await;
+
+        // Mock discovered endpoints - comprehensive test data
         self.discovered_endpoints = vec![
             // No Security
             EndpointInfo {
-                endpoint_url: base_url.clone(),
                 security_policy: SecurityPolicy::None,
                 security_mode: SecurityMode::None,
                 display_name: "None - No Security".to_string(),
@@ -31,13 +29,11 @@ impl ConnectScreen {    pub async fn discover_endpoints(&mut self) -> Result<()>
             
             // Basic128Rsa15 combinations
             EndpointInfo {
-                endpoint_url: base_url.clone(),
                 security_policy: SecurityPolicy::Basic128Rsa15,
                 security_mode: SecurityMode::Sign,
                 display_name: "Basic128Rsa15 - Sign Only".to_string(),
             },
             EndpointInfo {
-                endpoint_url: base_url.clone(),
                 security_policy: SecurityPolicy::Basic128Rsa15,
                 security_mode: SecurityMode::SignAndEncrypt,
                 display_name: "Basic128Rsa15 - Sign & Encrypt".to_string(),
@@ -45,13 +41,11 @@ impl ConnectScreen {    pub async fn discover_endpoints(&mut self) -> Result<()>
             
             // Basic256 combinations
             EndpointInfo {
-                endpoint_url: base_url.clone(),
                 security_policy: SecurityPolicy::Basic256,
                 security_mode: SecurityMode::Sign,
                 display_name: "Basic256 - Sign Only".to_string(),
             },
             EndpointInfo {
-                endpoint_url: base_url.clone(),
                 security_policy: SecurityPolicy::Basic256,
                 security_mode: SecurityMode::SignAndEncrypt,
                 display_name: "Basic256 - Sign & Encrypt".to_string(),
@@ -59,13 +53,11 @@ impl ConnectScreen {    pub async fn discover_endpoints(&mut self) -> Result<()>
             
             // Basic256Sha256 combinations (most common)
             EndpointInfo {
-                endpoint_url: base_url.clone(),
                 security_policy: SecurityPolicy::Basic256Sha256,
                 security_mode: SecurityMode::Sign,
                 display_name: "Basic256Sha256 - Sign Only".to_string(),
             },
             EndpointInfo {
-                endpoint_url: base_url.clone(),
                 security_policy: SecurityPolicy::Basic256Sha256,
                 security_mode: SecurityMode::SignAndEncrypt,
                 display_name: "Basic256Sha256 - Sign & Encrypt".to_string(),
@@ -73,13 +65,11 @@ impl ConnectScreen {    pub async fn discover_endpoints(&mut self) -> Result<()>
             
             // Aes128Sha256RsaOaep combinations
             EndpointInfo {
-                endpoint_url: base_url.clone(),
                 security_policy: SecurityPolicy::Aes128Sha256RsaOaep,
                 security_mode: SecurityMode::Sign,
                 display_name: "Aes128Sha256RsaOaep - Sign Only".to_string(),
             },
             EndpointInfo {
-                endpoint_url: base_url.clone(),
                 security_policy: SecurityPolicy::Aes128Sha256RsaOaep,
                 security_mode: SecurityMode::SignAndEncrypt,
                 display_name: "Aes128Sha256RsaOaep - Sign & Encrypt".to_string(),
@@ -87,13 +77,11 @@ impl ConnectScreen {    pub async fn discover_endpoints(&mut self) -> Result<()>
             
             // Aes256Sha256RsaPss combinations (most secure)
             EndpointInfo {
-                endpoint_url: base_url.clone(),
                 security_policy: SecurityPolicy::Aes256Sha256RsaPss,
                 security_mode: SecurityMode::Sign,
                 display_name: "Aes256Sha256RsaPss - Sign Only".to_string(),
             },
             EndpointInfo {
-                endpoint_url: base_url.clone(),
                 security_policy: SecurityPolicy::Aes256Sha256RsaPss,
                 security_mode: SecurityMode::SignAndEncrypt,
                 display_name: "Aes256Sha256RsaPss - Sign & Encrypt".to_string(),

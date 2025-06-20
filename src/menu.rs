@@ -74,12 +74,10 @@ impl MenuRenderer {
                     height: 6,  // Height for 4 items + borders
                 };
                 
-                let menu_items = vec![
-                    "Connect...       Ctrl+C",
+                let menu_items = ["Connect...       Ctrl+C",
                     "Server Info...   Ctrl+I", 
                     "─────────────────────────",
-                    "Exit             Alt+X",
-                ];
+                    "Exit             Alt+X"];
                 
                 let dropdown = Paragraph::new(menu_items.join("\n"))
                     .block(Block::default()
@@ -100,10 +98,8 @@ impl MenuRenderer {
                     height: 4,  // Height for 2 items + borders
                 };
                 
-                let menu_items = vec![
-                    "Browse Server    F5",
-                    "Refresh          F6",
-                ];
+                let menu_items = ["Browse Server    F5",
+                    "Refresh          F6"];
                 
                 let dropdown = Paragraph::new(menu_items.join("\n"))
                     .block(Block::default()
@@ -120,14 +116,14 @@ impl MenuRenderer {
 
     pub fn handle_menu_click(&mut self, column: u16) -> Option<MenuType> {
         // Menu positions: File (1-6), Browse (8-15)
-        if column >= 1 && column <= 6 {
+        if (1..=6).contains(&column) {
             if self.active_menu == Some(MenuType::File) {
                 self.active_menu = None;
             } else {
                 self.active_menu = Some(MenuType::File);
             }
             Some(MenuType::File)
-        } else if column >= 8 && column <= 15 && self.connection_status == ConnectionStatus::Connected {
+        } else if (8..=15).contains(&column) && self.connection_status == ConnectionStatus::Connected {
             if self.active_menu == Some(MenuType::Browse) {
                 self.active_menu = None;
             } else {

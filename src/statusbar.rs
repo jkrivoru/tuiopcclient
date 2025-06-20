@@ -10,9 +10,6 @@ use crate::client::ConnectionStatus;
 #[derive(Debug, Clone, PartialEq)]
 pub enum Screen {
     Main,
-    Browse,
-    Subscriptions,
-    Help,
 }
 
 pub struct StatusBarRenderer {
@@ -50,21 +47,7 @@ impl StatusBarRenderer {
 
     pub fn set_connection_status(&mut self, status: ConnectionStatus) {
         self.connection_status = status;
-    }
-
-    pub fn set_current_screen(&mut self, screen: Screen) {
+    }    pub fn set_current_screen(&mut self, screen: Screen) {
         self.current_screen = screen;
-    }
-
-    pub fn get_status_message(&self) -> &str {
-        &self.status_message
-    }
-
-    pub fn get_connection_status(&self) -> &ConnectionStatus {
-        &self.connection_status
-    }
-
-    pub fn get_current_screen(&self) -> &Screen {
-        &self.current_screen
     }
 }

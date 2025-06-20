@@ -108,8 +108,7 @@ impl App {
 
         Ok(())
     }    async fn handle_input(&mut self, key: KeyCode, modifiers: KeyModifiers) -> Result<()> {        // Handle connect screen inputs when it's shown
-        if self.show_connect_screen {
-            if let Some(connection_result) = self.connect_screen.handle_input(key, modifiers).await? {
+        if self.show_connect_screen {            if let Some(connection_result) = self.connect_screen.handle_input(key, modifiers).await? {
                 match connection_result {
                     ConnectionStatus::Connected => {
                         self.connection_status = ConnectionStatus::Connected;
@@ -120,7 +119,6 @@ impl App {
                         self.show_connect_screen = false;
                         self.status_message = "Connection cancelled".to_string();
                     }
-                    _ => {}
                 }
             }
             return Ok(()); // Early return to prevent double processing
@@ -149,16 +147,17 @@ impl App {
                 self.open_connect_dialog();
             }
             _ => {}
-        }
+        }        Ok(())
+    }
 
-        Ok(())
-    }    async fn handle_mouse_event(&mut self, mouse: MouseEvent) -> Result<()> {
+    async fn handle_mouse_event(&mut self, mouse: MouseEvent) -> Result<()> {
         // Ignore mouse move events to prevent spam
         if let MouseEventKind::Moved = mouse.kind {
             return Ok(());
         }
         
-        match mouse.kind {MouseEventKind::Down(MouseButton::Left) => {
+        match mouse.kind {
+            MouseEventKind::Down(MouseButton::Left) => {
                 // Handle connect screen mouse down when shown
                 if self.show_connect_screen {
                     self.connect_screen.handle_mouse_down(mouse.column, mouse.row);
@@ -180,8 +179,7 @@ impl App {
             }
             MouseEventKind::Up(MouseButton::Left) => {
                 // Handle connect screen mouse up when shown
-                if self.show_connect_screen {
-                    if let Some(button_id) = self.connect_screen.handle_mouse_up(mouse.column, mouse.row) {
+                if self.show_connect_screen {                    if let Some(button_id) = self.connect_screen.handle_mouse_up(mouse.column, mouse.row) {
                         // Handle button action
                         if let Some(connection_result) = self.connect_screen.handle_button_action(&button_id).await? {
                             match connection_result {
@@ -194,7 +192,6 @@ impl App {
                                     self.show_connect_screen = false;
                                     self.status_message = "Connection cancelled".to_string();
                                 }
-                                _ => {}
                             }
                         }
                     }
@@ -220,7 +217,7 @@ impl App {
         match menu_type {
             MenuType::File => {
                 // File dropdown: x=1, y=1, width=25, height=6
-                if column >= 1 && column <= 25 && row >= 1 && row <= 6 {
+                if (1..=25).contains(&column) && (1..=6).contains(&row) {
                     match row {
                         2 => {
                             // "Connect..." clicked
@@ -246,7 +243,7 @@ impl App {
             }
             MenuType::Browse => {
                 // Browse dropdown: x=9, y=1, width=20, height=4
-                if column >= 9 && column <= 28 && row >= 1 && row <= 4 {
+                if (9..=28).contains(&column) && (1..=4).contains(&row) {
                     match row {
                         2 => {
                             // "Browse Server" clicked
@@ -333,8 +330,6 @@ impl App {
             Span::styled("Status: ", Style::default().fg(Color::Yellow)),            Span::raw(match self.connection_status {
                 ConnectionStatus::Connected => "Connected",
                 ConnectionStatus::Disconnected => "Disconnected",
-                ConnectionStatus::Connecting => "Connecting...",
-                ConnectionStatus::Error => "Error",
             }),
             Span::raw("\n\n"),
             Span::styled("Quick Actions:\n", Style::default().fg(Color::Green)),

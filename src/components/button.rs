@@ -56,13 +56,7 @@ impl Button {
         }
     }
 
-    pub fn with_hotkey(mut self, key: char) -> Self {
-        self.hotkey = Some(key);
-        self
-    }
-
-    pub fn with_ctrl_key(mut self, key: char) -> Self {
-        self.ctrl_key = Some(key);
+    pub fn with_hotkey(mut self, key: char) -> Self {        self.hotkey = Some(key);
         self
     }
 
@@ -96,45 +90,26 @@ impl Button {
             return ButtonAction::None;
         }
 
-        match key {
-            KeyCode::Char(c) => {
-                // Check Alt+key shortcuts
-                if modifiers.contains(KeyModifiers::ALT) {
-                    if let Some(hotkey) = self.hotkey {
-                        if c.to_lowercase().to_string() == hotkey.to_lowercase().to_string() {
-                            return ButtonAction::Clicked;
-                        }
+        if let KeyCode::Char(c) = key {
+            // Check Alt+key shortcuts
+            if modifiers.contains(KeyModifiers::ALT) {
+                if let Some(hotkey) = self.hotkey {
+                    if c.to_lowercase().to_string() == hotkey.to_lowercase().to_string() {
+                        return ButtonAction::Clicked;
                     }
                 }
-                // Check Ctrl+key shortcuts
-                if modifiers.contains(KeyModifiers::CONTROL) {
-                    if let Some(ctrl_key) = self.ctrl_key {
-                        if c.to_lowercase().to_string() == ctrl_key.to_lowercase().to_string() {
-                            return ButtonAction::Clicked;
-                        }
+            }
+            // Check Ctrl+key shortcuts
+            if modifiers.contains(KeyModifiers::CONTROL) {
+                if let Some(ctrl_key) = self.ctrl_key {
+                    if c.to_lowercase().to_string() == ctrl_key.to_lowercase().to_string() {
+                        return ButtonAction::Clicked;
                     }
                 }
-            }            _ => {}
+            }
         }
         
-        ButtonAction::None
-    }
-
-    pub fn handle_mouse_click(&self, column: u16, row: u16) -> ButtonAction {
-        if !self.enabled {
-            return ButtonAction::None;
-        }
-
-        if let Some(area) = self.area {
-            if column >= area.x 
-                && column < area.x + area.width 
-                && row >= area.y 
-                && row < area.y + area.height 
-            {
-                return ButtonAction::Clicked;
-            }
-        }        ButtonAction::None
-    }
+        ButtonAction::None    }
 
     pub fn handle_mouse_down(&mut self, column: u16, row: u16) -> bool {
         if !self.enabled {
@@ -253,7 +228,7 @@ impl Button {
             let label_chars: Vec<char> = self.label.chars().collect();
             let mut found_hotkey = false;
             
-            for (_i, ch) in label_chars.iter().enumerate() {
+            for ch in label_chars.iter() {
                 if !found_hotkey && ch.to_lowercase().to_string() == hotkey_lower {
                     // Underline and bold the hotkey character
                     spans.push(Span::styled(
@@ -320,18 +295,7 @@ impl ButtonManager {
             }        }
         
         None
-    }
-
-    pub fn handle_mouse_click(&mut self, column: u16, row: u16) -> Option<String> {
-        for (idx, button) in self.buttons.iter().enumerate() {
-            if button.handle_mouse_click(column, row) == ButtonAction::Clicked {                self.focused_button = Some(idx);
-                return Some(button.id.clone());
-            }
-        }
-        None
-    }
-
-    pub fn handle_mouse_down(&mut self, column: u16, row: u16) -> bool {
+    }    pub fn handle_mouse_down(&mut self, column: u16, row: u16) -> bool {
         for button in &mut self.buttons {
             if button.handle_mouse_down(column, row) {
                 return true;
@@ -369,40 +333,7 @@ impl ButtonManager {
             if let Some(button) = self.buttons.get_mut(idx) {
                 button.render(f, *area);
             }
-        }
-    }
-
-    fn focus_next_button(&mut self) {
-        if self.buttons.is_empty() {
-            return;
-        }
-
-        let enabled_buttons: Vec<usize> = self.buttons
-            .iter()
-            .enumerate()
-            .filter(|(_, btn)| btn.enabled)
-            .map(|(idx, _)| idx)
-            .collect();
-
-        if enabled_buttons.is_empty() {
-            self.focused_button = None;
-            return;
-        }
-
-        match self.focused_button {
-            None => {
-                self.focused_button = Some(enabled_buttons[0]);
-            }
-            Some(current) => {
-                if let Some(current_pos) = enabled_buttons.iter().position(|&x| x == current) {
-                    let next_pos = (current_pos + 1) % enabled_buttons.len();
-                    self.focused_button = Some(enabled_buttons[next_pos]);
-                } else {
-                    self.focused_button = Some(enabled_buttons[0]);
-                }
-            }
-        }
-    }
+        }    }
 
     pub fn get_button_mut(&mut self, id: &str) -> Option<&mut Button> {
         self.buttons.iter_mut().find(|b| b.id == id)

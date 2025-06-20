@@ -22,8 +22,7 @@ impl ConnectScreen {
             .style(Style::default().fg(Color::White).bg(Color::Blue))
             .block(Block::default().borders(Borders::ALL));
         f.render_widget(title, chunks[0]);        // Authentication type selection
-        let auth_items = vec![
-            if self.authentication_type == AuthenticationType::Anonymous {
+        let auth_items = [if self.authentication_type == AuthenticationType::Anonymous {
                 "▶ Anonymous (No credentials required)"
             } else {
                 "  Anonymous (No credentials required)"
@@ -37,8 +36,7 @@ impl ConnectScreen {
                 "▶ X.509 Certificate"
             } else {
                 "  X.509 Certificate"
-            }
-        ];
+            }];
 
         let auth_text = auth_items.join("\n");
         let auth_block = Paragraph::new(auth_text)

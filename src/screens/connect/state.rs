@@ -66,11 +66,6 @@ impl ConnectScreen {    pub fn new() -> Self {        let mut screen = Self {
         self.password_input.reset();
         self.connect_in_progress = false;
         self.pending_discovery = false;
-        self.input_mode = InputMode::Editing;
-        self.setup_buttons_for_current_step();
-    }
-
-    pub fn is_connecting(&self) -> bool {
-        self.connect_in_progress
+        self.input_mode = InputMode::Editing;        self.setup_buttons_for_current_step();
     }
 }
