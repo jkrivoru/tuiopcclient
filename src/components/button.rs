@@ -1,7 +1,7 @@
 use crossterm::event::{KeyCode, KeyModifiers};
 use ratatui::{
     layout::{Alignment, Rect},
-    style::{Color, Style, Modifier},
+    style::{Color, Modifier, Style},
     text::{Line, Span},
     widgets::{Block, Paragraph},
     Frame,
@@ -18,10 +18,10 @@ pub enum ButtonState {
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum ButtonColor {
-    Red,      // Cancel/destructive actions
-    Green,    // Positive/continue actions
-    Blue,     // Neutral/back actions
-    Default,  // Default button color
+    Red,     // Cancel/destructive actions
+    Green,   // Positive/continue actions
+    Blue,    // Neutral/back actions
+    Default, // Default button color
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -34,7 +34,7 @@ pub enum ButtonAction {
 pub struct Button {
     pub id: String,
     pub label: String,
-    pub hotkey: Option<char>, // For Alt+key shortcuts
+    pub hotkey: Option<char>,   // For Alt+key shortcuts
     pub ctrl_key: Option<char>, // For Ctrl+key shortcuts
     pub state: ButtonState,
     pub color: ButtonColor,
@@ -56,7 +56,8 @@ impl Button {
         }
     }
 
-    pub fn with_hotkey(mut self, key: char) -> Self {        self.hotkey = Some(key);
+    pub fn with_hotkey(mut self, key: char) -> Self {
+        self.hotkey = Some(key);
         self
     }
 
@@ -65,8 +66,13 @@ impl Button {
         self
     }
 
-    pub fn with_enabled(mut self, enabled: bool) -> Self {        self.enabled = enabled;
-        self.state = if enabled { ButtonState::Normal } else { ButtonState::Disabled };
+    pub fn with_enabled(mut self, enabled: bool) -> Self {
+        self.enabled = enabled;
+        self.state = if enabled {
+            ButtonState::Normal
+        } else {
+            ButtonState::Disabled
+        };
         self
     }
 
@@ -74,11 +80,16 @@ impl Button {
         if self.enabled {
             self.state = state;
         }
-    }    pub fn set_enabled(&mut self, enabled: bool) {
+    }
+    pub fn set_enabled(&mut self, enabled: bool) {
         self.enabled = enabled;
         // Only change state if we're not in a mouse interaction
         if self.state != ButtonState::MouseDown {
-            self.state = if enabled { ButtonState::Normal } else { ButtonState::Disabled };
+            self.state = if enabled {
+                ButtonState::Normal
+            } else {
+                ButtonState::Disabled
+            };
         } else if !enabled {
             // If being disabled while in MouseDown state, force disable
             self.state = ButtonState::Disabled;
@@ -108,8 +119,9 @@ impl Button {
                 }
             }
         }
-        
-        ButtonAction::None    }
+
+        ButtonAction::None
+    }
 
     pub fn handle_mouse_down(&mut self, column: u16, row: u16) -> bool {
         if !self.enabled {
@@ -117,15 +129,16 @@ impl Button {
         }
 
         if let Some(area) = self.area {
-            if column >= area.x 
-                && column < area.x + area.width 
-                && row >= area.y 
-                && row < area.y + area.height 
+            if column >= area.x
+                && column < area.x + area.width
+                && row >= area.y
+                && row < area.y + area.height
             {
                 self.state = ButtonState::MouseDown;
                 return true;
             }
-        }        false
+        }
+        false
     }
 
     pub fn handle_mouse_up(&mut self, column: u16, row: u16) -> ButtonAction {
@@ -136,13 +149,13 @@ impl Button {
         if self.state == ButtonState::MouseDown {
             // Reset state first
             self.state = ButtonState::Normal;
-            
+
             // Check if mouse up is still within button area
             if let Some(area) = self.area {
-                if column >= area.x 
-                    && column < area.x + area.width 
-                    && row >= area.y 
-                    && row < area.y + area.height 
+                if column >= area.x
+                    && column < area.x + area.width
+                    && row >= area.y
+                    && row < area.y + area.height
                 {
                     return ButtonAction::Clicked;
                 }
@@ -150,27 +163,31 @@ impl Button {
         }
 
         ButtonAction::None
-    }    pub fn render(&mut self, f: &mut Frame, area: Rect) {
+    }
+    pub fn render(&mut self, f: &mut Frame, area: Rect) {
         // Store area for click detection
-        self.area = Some(area);        let text_style = match self.state {            ButtonState::Normal => {
+        self.area = Some(area);
+        let text_style = match self.state {
+            ButtonState::Normal => {
                 let bg = self.get_background_color();
                 let fg = self.get_text_color();
                 Style::default().fg(fg).bg(bg)
-            },
+            }
             ButtonState::Hovered => {
                 let bg = self.get_background_color();
                 Style::default().bg(bg)
-            },            ButtonState::MouseDown => {
+            }
+            ButtonState::MouseDown => {
                 let bg = self.get_lighter_background_color();
                 let fg = self.get_text_color();
                 Style::default().fg(fg).bg(bg)
-            },            ButtonState::Pressed => {
+            }
+            ButtonState::Pressed => {
                 let bg = self.get_background_color();
                 let fg = self.get_text_color();
                 Style::default().fg(fg).bg(bg)
-            },ButtonState::Disabled => {
-                Style::default().fg(Color::DarkGray).bg(Color::Black)
-            },
+            }
+            ButtonState::Disabled => Style::default().fg(Color::DarkGray).bg(Color::Black),
         };
 
         // Create button text with hotkey highlighting
@@ -183,17 +200,17 @@ impl Button {
             y: area.y + vertical_offset,
             width: area.width,
             height: 1, // Single line for text
-        };        // Render without borders for a cleaner look, with centered text
-        let paragraph = Paragraph::new(button_text)
-            .alignment(Alignment::Center);
+        }; // Render without borders for a cleaner look, with centered text
+        let paragraph = Paragraph::new(button_text).alignment(Alignment::Center);
 
         // First fill the entire button area with background color
         let background_block = Block::default().style(text_style);
         f.render_widget(background_block, area);
-        
+
         // Then render the centered text
         f.render_widget(paragraph, centered_area);
-    }    fn get_background_color(&self) -> Color {
+    }
+    fn get_background_color(&self) -> Color {
         match self.color {
             ButtonColor::Red => Color::Red,
             ButtonColor::Green => Color::Green,
@@ -209,25 +226,29 @@ impl Button {
             ButtonColor::Blue => Color::LightBlue,
             ButtonColor::Default => Color::Gray,
         }
-    }    fn get_text_color(&self) -> Color {
+    }
+    fn get_text_color(&self) -> Color {
         match self.color {
             ButtonColor::Red => Color::White,
-            ButtonColor::Green => Color::White,        // Standard text color for green button
+            ButtonColor::Green => Color::White, // Standard text color for green button
             ButtonColor::Blue => Color::White,
             ButtonColor::Default => Color::White,
         }
-    }    fn create_button_text(&self, base_style: Style) -> Line {
+    }
+    fn create_button_text(&self, base_style: Style) -> Line {
         let mut spans = Vec::new();
-        
+
         // Use the text color from base_style and add bold modifier
-        let text_style = Style::default().fg(base_style.fg.unwrap_or(Color::White)).add_modifier(Modifier::BOLD);
-        
+        let text_style = Style::default()
+            .fg(base_style.fg.unwrap_or(Color::White))
+            .add_modifier(Modifier::BOLD);
+
         if let Some(hotkey) = self.hotkey {
             // Find the hotkey character in the label and underline it
             let hotkey_lower = hotkey.to_lowercase().to_string();
             let label_chars: Vec<char> = self.label.chars().collect();
             let mut found_hotkey = false;
-            
+
             for ch in label_chars.iter() {
                 if !found_hotkey && ch.to_lowercase().to_string() == hotkey_lower {
                     // Underline and bold the hotkey character
@@ -240,7 +261,7 @@ impl Button {
                     spans.push(Span::styled(ch.to_string(), text_style));
                 }
             }
-            
+
             // If hotkey not found in label, just show the label with bold
             if !found_hotkey {
                 spans.clear();
@@ -276,7 +297,8 @@ impl ButtonManager {
     pub fn clear(&mut self) {
         self.buttons.clear();
         self.focused_button = None;
-    }    pub fn handle_key_input(&mut self, key: KeyCode, modifiers: KeyModifiers) -> Option<String> {
+    }
+    pub fn handle_key_input(&mut self, key: KeyCode, modifiers: KeyModifiers) -> Option<String> {
         // Handle Enter on focused button
         if key == KeyCode::Enter {
             if let Some(focused_idx) = self.focused_button {
@@ -292,10 +314,12 @@ impl ButtonManager {
         for button in &self.buttons {
             if button.handle_key_input(key, modifiers) == ButtonAction::Clicked {
                 return Some(button.id.clone());
-            }        }
-        
+            }
+        }
+
         None
-    }    pub fn handle_mouse_down(&mut self, column: u16, row: u16) -> bool {
+    }
+    pub fn handle_mouse_down(&mut self, column: u16, row: u16) -> bool {
         for button in &mut self.buttons {
             if button.handle_mouse_down(column, row) {
                 return true;
@@ -309,15 +333,19 @@ impl ButtonManager {
             if button.handle_mouse_up(column, row) == ButtonAction::Clicked {
                 self.focused_button = Some(idx);
                 return Some(button.id.clone());
-            }        }
+            }
+        }
         None
     }
 
     pub fn render_buttons(&mut self, f: &mut Frame, areas: &[Rect]) {
         // Don't automatically reset button states - let them manage their own state
         // Only update focus highlighting when no buttons are in MouseDown state
-        let has_mouse_down = self.buttons.iter().any(|b| b.state == ButtonState::MouseDown);
-        
+        let has_mouse_down = self
+            .buttons
+            .iter()
+            .any(|b| b.state == ButtonState::MouseDown);
+
         if !has_mouse_down {
             for (idx, button) in self.buttons.iter_mut().enumerate() {
                 if Some(idx) == self.focused_button && button.enabled {
@@ -333,7 +361,8 @@ impl ButtonManager {
             if let Some(button) = self.buttons.get_mut(idx) {
                 button.render(f, *area);
             }
-        }    }
+        }
+    }
 
     pub fn get_button_mut(&mut self, id: &str) -> Option<&mut Button> {
         self.buttons.iter_mut().find(|b| b.id == id)

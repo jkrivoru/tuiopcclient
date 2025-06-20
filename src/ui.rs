@@ -6,10 +6,7 @@ use crossterm::{
 };
 use ratatui::{
     backend::CrosstermBackend,
-    layout::{Constraint, Direction, Layout, Rect},
-    style::{Color, Style},
-    text::{Line, Span},
-    widgets::{Block, Borders, Paragraph},
+    layout::{Constraint, Direction, Layout},
     Frame, Terminal,
 };
 use std::{
@@ -20,25 +17,24 @@ use std::{
 use tokio::sync::Mutex;
 
 use crate::client::{OpcUaClientManager, ConnectionStatus};
-use crate::menu::{MenuRenderer, MenuType};
-use crate::statusbar::{StatusBarRenderer, Screen};
-use crate::screens::ConnectScreen;
+use crate::screens::{ConnectScreen, BrowseScreen};
 
 pub struct App {
     client_manager: Arc<Mutex<OpcUaClientManager>>,
     should_quit: bool,
     
-    // Status
-    status_message: String,
-    connection_status: ConnectionStatus,
-    
-    // UI components
-    menu_renderer: MenuRenderer,
-    statusbar_renderer: StatusBarRenderer,
+    // App state
+    app_state: AppState,
     
     // Screens
     connect_screen: ConnectScreen,
-    show_connect_screen: bool,
+    browse_screen: Option<BrowseScreen>,
+}
+
+#[derive(Debug, Clone)]
+enum AppState {
+    Connecting,
+    Connected(String), // Store server URL
 }
 
 impl App {
@@ -46,12 +42,9 @@ impl App {
         Self {
             client_manager,
             should_quit: false,
-            status_message: "Ready".to_string(),
-            connection_status: ConnectionStatus::Disconnected,
-            menu_renderer: MenuRenderer::new(),
-            statusbar_renderer: StatusBarRenderer::new(),
+            app_state: AppState::Connecting,
             connect_screen: ConnectScreen::new(),
-            show_connect_screen: true, // Show connect screen on startup
+            browse_screen: None,
         }
     }
 
@@ -64,7 +57,7 @@ impl App {
         execute!(terminal.backend_mut(), EnterAlternateScreen)?;
         execute!(terminal.backend_mut(), crossterm::event::EnableMouseCapture)?;
 
-        let result = self.run_app(&mut terminal).await;
+        let result = self.run_app_loop(&mut terminal).await;
         
         disable_raw_mode()?;
         execute!(terminal.backend_mut(), crossterm::event::DisableMouseCapture)?;
@@ -73,31 +66,32 @@ impl App {
         result
     }
 
-    async fn run_app(&mut self, terminal: &mut Terminal<CrosstermBackend<Stdout>>) -> Result<()> {
+    async fn run_app_loop(&mut self, terminal: &mut Terminal<CrosstermBackend<Stdout>>) -> Result<()> {
         let mut last_tick = Instant::now();
         let tick_rate = Duration::from_millis(250);
 
         loop {
-            terminal.draw(|f| self.ui(f))?;
+            terminal.draw(|f| self.render_ui(f))?;
 
             let timeout = tick_rate.checked_sub(last_tick.elapsed()).unwrap_or_else(|| Duration::from_secs(0));
             
-            if crossterm::event::poll(timeout)? {                match event::read()? {
+            if crossterm::event::poll(timeout)? {
+                match event::read()? {
                     Event::Key(key) => {
                         // Only process key press events, not key release
                         if key.kind == KeyEventKind::Press {
-                            self.handle_input(key.code, key.modifiers).await?;
+                            self.handle_key_input(key.code, key.modifiers).await?;
                         }
                     }
                     Event::Mouse(mouse) => {
-                        self.handle_mouse_event(mouse).await?;
+                        self.handle_mouse_input(mouse).await?;
                     }
                     _ => {}
                 }
             }
 
             if last_tick.elapsed() >= tick_rate {
-                self.on_tick().await;
+                self.handle_tick().await;
                 last_tick = Instant::now();
             }
 
@@ -107,249 +101,152 @@ impl App {
         }
 
         Ok(())
-    }    async fn handle_input(&mut self, key: KeyCode, modifiers: KeyModifiers) -> Result<()> {        // Handle connect screen inputs when it's shown
-        if self.show_connect_screen {            if let Some(connection_result) = self.connect_screen.handle_input(key, modifiers).await? {
-                match connection_result {
-                    ConnectionStatus::Connected => {
-                        self.connection_status = ConnectionStatus::Connected;
-                        self.show_connect_screen = false;
-                        self.status_message = "Connected to OPC UA server".to_string();
-                    }
-                    ConnectionStatus::Disconnected => {
-                        self.show_connect_screen = false;
-                        self.status_message = "Connection cancelled".to_string();
+    }    async fn handle_key_input(&mut self, key: KeyCode, modifiers: KeyModifiers) -> Result<()> {
+        match &self.app_state {
+            AppState::Connecting => {
+                // Handle connect screen input
+                if let Some(connection_result) = self.connect_screen.handle_input(key, modifiers).await? {
+                    self.handle_connection_result(connection_result);
+                }
+            }
+            AppState::Connected(_server_url) => {
+                // Handle browse screen input
+                if let Some(browse_screen) = &mut self.browse_screen {
+                    if let Some(connection_result) = browse_screen.handle_input(key, modifiers).await? {
+                        match connection_result {
+                            ConnectionStatus::Disconnected => {
+                                // User wants to quit
+                                self.should_quit = true;
+                            }
+                            _ => {}
+                        }
                     }
                 }
             }
-            return Ok(()); // Early return to prevent double processing
         }
-
-        // Global hotkeys
-        if modifiers.contains(KeyModifiers::ALT) {
-            match key {
-                KeyCode::Char('f') => {
-                    // File menu
-                    self.open_connect_dialog();
-                }
-                KeyCode::Char('x') => {
-                    self.should_quit = true;
-                }
-                _ => {}
-            }
-            return Ok(());
-        }        // Regular key handling
-        match key {
-            KeyCode::Esc => {
-                // Close any open menus
-                self.menu_renderer.close_menu();
-            }
-            KeyCode::Char('c') if modifiers.contains(KeyModifiers::CONTROL) => {
-                self.open_connect_dialog();
-            }
-            _ => {}
-        }        Ok(())
+        
+        Ok(())
     }
 
-    async fn handle_mouse_event(&mut self, mouse: MouseEvent) -> Result<()> {
+    async fn handle_mouse_input(&mut self, mouse: MouseEvent) -> Result<()> {
         // Ignore mouse move events to prevent spam
         if let MouseEventKind::Moved = mouse.kind {
             return Ok(());
         }
         
-        match mouse.kind {
-            MouseEventKind::Down(MouseButton::Left) => {
-                // Handle connect screen mouse down when shown
-                if self.show_connect_screen {
-                    self.connect_screen.handle_mouse_down(mouse.column, mouse.row);
-                    return Ok(());
-                }
-                
-                // Check if click is on menu bar (first row)
-                if mouse.row == 0 {
-                    self.handle_menu_click(mouse.column).await?;
-                }
-                // Check if click is on dropdown menu
-                else if let Some(menu_type) = self.menu_renderer.get_active_menu() {
-                    self.handle_dropdown_click(menu_type, mouse.column, mouse.row).await?;
-                }
-                // Click elsewhere closes menu
-                else {
-                    self.menu_renderer.close_menu();
-                }
-            }
-            MouseEventKind::Up(MouseButton::Left) => {
-                // Handle connect screen mouse up when shown
-                if self.show_connect_screen {                    if let Some(button_id) = self.connect_screen.handle_mouse_up(mouse.column, mouse.row) {
-                        // Handle button action
-                        if let Some(connection_result) = self.connect_screen.handle_button_action(&button_id).await? {
-                            match connection_result {
-                                ConnectionStatus::Connected => {
-                                    self.connection_status = ConnectionStatus::Connected;
-                                    self.show_connect_screen = false;
-                                    self.status_message = "Connected to OPC UA server".to_string();
-                                }
-                                ConnectionStatus::Disconnected => {
-                                    self.show_connect_screen = false;
-                                    self.status_message = "Connection cancelled".to_string();
-                                }
+        match &self.app_state {
+            AppState::Connecting => {
+                // Handle connect screen mouse events
+                match mouse.kind {                    MouseEventKind::Down(MouseButton::Left) => {
+                        self.connect_screen.handle_mouse_down(mouse.column, mouse.row);
+                    }
+                    MouseEventKind::Up(MouseButton::Left) => {
+                        if let Some(button_id) = self.connect_screen.handle_mouse_up(mouse.column, mouse.row) {
+                            // Handle button action
+                            if let Some(connection_result) = self.connect_screen.handle_button_action(&button_id).await? {
+                                self.handle_connection_result(connection_result);
                             }
                         }
                     }
-                    return Ok(());
+                    _ => {}
                 }
             }
-            _ => {} // Ignore other mouse events like Move
+            AppState::Connected(_) => {
+                // Browse screen doesn't handle mouse events yet
+                // Could add mouse support for node selection in the future
+            }
         }
-        Ok(())
-    }
-
-    async fn handle_menu_click(&mut self, column: u16) -> Result<()> {
-        // Update menu renderer connection status first
-        self.menu_renderer.set_connection_status(self.connection_status.clone());
         
-        if let Some(_menu_type) = self.menu_renderer.handle_menu_click(column) {
-            // Menu state updated in renderer
-        }
         Ok(())
     }
 
-    async fn handle_dropdown_click(&mut self, menu_type: MenuType, column: u16, row: u16) -> Result<()> {
-        match menu_type {
-            MenuType::File => {
-                // File dropdown: x=1, y=1, width=25, height=6
-                if (1..=25).contains(&column) && (1..=6).contains(&row) {
-                    match row {
-                        2 => {
-                            // "Connect..." clicked
-                            self.open_connect_dialog();
-                            self.menu_renderer.close_menu();
-                        }
-                        3 => {
-                            // "Server Info..." clicked
-                            self.status_message = "Server info not implemented yet".to_string();
-                            self.menu_renderer.close_menu();
-                        }
-                        5 => {
-                            // "Exit" clicked (after separator line)
-                            self.should_quit = true;
-                            self.menu_renderer.close_menu();
-                        }
-                        _ => {}
+    async fn handle_tick(&mut self) {
+        match &self.app_state {            AppState::Connecting => {
+                // Handle pending operations for connect screen
+                match self.connect_screen.handle_pending_operations().await {
+                    Ok(Some(connection_result)) => {
+                        // Handle connection result using helper
+                        self.handle_connection_result(connection_result);
                     }
-                } else {
-                    // Click outside dropdown closes it
-                    self.menu_renderer.close_menu();
-                }
-            }
-            MenuType::Browse => {
-                // Browse dropdown: x=9, y=1, width=20, height=4
-                if (9..=28).contains(&column) && (1..=4).contains(&row) {
-                    match row {
-                        2 => {
-                            // "Browse Server" clicked
-                            self.status_message = "Browse functionality not implemented yet".to_string();
-                            self.menu_renderer.close_menu();
-                        }
-                        3 => {
-                            // "Refresh" clicked
-                            self.status_message = "Refresh functionality not implemented yet".to_string();
-                            self.menu_renderer.close_menu();
-                        }
-                        _ => {}
+                    Ok(None) => {
+                        // No change, continue as normal
                     }
-                } else {
-                    // Click outside dropdown closes it
-                    self.menu_renderer.close_menu();
+                    Err(e) => {
+                        log::error!("Error handling connect screen operations: {}", e);
+                    }
+                }
+            }
+            AppState::Connected(_) => {
+                // Update connection status from client manager
+                if let Ok(client) = self.client_manager.try_lock() {
+                    let status = client.get_connection_status();
+                    if status == ConnectionStatus::Disconnected {
+                        // Connection was lost, go back to connect screen
+                        log::warn!("Lost connection to server, returning to connect screen");
+                        self.app_state = AppState::Connecting;
+                        self.browse_screen = None;
+                        self.connect_screen.reset();
+                    }
                 }
             }
         }
-        Ok(())
-    }    async fn on_tick(&mut self) {
-        // Handle pending operations for connect screen
-        if self.show_connect_screen {
-            if let Err(e) = self.connect_screen.handle_pending_operations().await {
-                eprintln!("Error handling pending operations: {}", e);
+    }
+
+    /// Helper method to handle connection results consistently
+    fn handle_connection_result(&mut self, connection_result: ConnectionStatus) {
+        match connection_result {
+            ConnectionStatus::Connected => {
+                // Get the server URL from the connect screen
+                let server_url = self.connect_screen.get_server_url();
+                log::info!("Successfully connected to: {}", server_url);
+                
+                // Update client manager status
+                if let Ok(mut client) = self.client_manager.try_lock() {
+                    client.set_connection_status(ConnectionStatus::Connected);
+                }
+                
+                // Transition to browse screen
+                self.app_state = AppState::Connected(server_url.clone());
+                self.browse_screen = Some(BrowseScreen::new(server_url));
             }
-        }
-        
-        // Update connection status
-        if let Ok(client) = self.client_manager.try_lock() {
-            self.connection_status = client.get_connection_status();
-        }
-        
-        // Update renderers with current state
-        self.menu_renderer.set_connection_status(self.connection_status.clone());
-        self.statusbar_renderer.set_connection_status(self.connection_status.clone());
-        self.statusbar_renderer.set_current_screen(Screen::Main);
-        self.statusbar_renderer.set_status_message(self.status_message.clone());
-    }fn ui(&mut self, f: &mut Frame) {
-        let size = f.size();        if self.show_connect_screen {
-            // Connect screen: hide menu bar for a cleaner look, add help line
-            let chunks = Layout::default()
-                .direction(Direction::Vertical)
-                .constraints([
-                    Constraint::Min(0),    // Main content (connect screen)
-                    Constraint::Length(1), // Help line
-                    Constraint::Length(1), // Status bar
-                ])
-                .split(size);
-
-            self.connect_screen.render(f, chunks[0]);
-            self.connect_screen.render_help_line(f, chunks[1]);
-            self.statusbar_renderer.render_status_bar(f, chunks[2], None);
-        } else {
-            // Main screen: show menu bar
-            let chunks = Layout::default()
-                .direction(Direction::Vertical)
-                .constraints([
-                    Constraint::Length(1), // Menu bar
-                    Constraint::Min(0),    // Main content
-                    Constraint::Length(1), // Status bar
-                ])
-                .split(size);
-
-            // Menu bar
-            self.menu_renderer.render_menu_bar(f, chunks[0]);
-            
-            // Main content
-            self.render_main_screen(f, chunks[1]);
-            
-            // Status bar
-            self.statusbar_renderer.render_status_bar(f, chunks[2], self.menu_renderer.get_active_menu().as_ref());
-
-            // Render dropdown menus (must be last to appear on top)
-            if let Some(menu_type) = self.menu_renderer.get_active_menu() {
-                self.menu_renderer.render_dropdown_menu(f, menu_type);
+            ConnectionStatus::Disconnected => {
+                // User cancelled connection or wants to quit
+                self.should_quit = true;
             }
         }
     }
 
-    fn render_main_screen(&self, f: &mut Frame, area: Rect) {
-        let welcome_text = vec![
-            Span::raw("Welcome to OPC UA Client\n\n"),
-            Span::styled("Status: ", Style::default().fg(Color::Yellow)),            Span::raw(match self.connection_status {
-                ConnectionStatus::Connected => "Connected",
-                ConnectionStatus::Disconnected => "Disconnected",
-            }),
-            Span::raw("\n\n"),
-            Span::styled("Quick Actions:\n", Style::default().fg(Color::Green)),
-            Span::raw("• Ctrl+C or Alt+F → Connect to server\n"),
-            Span::raw("• Alt+X → Exit application\n"),
-            Span::raw("\nUse the menu above for more options."),
-        ];
-
-        let welcome = Paragraph::new(Line::from(welcome_text))
-            .block(Block::default()
-                .title("OPC UA Client")
-                .borders(Borders::ALL))
-            .style(Style::default().fg(Color::White));
+    fn render_ui(&mut self, f: &mut Frame) {
+        let size = f.size();
         
-        f.render_widget(welcome, area);
-    }
+        match &self.app_state {
+            AppState::Connecting => {
+                // Show connect screen with help line
+                let chunks = Layout::default()
+                    .direction(Direction::Vertical)
+                    .constraints([
+                        Constraint::Min(0),    // Connect screen
+                        Constraint::Length(1), // Help line
+                    ])
+                    .split(size);
 
-    fn open_connect_dialog(&mut self) {
-        self.show_connect_screen = true;
-        self.connect_screen.reset();
-        self.status_message = "Opening connection dialog...".to_string();
+                self.connect_screen.render(f, chunks[0]);
+                self.connect_screen.render_help_line(f, chunks[1]);
+            }            AppState::Connected(_) => {
+                // Show browse screen with help line
+                let chunks = Layout::default()
+                    .direction(Direction::Vertical)
+                    .constraints([
+                        Constraint::Min(0),    // Browse screen
+                        Constraint::Length(1), // Help line
+                    ])
+                    .split(size);
+                
+                if let Some(browse_screen) = &mut self.browse_screen {
+                    browse_screen.render(f, chunks[0]);
+                    browse_screen.render_help_line(f, chunks[1]);
+                }
+            }
+        }
     }
 }

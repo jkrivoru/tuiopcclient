@@ -2,6 +2,7 @@ use anyhow::Result;
 use log::{info, warn, error};
 use std::time::Duration;
 use tokio::time;
+use tui_input::backend::crossterm::EventHandler;
 use crate::client::ConnectionStatus;
 use crate::components::{Button, ButtonColor};
 use super::types::*;
@@ -107,8 +108,16 @@ impl ConnectScreen {    pub async fn discover_endpoints(&mut self) -> Result<()>
             return Ok(None);
         }
         
+        // Set flags for showing popup and triggering connection
         self.connect_in_progress = true;
-          let auth_desc = match self.authentication_type {
+        self.pending_connection = true;
+        Ok(None) // Return immediately to show the popup
+    }
+    
+    pub async fn perform_connection(&mut self) -> Result<Option<ConnectionStatus>> {
+        info!("Starting connection process...");
+        
+        let auth_desc = match self.authentication_type {
             AuthenticationType::Anonymous => "Anonymous".to_string(),
             AuthenticationType::UserPassword => format!("User: {}", self.username_input.value()),
             AuthenticationType::X509Certificate => format!("Certificate: {}", 
@@ -121,15 +130,24 @@ impl ConnectScreen {    pub async fn discover_endpoints(&mut self) -> Result<()>
         
         info!("Connecting with {}", auth_desc);
         
-        // Simulate connection process
-        time::sleep(Duration::from_millis(1000)).await;
+        // Simulate connection process with a delay to show popup
+        time::sleep(Duration::from_millis(1500)).await;
         
-        // For demo purposes, simulate successful connection
-        self.connect_in_progress = false;
-        info!("Connected successfully!");
+        // For demo purposes, we can simulate both success and failure
+        // In a real implementation, this would attempt actual OPC UA connection
+        let connection_successful = true; // Change to false to test error handling
         
-        Ok(Some(ConnectionStatus::Connected))
-    }    pub async fn handle_button_action(&mut self, button_id: &str) -> Result<Option<ConnectionStatus>> {
+        if connection_successful {
+            info!("Connected successfully!");
+            Ok(Some(ConnectionStatus::Connected))
+        } else {
+            // Connection failed - log error and stay on authentication screen
+            log::error!("Connection failed: Unable to connect to OPC UA server");
+            log::error!("Please check server URL, endpoint selection, and authentication settings");
+            log::warn!("Verify that the OPC UA server is running and accessible");
+            Ok(None) // Return None to stay on current screen
+        }
+    }pub async fn handle_button_action(&mut self, button_id: &str) -> Result<Option<ConnectionStatus>> {
         match button_id {
             "cancel" => Ok(Some(ConnectionStatus::Disconnected)),            "next" => {
                 match self.step {                    ConnectDialogStep::ServerUrl => {
@@ -299,19 +317,7 @@ impl ConnectScreen {    pub async fn discover_endpoints(&mut self) -> Result<()>
                     self.step = ConnectDialogStep::Authentication;
                     // Reset authentication validation highlighting when entering auth step
                     self.show_auth_validation = false;
-                    match self.authentication_type {
-                        AuthenticationType::UserPassword => {
-                            self.active_auth_field = AuthenticationField::Username;
-                            self.input_mode = InputMode::Editing;
-                        }
-                        AuthenticationType::X509Certificate => {
-                            self.active_auth_field = AuthenticationField::UserCertificate;
-                            self.input_mode = InputMode::Editing;
-                        }
-                        AuthenticationType::Anonymous => {
-                            self.input_mode = InputMode::Normal;
-                        }
-                    }
+                    self.setup_authentication_fields();
                 }
                 self.setup_buttons_for_current_step();
                 Ok(())
@@ -335,19 +341,7 @@ impl ConnectScreen {    pub async fn discover_endpoints(&mut self) -> Result<()>
                 self.step = ConnectDialogStep::Authentication;
                 // Reset authentication validation highlighting when entering auth step
                 self.show_auth_validation = false;
-                match self.authentication_type {
-                    AuthenticationType::UserPassword => {
-                        self.active_auth_field = AuthenticationField::Username;
-                        self.input_mode = InputMode::Editing;
-                    }
-                    AuthenticationType::X509Certificate => {
-                        self.active_auth_field = AuthenticationField::UserCertificate;
-                        self.input_mode = InputMode::Editing;
-                    }
-                    AuthenticationType::Anonymous => {
-                        self.input_mode = InputMode::Normal;
-                    }
-                }
+                self.setup_authentication_fields();
                 self.setup_buttons_for_current_step();
                 Ok(())
             }
@@ -356,10 +350,8 @@ impl ConnectScreen {    pub async fn discover_endpoints(&mut self) -> Result<()>
                 Ok(())
             }
         }
-    }
-
-    // Method to be called from the main UI loop to handle pending operations
-    pub async fn handle_pending_operations(&mut self) -> Result<()> {
+    }    // Method to be called from the main UI loop to handle pending operations
+    pub async fn handle_pending_operations(&mut self) -> Result<Option<ConnectionStatus>> {
         if self.pending_discovery {
             self.pending_discovery = false;
             
@@ -372,6 +364,184 @@ impl ConnectScreen {    pub async fn discover_endpoints(&mut self) -> Result<()>
             self.setup_buttons_for_current_step();
             self.input_mode = InputMode::Normal;
         }
-        Ok(())
+        
+        if self.pending_connection {
+            self.pending_connection = false;
+            
+            // Perform the actual connection
+            let connection_result = self.perform_connection().await?;
+            
+            // After connection attempt, hide popup
+            self.connect_in_progress = false;
+            
+            // Return the connection result so the main UI can handle the transition
+            return Ok(connection_result);
+        }
+        
+        Ok(None)
+    }
+      /// Helper method to setup authentication fields based on type
+    fn setup_authentication_fields(&mut self) {
+        match self.authentication_type {
+            AuthenticationType::UserPassword => {
+                self.active_auth_field = AuthenticationField::Username;
+                self.input_mode = InputMode::Editing;
+            }
+            AuthenticationType::X509Certificate => {
+                self.active_auth_field = AuthenticationField::UserCertificate;
+                self.input_mode = InputMode::Editing;
+            }
+            AuthenticationType::Anonymous => {
+                self.input_mode = InputMode::Normal;
+            }
+        }
+    }
+
+    /// Helper method to cycle authentication types
+    pub fn cycle_authentication_type(&mut self) {
+        self.authentication_type = match self.authentication_type {
+            AuthenticationType::Anonymous => AuthenticationType::UserPassword,
+            AuthenticationType::UserPassword => AuthenticationType::X509Certificate,
+            AuthenticationType::X509Certificate => AuthenticationType::Anonymous,
+        };
+        self.setup_authentication_fields();
+    }
+
+    /// Helper method to navigate authentication fields with Tab
+    pub fn navigate_auth_fields_forward(&mut self) {
+        match self.authentication_type {
+            AuthenticationType::UserPassword => {
+                self.active_auth_field = match self.active_auth_field {
+                    AuthenticationField::Username => AuthenticationField::Password,
+                    AuthenticationField::Password => AuthenticationField::Username,
+                    _ => AuthenticationField::Username,
+                };
+                self.input_mode = InputMode::Editing;
+            }
+            AuthenticationType::X509Certificate => {
+                self.active_auth_field = match self.active_auth_field {
+                    AuthenticationField::UserCertificate => AuthenticationField::UserPrivateKey,
+                    AuthenticationField::UserPrivateKey => AuthenticationField::UserCertificate,
+                    _ => AuthenticationField::UserCertificate,
+                };
+                self.input_mode = InputMode::Editing;
+            }
+            AuthenticationType::Anonymous => {
+                // No fields to navigate
+            }
+        }
+    }
+
+    /// Helper method to navigate security fields forward (Tab)
+    pub fn navigate_security_fields_forward(&mut self) {
+        match self.active_security_field {
+            SecurityField::ClientCertificate => {
+                self.active_security_field = SecurityField::ClientPrivateKey;
+                self.input_mode = InputMode::Editing;
+            }
+            SecurityField::ClientPrivateKey => {
+                self.active_security_field = SecurityField::AutoTrustCheckbox;
+                self.input_mode = InputMode::Normal;
+            }
+            SecurityField::AutoTrustCheckbox => {
+                if !self.auto_trust_server_cert {
+                    self.active_security_field = SecurityField::TrustedServerStore;
+                    self.input_mode = InputMode::Editing;
+                } else {
+                    self.active_security_field = SecurityField::ClientCertificate;
+                    self.input_mode = InputMode::Editing;
+                }
+            }
+            SecurityField::TrustedServerStore => {
+                self.active_security_field = SecurityField::ClientCertificate;
+                self.input_mode = InputMode::Editing;
+            }
+        }
+    }
+
+    /// Helper method to navigate security fields backward (Shift+Tab)
+    pub fn navigate_security_fields_backward(&mut self) {
+        match self.active_security_field {
+            SecurityField::ClientCertificate => {
+                if !self.auto_trust_server_cert {
+                    self.active_security_field = SecurityField::TrustedServerStore;
+                    self.input_mode = InputMode::Editing;
+                } else {
+                    self.active_security_field = SecurityField::AutoTrustCheckbox;
+                    self.input_mode = InputMode::Normal;
+                }
+            }
+            SecurityField::ClientPrivateKey => {
+                self.active_security_field = SecurityField::ClientCertificate;
+                self.input_mode = InputMode::Editing;
+            }
+            SecurityField::AutoTrustCheckbox => {
+                self.active_security_field = SecurityField::ClientPrivateKey;
+                self.input_mode = InputMode::Editing;
+            }
+            SecurityField::TrustedServerStore => {
+                self.active_security_field = SecurityField::AutoTrustCheckbox;
+                self.input_mode = InputMode::Normal;
+            }
+        }
+    }
+
+    /// Helper method to handle authentication field character input
+    pub fn handle_auth_field_input(&mut self, key: crossterm::event::KeyCode, modifiers: crossterm::event::KeyModifiers) {
+        match self.authentication_type {
+            AuthenticationType::UserPassword => match self.active_auth_field {
+                AuthenticationField::Username => {
+                    self.username_input.handle_event(&crossterm::event::Event::Key(
+                        crossterm::event::KeyEvent::new(key, modifiers),
+                    ));
+                }
+                AuthenticationField::Password => {
+                    self.password_input.handle_event(&crossterm::event::Event::Key(
+                        crossterm::event::KeyEvent::new(key, modifiers),
+                    ));
+                }
+                _ => {}
+            },
+            AuthenticationType::X509Certificate => match self.active_auth_field {
+                AuthenticationField::UserCertificate => {
+                    self.user_certificate_input.handle_event(&crossterm::event::Event::Key(
+                        crossterm::event::KeyEvent::new(key, modifiers),
+                    ));
+                }
+                AuthenticationField::UserPrivateKey => {
+                    self.user_private_key_input.handle_event(&crossterm::event::Event::Key(
+                        crossterm::event::KeyEvent::new(key, modifiers),
+                    ));
+                }
+                _ => {}
+            },
+            AuthenticationType::Anonymous => {
+                // No input fields for anonymous
+            }
+        }
+    }    /// Helper method to handle security field character input
+    pub fn handle_security_field_input(&mut self, key: crossterm::event::KeyCode, modifiers: crossterm::event::KeyModifiers) {
+        match self.active_security_field {
+            SecurityField::ClientCertificate => {
+                self.client_certificate_input.handle_event(&crossterm::event::Event::Key(
+                    crossterm::event::KeyEvent::new(key, modifiers),
+                ));
+            }
+            SecurityField::ClientPrivateKey => {
+                self.client_private_key_input.handle_event(&crossterm::event::Event::Key(
+                    crossterm::event::KeyEvent::new(key, modifiers),
+                ));
+            }
+            SecurityField::TrustedServerStore => {
+                if !self.auto_trust_server_cert {
+                    self.trusted_server_store_input.handle_event(&crossterm::event::Event::Key(
+                        crossterm::event::KeyEvent::new(key, modifiers),
+                    ));
+                }
+            }
+            SecurityField::AutoTrustCheckbox => {
+                // Checkbox doesn't handle character input
+            }
+        }
     }
 }

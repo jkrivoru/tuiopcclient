@@ -1,0 +1,38 @@
+<problems>
+<problem>
+  <file>file://$PROJECT_DIR$/jk-opc-client/src/components/scrollable_log.rs</file>
+  <line>1</line>
+  <module>jkopcclient</module>
+  <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/jk-opc-client/src/components/scrollable_log.rs" />
+  <problem_class id="RsDetachedFile" severity="WARNING" attribute_key="WARNING_ATTRIBUTES">Detached file</problem_class>
+  <description>Module declaration missing. This may impact smart editing features and auto-completion.</description>
+  <highlighted_element />
+  <language>Rust</language>
+  <offset>0</offset>
+  <length>1</length>
+</problem>
+<problem>
+  <file>file://$PROJECT_DIR$/jk-opc-client/src/menu.rs</file>
+  <line>1</line>
+  <module>jkopcclient</module>
+  <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/jk-opc-client/src/menu.rs" />
+  <problem_class id="RsDetachedFile" severity="WARNING" attribute_key="WARNING_ATTRIBUTES">Detached file</problem_class>
+  <description>Module declaration missing. This may impact smart editing features and auto-completion.</description>
+  <highlighted_element>use ratatui::{ layout::Rect, style::{Color, Style}, text::{Line, Span}, widgets::{Bl...</highlighted_element>
+  <language>Rust</language>
+  <offset>0</offset>
+  <length>5615</length>
+</problem>
+<problem>
+  <file>file://$PROJECT_DIR$/jk-opc-client/src/statusbar.rs</file>
+  <line>1</line>
+  <module>jkopcclient</module>
+  <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/jk-opc-client/src/statusbar.rs" />
+  <problem_class id="RsDetachedFile" severity="WARNING" attribute_key="WARNING_ATTRIBUTES">Detached file</problem_class>
+  <description>Module declaration missing. This may impact smart editing features and auto-completion.</description>
+  <highlighted_element>use ratatui::{ layout::Rect, style::{Color, Style}, widgets::Paragraph, Frame, }; u...</highlighted_element>
+  <language>Rust</language>
+  <offset>0</offset>
+  <length>1427</length>
+</problem>
+</problems>

@@ -24,7 +24,9 @@ impl ConnectScreen {    pub fn new() -> Self {        let mut screen = Self {
             password_input: Input::default(),
             user_certificate_input: Input::default(),
             user_private_key_input: Input::default(),
-            connect_in_progress: false,            pending_discovery: false,
+            connect_in_progress: false,
+            pending_discovery: false,
+            pending_connection: false,
             show_security_validation: false,
             show_auth_validation: false,
             input_mode: InputMode::Editing,
@@ -63,9 +65,9 @@ impl ConnectScreen {    pub fn new() -> Self {        let mut screen = Self {
         
         self.authentication_type = AuthenticationType::Anonymous;
         self.username_input.reset();
-        self.password_input.reset();
-        self.connect_in_progress = false;
+        self.password_input.reset();        self.connect_in_progress = false;
         self.pending_discovery = false;
+        self.pending_connection = false;
         self.input_mode = InputMode::Editing;        self.setup_buttons_for_current_step();
     }
 }

@@ -84,7 +84,9 @@ pub struct ConnectScreen {
     pub password_input: Input,
     pub user_certificate_input: Input,
     pub user_private_key_input: Input,
-    pub connect_in_progress: bool,    pub pending_discovery: bool, // New field to track if discovery should happen
+    pub connect_in_progress: bool,
+    pub pending_discovery: bool, // New field to track if discovery should happen
+    pub pending_connection: bool, // New field to track if connection should happen
     pub show_security_validation: bool, // Track whether to show validation highlighting
     pub show_auth_validation: bool, // Track whether to show authentication validation highlighting
     

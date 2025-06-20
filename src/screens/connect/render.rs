@@ -4,6 +4,7 @@ use ratatui::{
     widgets::{Block, Borders, Paragraph},
     Frame,
 };
+use std::rc::Rc;
 use tui_logger::{TuiLoggerWidget, TuiLoggerLevelOutput};
 use super::types::*;
 
@@ -46,10 +47,13 @@ impl ConnectScreen {
             .style_debug(Style::default().fg(Color::DarkGray))
             .style_trace(Style::default().fg(Color::Gray))
             .state(&self.logger_widget_state);        f.render_widget(logger_widget, chunks[1]);
-        
-        // Show connecting popup if discovery is in progress
-        if self.connect_in_progress && self.step == ConnectDialogStep::ServerUrl {
-            self.render_connecting_popup(f, area);
+          // Show connecting popup if discovery or connection is in progress
+        if self.connect_in_progress {
+            if self.step == ConnectDialogStep::ServerUrl {
+                self.render_connecting_popup(f, area, "Discovering Endpoints");
+            } else if self.step == ConnectDialogStep::Authentication {
+                self.render_connecting_popup(f, area, "Connecting to Server");
+            }
         }
     }pub fn render_help_line(&self, f: &mut Frame, area: Rect) {        let help_text = match self.step {
             ConnectDialogStep::ServerUrl => {
@@ -74,8 +78,7 @@ impl ConnectScreen {
             .style(Style::default().fg(Color::DarkGray))
             .alignment(Alignment::Center);
         f.render_widget(help_paragraph, area);
-    }
-    fn render_connecting_popup(&self, f: &mut Frame, area: Rect) {
+    }    fn render_connecting_popup(&self, f: &mut Frame, area: Rect, message: &str) {
         // Calculate popup size and position (centered)
         let popup_width = 30;
         let popup_height = 5;
@@ -95,8 +98,10 @@ impl ConnectScreen {
                 .style(Style::default().bg(Color::Black))
                 .block(Block::default()),
             popup_area,
-        );        // Render the popup
-        let popup = Paragraph::new("\nDiscovering Endpoints")
+        );
+        
+        // Render the popup with the provided message
+        let popup = Paragraph::new(format!("\n{}", message))
             .style(Style::default().fg(Color::White).bg(Color::Blue))
             .alignment(Alignment::Center)
             .block(
@@ -105,7 +110,64 @@ impl ConnectScreen {
                     .borders(Borders::ALL)
                     .style(Style::default().fg(Color::White).bg(Color::Blue))
             );
-        
-        f.render_widget(popup, popup_area);
+          f.render_widget(popup, popup_area);
+    }    /// Helper method to create a standard step layout with title, content, and buttons
+    pub fn create_step_layout(&self, area: Rect) -> Rc<[Rect]> {
+        Layout::default()
+            .direction(Direction::Vertical)
+            .constraints([
+                Constraint::Length(3), // Title
+                Constraint::Min(0),    // Content
+                Constraint::Length(3), // Buttons
+            ])
+            .split(area)
+    }
+
+    /// Helper method to create a standard 3-button layout with margins
+    pub fn create_button_layout(&self, area: Rect) -> Rc<[Rect]> {
+        Layout::default()
+            .direction(Direction::Horizontal)
+            .constraints([
+                Constraint::Length(2),  // Left margin
+                Constraint::Length(18), // Left button (12 * 1.5 = 18)
+                Constraint::Min(0),     // Space
+                Constraint::Length(18), // Center button (12 * 1.5 = 18)
+                Constraint::Min(0),     // Space
+                Constraint::Length(18), // Right button (12 * 1.5 = 18)
+                Constraint::Length(2),  // Right margin
+            ])
+            .split(area)
+    }    /// Helper method to get button rectangles from layout (indices 1, 3, 5)
+    pub fn get_button_rects<'a>(&self, button_chunks: &'a [Rect]) -> [Rect; 3] {
+        [button_chunks[1], button_chunks[3], button_chunks[5]]
+    }/// Helper method to create security step layout with conditional trusted store field
+    pub fn create_security_layout(&self, area: Rect) -> Rc<[Rect]> {
+        let constraints = if self.auto_trust_server_cert {
+            // Layout without trusted server store
+            vec![
+                Constraint::Length(3), // Title
+                Constraint::Length(3), // Client Certificate
+                Constraint::Length(3), // Client Private Key
+                Constraint::Length(1), // Auto-trust checkbox (no border, less space)
+                Constraint::Min(0),    // Space
+                Constraint::Length(3), // Buttons
+            ]
+        } else {
+            // Layout with trusted server store
+            vec![
+                Constraint::Length(3), // Title
+                Constraint::Length(3), // Client Certificate
+                Constraint::Length(3), // Client Private Key
+                Constraint::Length(1), // Auto-trust checkbox (no border, less space)
+                Constraint::Length(3), // Trusted Server Store (normal height)
+                Constraint::Min(0),    // Space
+                Constraint::Length(3), // Buttons
+            ]
+        };
+
+        Layout::default()
+            .direction(Direction::Vertical)
+            .constraints(constraints)
+            .split(area)
     }
 }

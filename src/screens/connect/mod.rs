@@ -2,15 +2,15 @@
 pub use types::*;
 
 // Module declarations
-mod types;
-mod state;
 mod input;
 mod logic;
+mod mouse;
 mod render;
-mod render_server_url;
+mod render_auth;
 mod render_endpoint;
 mod render_security;
-mod render_auth;
-mod mouse;
+mod render_server_url;
+mod state;
+mod types;
 
 // Just make the implementations available, don't re-export everything

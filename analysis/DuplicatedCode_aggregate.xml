@@ -1,0 +1,51 @@
+<root>
+<duplicate cost="1" hash="0">
+  <fragment file="file://$PROJECT_DIR$/jk-opc-client/src/menu.rs" line="35" start="753" end="949" />
+  <fragment file="file://$PROJECT_DIR$/jk-opc-client/src/menu.rs" line="45" start="1206" end="1420" />
+</duplicate>
+<duplicate cost="1" hash="0">
+  <fragment file="file://$PROJECT_DIR$/jk-opc-client/src/menu.rs" line="90" start="2897" end="3250" />
+  <fragment file="file://$PROJECT_DIR$/jk-opc-client/src/menu.rs" line="113" start="3921" end="4274" />
+</duplicate>
+<duplicate cost="1" hash="0">
+  <fragment file="file://$PROJECT_DIR$/jk-opc-client/src/screens/browse.rs" line="261" start="8423" end="8716" />
+  <fragment file="file://$PROJECT_DIR$/jk-opc-client/src/screens/connect/render_endpoint.rs" line="11" start="288" end="584" />
+</duplicate>
+<duplicate cost="1" hash="0">
+  <fragment file="file://$PROJECT_DIR$/jk-opc-client/src/screens/connect/input.rs" line="159" start="5878" end="6520" />
+  <fragment file="file://$PROJECT_DIR$/jk-opc-client/src/screens/connect/logic.rs" line="329" start="14439" end="15129" />
+  <fragment file="file://$PROJECT_DIR$/jk-opc-client/src/screens/connect/logic.rs" line="365" start="16182" end="16824" />
+</duplicate>
+<duplicate cost="1" hash="0">
+  <fragment file="file://$PROJECT_DIR$/jk-opc-client/src/screens/connect/input.rs" line="210" start="8369" end="8931" />
+  <fragment file="file://$PROJECT_DIR$/jk-opc-client/src/screens/connect/logic.rs" line="193" start="8570" end="9195" />
+</duplicate>
+<duplicate cost="1" hash="0">
+  <fragment file="file://$PROJECT_DIR$/jk-opc-client/src/screens/connect/input.rs" line="306" start="12766" end="13196" />
+  <fragment file="file://$PROJECT_DIR$/jk-opc-client/src/screens/connect/input.rs" line="339" start="14680" end="15111" />
+</duplicate>
+<duplicate cost="1" hash="0">
+  <fragment file="file://$PROJECT_DIR$/jk-opc-client/src/screens/connect/input.rs" line="381" start="16837" end="18411" />
+  <fragment file="file://$PROJECT_DIR$/jk-opc-client/src/screens/connect/input.rs" line="416" start="18641" end="20168" />
+</duplicate>
+<duplicate cost="1" hash="0">
+  <fragment file="file://$PROJECT_DIR$/jk-opc-client/src/screens/connect/render_auth.rs" line="62" start="2498" end="2785" />
+  <fragment file="file://$PROJECT_DIR$/jk-opc-client/src/screens/connect/render_auth.rs" line="102" start="4322" end="4609" />
+  <fragment file="file://$PROJECT_DIR$/jk-opc-client/src/screens/connect/render_auth.rs" line="151" start="6616" end="6906" />
+  <fragment file="file://$PROJECT_DIR$/jk-opc-client/src/screens/connect/render_auth.rs" line="191" start="8513" end="8801" />
+</duplicate>
+<duplicate cost="1" hash="0">
+  <fragment file="file://$PROJECT_DIR$/jk-opc-client/src/screens/connect/render_auth.rs" line="232" start="10486" end="11018" />
+  <fragment file="file://$PROJECT_DIR$/jk-opc-client/src/screens/connect/render_endpoint.rs" line="94" start="3859" end="4388" />
+  <fragment file="file://$PROJECT_DIR$/jk-opc-client/src/screens/connect/render_security.rs" line="199" start="8209" end="8690" />
+</duplicate>
+<duplicate cost="1" hash="0">
+  <fragment file="file://$PROJECT_DIR$/jk-opc-client/src/screens/connect/render_security.rs" line="47" start="1844" end="2110" />
+  <fragment file="file://$PROJECT_DIR$/jk-opc-client/src/screens/connect/render_security.rs" line="93" start="3621" end="3885" />
+  <fragment file="file://$PROJECT_DIR$/jk-opc-client/src/screens/connect/render_security.rs" line="153" start="6084" end="6376" />
+</duplicate>
+<duplicate cost="1" hash="0">
+  <fragment file="file://$PROJECT_DIR$/jk-opc-client/src/ui.rs" line="122" start="3552" end="4619" />
+  <fragment file="file://$PROJECT_DIR$/jk-opc-client/src/ui.rs" line="187" start="6449" end="7769" />
+</duplicate>
+</root>

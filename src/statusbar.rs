@@ -1,7 +1,7 @@
 use ratatui::{
-    layout::{Rect},
+    layout::Rect,
     style::{Color, Style},
-    widgets::{Paragraph},
+    widgets::Paragraph,
     Frame,
 };
 
@@ -27,17 +27,19 @@ impl StatusBarRenderer {
         }
     }
 
-    pub fn render_status_bar(&self, f: &mut Frame, area: Rect, active_menu: Option<&crate::menu::MenuType>) {
+    pub fn render_status_bar(
+        &self,
+        f: &mut Frame,
+        area: Rect,
+        active_menu: Option<&crate::menu::MenuType>,
+    ) {
         let status_text = format!(
             " {} | Status: {:?} | Screen: {:?} | Menu: {:?}",
-            self.status_message,
-            self.connection_status,
-            self.current_screen,
-            active_menu
+            self.status_message, self.connection_status, self.current_screen, active_menu
         );
-        
-        let status = Paragraph::new(status_text)
-            .style(Style::default().bg(Color::Blue).fg(Color::White));
+
+        let status =
+            Paragraph::new(status_text).style(Style::default().bg(Color::Blue).fg(Color::White));
         f.render_widget(status, area);
     }
 
@@ -47,7 +49,8 @@ impl StatusBarRenderer {
 
     pub fn set_connection_status(&mut self, status: ConnectionStatus) {
         self.connection_status = status;
-    }    pub fn set_current_screen(&mut self, screen: Screen) {
+    }
+    pub fn set_current_screen(&mut self, screen: Screen) {
         self.current_screen = screen;
     }
 }

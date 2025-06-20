@@ -1,0 +1,62 @@
+<problems>
+<problem>
+  <file>file://$PROJECT_DIR$/jk-opc-client/src/screens/connect/input.rs</file>
+  <line>302</line>
+  <module>jkopcclient</module>
+  <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/jk-opc-client/src/screens/connect/input.rs" />
+  <problem_class id="RsUnnecessaryQualifications" severity="WEAK WARNING" attribute_key="NOT_USED_ELEMENT_ATTRIBUTES">Unnecessary path prefix</problem_class>
+  <description>Path prefix not necessary</description>
+  <highlighted_element>crossterm::event::</highlighted_element>
+  <language>Rust</language>
+  <offset>38</offset>
+  <length>18</length>
+</problem>
+<problem>
+  <file>file://$PROJECT_DIR$/jk-opc-client/src/screens/connect/logic.rs</file>
+  <line>147</line>
+  <module>jkopcclient</module>
+  <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/jk-opc-client/src/screens/connect/logic.rs" />
+  <problem_class id="RsUnnecessaryQualifications" severity="WEAK WARNING" attribute_key="NOT_USED_ELEMENT_ATTRIBUTES">Unnecessary path prefix</problem_class>
+  <description>Path prefix not necessary</description>
+  <highlighted_element>log::</highlighted_element>
+  <language>Rust</language>
+  <offset>12</offset>
+  <length>5</length>
+</problem>
+<problem>
+  <file>file://$PROJECT_DIR$/jk-opc-client/src/ui.rs</file>
+  <line>60</line>
+  <module>jkopcclient</module>
+  <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/jk-opc-client/src/ui.rs" />
+  <problem_class id="RsUnnecessaryQualifications" severity="WEAK WARNING" attribute_key="NOT_USED_ELEMENT_ATTRIBUTES">Unnecessary path prefix</problem_class>
+  <description>Path prefix not necessary</description>
+  <highlighted_element>crossterm::</highlighted_element>
+  <language>Rust</language>
+  <offset>41</offset>
+  <length>11</length>
+</problem>
+<problem>
+  <file>file://$PROJECT_DIR$/jk-opc-client/src/ui.rs</file>
+  <line>67</line>
+  <module>jkopcclient</module>
+  <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/jk-opc-client/src/ui.rs" />
+  <problem_class id="RsUnnecessaryQualifications" severity="WEAK WARNING" attribute_key="NOT_USED_ELEMENT_ATTRIBUTES">Unnecessary path prefix</problem_class>
+  <description>Path prefix not necessary</description>
+  <highlighted_element>crossterm::</highlighted_element>
+  <language>Rust</language>
+  <offset>12</offset>
+  <length>11</length>
+</problem>
+<problem>
+  <file>file://$PROJECT_DIR$/jk-opc-client/src/ui.rs</file>
+  <line>88</line>
+  <module>jkopcclient</module>
+  <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/jk-opc-client/src/ui.rs" />
+  <problem_class id="RsUnnecessaryQualifications" severity="WEAK WARNING" attribute_key="NOT_USED_ELEMENT_ATTRIBUTES">Unnecessary path prefix</problem_class>
+  <description>Path prefix not necessary</description>
+  <highlighted_element>crossterm::</highlighted_element>
+  <language>Rust</language>
+  <offset>15</offset>
+  <length>11</length>
+</problem>
+</problems>

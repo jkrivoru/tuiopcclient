@@ -1,3 +1,3 @@
 pub mod button;
 
-pub use button::{Button, ButtonManager, ButtonColor};
+pub use button::{Button, ButtonColor, ButtonManager};

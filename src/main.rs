@@ -5,8 +5,6 @@ use tokio::sync::Mutex;
 mod ui;
 mod client;
 mod config;
-mod menu;
-mod statusbar;
 mod screens;
 mod components;
 

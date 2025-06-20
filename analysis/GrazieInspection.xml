@@ -1,0 +1,26 @@
+<problems>
+<problem>
+  <file>file://$PROJECT_DIR$/jk-opc-client/src/screens/connect/input.rs</file>
+  <line>374</line>
+  <module>jkopcclient</module>
+  <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/jk-opc-client/src/screens/connect/input.rs" />
+  <problem_class id="GrazieInspection" severity="GRAMMAR_ERROR" attribute_key="GRAMMAR_ERROR">Grammar</problem_class>
+  <description>Use a comma before 'and' if it connects two independent clauses (unless they are closely connected and short).</description>
+  <highlighted_element>and</highlighted_element>
+  <language>Rust</language>
+  <offset>47</offset>
+  <length>4</length>
+</problem>
+<problem>
+  <file>file://$PROJECT_DIR$/jk-opc-client/src/screens/connect/logic.rs</file>
+  <line>138</line>
+  <module>jkopcclient</module>
+  <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/jk-opc-client/src/screens/connect/logic.rs" />
+  <problem_class id="GrazieInspection" severity="GRAMMAR_ERROR" attribute_key="GRAMMAR_ERROR">Grammar</problem_class>
+  <description>Did you mean too false to?</description>
+  <highlighted_element>to false to</highlighted_element>
+  <language>Rust</language>
+  <offset>52</offset>
+  <length>11</length>
+</problem>
+</problems>
