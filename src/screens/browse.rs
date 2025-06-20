@@ -41,7 +41,6 @@ pub struct TreeNode {
 pub struct NodeAttribute {
     pub name: String,
     pub value: String,
-    pub data_type: String,
 }
 
 #[derive(Clone, Debug)]
@@ -120,7 +119,11 @@ impl BrowseScreen {
         if index < self.tree_nodes.len() && self.tree_nodes[index].has_children {
             let node_path = {
                 let node = &self.tree_nodes[index];
-                format!("{}/{}", node.parent_path, node.name)
+                if node.parent_path.is_empty() {
+                    node.name.clone()
+                } else {
+                    format!("{}/{}", node.parent_path, node.name)
+                }
             };
             
             if !self.expanded_nodes.contains(&node_path) {
@@ -143,26 +146,72 @@ impl BrowseScreen {
                 }
             }
         }
-    }
-
-    fn collapse_node(&mut self, index: usize) {
+    }    fn collapse_node(&mut self, index: usize) {
         if index < self.tree_nodes.len() {
             let (node_path, node_level) = {
                 let node = &self.tree_nodes[index];
-                (format!("{}/{}", node.parent_path, node.name), node.level)
+                let path = if node.parent_path.is_empty() {
+                    node.name.clone()
+                } else {
+                    format!("{}/{}", node.parent_path, node.name)
+                };
+                (path, node.level)
             };
             
             if self.expanded_nodes.contains(&node_path) {
+                // Remove the current node from expanded set
                 self.expanded_nodes.remove(&node_path);
                 self.tree_nodes[index].is_expanded = false;
-                  // Remove all child nodes
+                
+                // Store the current selected node info before removing children
+                let was_selected_child_removed = self.selected_node_index > index;
+                
+                // Collect all child node paths to remove from expanded_nodes
+                let mut child_paths_to_remove = Vec::new();
+                let mut i = index + 1;
+                while i < self.tree_nodes.len() && self.tree_nodes[i].level > node_level {
+                    let child_node = &self.tree_nodes[i];
+                    let child_path = if child_node.parent_path.is_empty() {
+                        child_node.name.clone()
+                    } else {
+                        format!("{}/{}", child_node.parent_path, child_node.name)
+                    };
+                    child_paths_to_remove.push(child_path);
+                    i += 1;
+                }
+                
+                // Remove all child paths from expanded_nodes
+                for child_path in child_paths_to_remove {
+                    self.expanded_nodes.remove(&child_path);
+                }
+                
+                // Count and remove all child nodes
+                let mut removed_count = 0;
                 let mut i = index + 1;
                 while i < self.tree_nodes.len() && self.tree_nodes[i].level > node_level {
                     self.tree_nodes.remove(i);
+                    removed_count += 1;
+                    // Don't increment i since we removed an element
+                }
+                
+                // Adjust selected index more carefully
+                if was_selected_child_removed && self.selected_node_index > index {
+                    if self.selected_node_index <= index + removed_count {
+                        // Selected node was removed, stay on the collapsed parent
+                        self.selected_node_index = index;
+                    } else {
+                        // Selected node was after the removed children, adjust index
+                        self.selected_node_index -= removed_count;
+                    }
+                }
+                
+                // Ensure selected index is still valid
+                if self.selected_node_index >= self.tree_nodes.len() {
+                    self.selected_node_index = self.tree_nodes.len().saturating_sub(1);
                 }
             }
         }
-    }    fn get_demo_children(&self, parent_id: &str, level: usize, parent_path: &str) -> Vec<TreeNode> {
+    }fn get_demo_children(&self, parent_id: &str, level: usize, parent_path: &str) -> Vec<TreeNode> {
         match parent_id {
             "i=85" => vec![ // Objects
                 TreeNode {
@@ -278,7 +327,7 @@ impl BrowseScreen {
                     parent_path: parent_path.to_string(),
                 },
                 TreeNode {
-                    name: "Auditing".to_string(),
+                    name: "Auditing". to_string(),
                     node_id: "i=2994".to_string(),
                     node_type: NodeType::Variable,
                     level,
@@ -477,59 +526,48 @@ impl BrowseScreen {
             let node = &self.tree_nodes[self.selected_node_index];
             
             // Generate demo attributes based on node type
-            self.selected_attributes = match node.node_type {
-                NodeType::Variable => vec![
+            self.selected_attributes = match node.node_type {                NodeType::Variable => vec![
                     NodeAttribute {
                         name: "BrowseName".to_string(),
                         value: node.name.clone(),
-                        data_type: "QualifiedName".to_string(),
                     },
                     NodeAttribute {
                         name: "DisplayName".to_string(),
                         value: node.name.clone(),
-                        data_type: "LocalizedText".to_string(),
                     },
                     NodeAttribute {
                         name: "NodeId".to_string(),
                         value: node.node_id.clone(),
-                        data_type: "NodeId".to_string(),
                     },
                     NodeAttribute {
                         name: "Value".to_string(),
                         value: "42.5".to_string(),
-                        data_type: "Double".to_string(),
                     },
                     NodeAttribute {
                         name: "AccessLevel".to_string(),
                         value: "Read/Write".to_string(),
-                        data_type: "Byte".to_string(),
                     },
                     NodeAttribute {
                         name: "UserAccessLevel".to_string(),
                         value: "Read/Write".to_string(),
-                        data_type: "Byte".to_string(),
                     },
                 ],
                 _ => vec![
                     NodeAttribute {
                         name: "BrowseName".to_string(),
                         value: node.name.clone(),
-                        data_type: "QualifiedName".to_string(),
                     },
                     NodeAttribute {
                         name: "DisplayName".to_string(),
                         value: node.name.clone(),
-                        data_type: "LocalizedText".to_string(),
                     },
                     NodeAttribute {
                         name: "NodeId".to_string(),
                         value: node.node_id.clone(),
-                        data_type: "NodeId".to_string(),
                     },
                     NodeAttribute {
                         name: "NodeClass".to_string(),
                         value: format!("{:?}", node.node_type),
-                        data_type: "Int32".to_string(),
                     },
                 ],
             };
@@ -570,16 +608,20 @@ impl BrowseScreen {
                     }
                 }
                 Ok(None)
-            }
-            KeyCode::Left => {
-                // Collapse node if it's expanded
+            }            KeyCode::Left => {
+                // Left key behavior:
+                // 1. If current node is expanded, collapse it
+                // 2. If current node is not expanded, move to parent
                 if self.selected_node_index < self.tree_nodes.len() {
                     let node = &self.tree_nodes[self.selected_node_index];
                     if node.is_expanded {
+                        // Collapse the current node
                         self.collapse_node(self.selected_node_index);
+                        self.update_selected_attributes();
                     } else if node.level > 0 {
-                        // Move to parent node
+                        // Move to immediate parent node
                         self.move_to_parent();
+                        self.update_selected_attributes();
                     }
                 }
                 Ok(None)
@@ -613,38 +655,33 @@ impl BrowseScreen {
             }
             _ => Ok(None),
         }
-    }
-
-    fn move_to_parent(&mut self) {
+    }    fn move_to_parent(&mut self) {
         if self.selected_node_index < self.tree_nodes.len() {
             let current_level = self.tree_nodes[self.selected_node_index].level;
             
-            // Find parent node (move backwards to find a node with level - 1)
-            for i in (0..self.selected_node_index).rev() {
-                if self.tree_nodes[i].level < current_level {
-                    self.selected_node_index = i;
-                    self.update_scroll();
-                    self.update_selected_attributes();
-                    break;
+            if current_level > 0 {
+                // Find the immediate parent node (level = current_level - 1)
+                for i in (0..self.selected_node_index).rev() {
+                    if self.tree_nodes[i].level == current_level - 1 {
+                        self.selected_node_index = i;
+                        self.update_scroll();
+                        break;
+                    }
                 }
-            }        }
-    }    fn update_scroll(&mut self) {
+            }
+        }
+    }fn update_scroll(&mut self) {
         // This will be updated with actual visible height in render
         let visible_height = 20;
         self.update_scroll_with_height(visible_height);
-    }
-
-    pub fn render(&mut self, f: &mut Frame, area: Rect) {
+    }    pub fn render(&mut self, f: &mut Frame, area: Rect) {
         let main_chunks = Layout::default()
             .direction(Direction::Vertical)
             .constraints([
-                Constraint::Length(3), // Header
                 Constraint::Min(0),    // Main content area
+                Constraint::Length(1), // Status bar
             ])
             .split(area);
-
-        // Header
-        self.render_header(f, main_chunks[0]);
 
         // Main content area: Tree view on left, attributes on right
         let content_chunks = Layout::default()
@@ -653,32 +690,39 @@ impl BrowseScreen {
                 Constraint::Percentage(70), // Tree view
                 Constraint::Percentage(30), // Attributes panel
             ])
-            .split(main_chunks[1]);
+            .split(main_chunks[0]);
 
         // Tree view
         self.render_tree_view(f, content_chunks[0]);
 
         // Attributes panel
         self.render_attributes_panel(f, content_chunks[1]);
-    }
 
-    fn render_header(&self, f: &mut Frame, area: Rect) {
-        let header_text = vec![
-            Span::styled("OPC UA Browser", Style::default().fg(Color::Green).add_modifier(Modifier::BOLD)),
-            Span::raw(" - "),
+        // Status bar
+        self.render_status_bar(f, main_chunks[1]);
+    }    fn render_status_bar(&self, f: &mut Frame, area: Rect) {
+        let selected_node_info = if self.selected_node_index < self.tree_nodes.len() {
+            let node = &self.tree_nodes[self.selected_node_index];
+            format!("Selected: {} | NodeId: {}", node.name, node.node_id)
+        } else {
+            "No node selected".to_string()
+        };
+
+        let status_text = vec![
+            Span::styled("OPC UA Server: ", Style::default().fg(Color::Green).add_modifier(Modifier::BOLD)),
             Span::styled(&self.server_url, Style::default().fg(Color::Cyan)),
-            Span::raw("\nUse ←/→ to expand/collapse, ↑/↓ to navigate, q/Esc to exit"),
+            Span::raw(" | "),
+            Span::styled("Connected", Style::default().fg(Color::Green)),
+            Span::raw(" | "),
+            Span::styled(&selected_node_info, Style::default().fg(Color::Yellow)),
+            Span::raw(" | Use ←/→ expand/collapse, ↑/↓ navigate, q/Esc exit"),
         ];
 
-        let header = Paragraph::new(vec![
-            Line::from(header_text[0..2].to_vec()),
-            Line::from(header_text[2..].to_vec()),
-        ])
-        .block(Block::default().borders(Borders::ALL))
-        .style(Style::default().fg(Color::White));
+        let status = Paragraph::new(Line::from(status_text))
+            .style(Style::default().fg(Color::White).bg(Color::DarkGray));
 
-        f.render_widget(header, area);
-    }    fn render_tree_view(&mut self, f: &mut Frame, area: Rect) {
+        f.render_widget(status, area);
+    }fn render_tree_view(&mut self, f: &mut Frame, area: Rect) {
         let visible_height = area.height.saturating_sub(2) as usize; // Subtract borders
         self.update_scroll_with_height(visible_height);
         
@@ -827,15 +871,12 @@ impl BrowseScreen {
             &self.selected_attributes[start_idx..end_idx]
         } else {
             &[]
-        };
-
-        let rows: Vec<Row> = visible_attributes
+        };        let rows: Vec<Row> = visible_attributes
             .iter()
             .map(|attr| {
                 Row::new(vec![
                     Cell::from(attr.name.as_str()),
                     Cell::from(attr.value.as_str()),
-                    Cell::from(attr.data_type.as_str()),
                 ])
             })
             .collect();
@@ -843,13 +884,12 @@ impl BrowseScreen {
         let table = Table::new(
             rows,
             &[
-                Constraint::Percentage(35),
                 Constraint::Percentage(40),
-                Constraint::Percentage(25),
+                Constraint::Percentage(60),
             ]
         )
             .header(
-                Row::new(vec!["Attribute", "Value", "Type"])
+                Row::new(vec!["Attribute", "Value"])
                     .style(Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD))
             )
             .block(
