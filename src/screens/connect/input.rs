@@ -206,7 +206,7 @@ impl ConnectScreen {
         match key {
             KeyCode::Tab => {
                 // Navigate between fields with Tab/Shift-Tab
-                if modifiers.contains(crossterm::event::KeyModifiers::SHIFT) {
+                if modifiers.contains(KeyModifiers::SHIFT) {
                     self.navigate_security_fields_backward();
                 } else {
                     self.navigate_security_fields_forward();

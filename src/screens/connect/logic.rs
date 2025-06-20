@@ -145,7 +145,7 @@ impl ConnectScreen {
             // Connection failed - log error and stay on authentication screen
             log::error!("Connection failed: Unable to connect to OPC UA server");
             log::error!("Please check server URL, endpoint selection, and authentication settings");
-            log::warn!("Verify that the OPC UA server is running and accessible");
+            warn!("Verify that the OPC UA server is running and accessible");
             Ok(None) // Return None to stay on current screen
         }
     }

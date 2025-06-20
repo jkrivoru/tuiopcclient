@@ -145,7 +145,7 @@ impl ConnectScreen {
             .split(area)
     }
     /// Helper method to get button rectangles from layout (indices 1, 3, 5)
-    pub fn get_button_rects<'a>(&self, button_chunks: &'a [Rect]) -> [Rect; 3] {
+    pub fn get_button_rects(&self, button_chunks: &[Rect]) -> [Rect; 3] {
         [button_chunks[1], button_chunks[3], button_chunks[5]]
     }
     /// Helper method to create security step layout with conditional trusted store field

@@ -85,7 +85,7 @@ impl App {
                 .checked_sub(last_tick.elapsed())
                 .unwrap_or_else(|| Duration::from_secs(0));
 
-            if crossterm::event::poll(timeout)? {
+            if event::poll(timeout)? {
                 match event::read()? {
                     Event::Key(key) => {
                         // Only process key press events, not key release
