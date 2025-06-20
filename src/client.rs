@@ -250,34 +250,72 @@ impl OpcUaClientManager {
 
                 match session_guard.read(&[read_value_id], TimestampsToReturn::Both, 0.0) {
                     Ok(results) => {
-                        if let Some(result) = results.first() {
-                                let name = format!("{:?}", attr_id);
-                                let (value, data_type) = match &result.value {
+                        if let Some(result) = results.first() {                                let name = match attr_id {
+                                    AttributeId::NodeId => "NodeId",
+                                    AttributeId::DisplayName => "DisplayName", 
+                                    AttributeId::BrowseName => "BrowseName",
+                                    AttributeId::NodeClass => "NodeClass",
+                                    AttributeId::Description => "Description",
+                                    AttributeId::Value => "Value",
+                                    AttributeId::DataType => "DataType",
+                                    AttributeId::AccessLevel => "AccessLevel",
+                                    _ => "Unknown Attribute",
+                                }.to_string();
+                                  let (value, data_type) = match &result.value {
                                     Some(val) => {
-                                        let value_str = format!("{:?}", val);
-                                        let type_str = match val {
-                                            Variant::Boolean(_) => "Boolean",
-                                            Variant::SByte(_) => "SByte",
-                                            Variant::Byte(_) => "Byte",
-                                            Variant::Int16(_) => "Int16",
-                                            Variant::UInt16(_) => "UInt16",
-                                            Variant::Int32(_) => "Int32",
-                                            Variant::UInt32(_) => "UInt32",
-                                            Variant::Int64(_) => "Int64",
-                                            Variant::UInt64(_) => "UInt64",
-                                            Variant::Float(_) => "Float",
-                                            Variant::Double(_) => "Double",
-                                            Variant::String(_) => "String",
-                                            Variant::DateTime(_) => "DateTime",
-                                            Variant::Guid(_) => "Guid",
-                                            Variant::ByteString(_) => "ByteString",
-                                            Variant::XmlElement(_) => "XmlElement",
-                                            Variant::NodeId(_) => "NodeId",
-                                            Variant::ExpandedNodeId(_) => "ExpandedNodeId",
-                                            Variant::StatusCode(_) => "StatusCode",
-                                            Variant::QualifiedName(_) => "QualifiedName",
-                                            Variant::LocalizedText(_) => "LocalizedText",
-                                            _ => "Unknown",
+                                        let (value_str, type_str) = match val {
+                                            Variant::Boolean(b) => (b.to_string(), "Boolean"),
+                                            Variant::SByte(n) => (n.to_string(), "SByte"),
+                                            Variant::Byte(n) => {
+                                                // Special handling for AccessLevel attribute
+                                                if attr_id == AttributeId::AccessLevel {
+                                                    (Self::format_access_level(*n), "AccessLevel")
+                                                } else {
+                                                    (n.to_string(), "Byte")
+                                                }
+                                            },
+                                            Variant::Int16(n) => (n.to_string(), "Int16"),
+                                            Variant::UInt16(n) => (n.to_string(), "UInt16"),
+                                            Variant::Int32(n) => {
+                                                // Special handling for NodeClass attribute
+                                                if attr_id == AttributeId::NodeClass {
+                                                    (Self::format_node_class(*n), "NodeClass")
+                                                } else {
+                                                    (n.to_string(), "Int32")
+                                                }
+                                            },
+                                            Variant::UInt32(n) => (n.to_string(), "UInt32"),
+                                            Variant::Int64(n) => (n.to_string(), "Int64"),
+                                            Variant::UInt64(n) => (n.to_string(), "UInt64"),
+                                            Variant::Float(f) => (f.to_string(), "Float"),
+                                            Variant::Double(f) => (f.to_string(), "Double"),
+                                            Variant::String(s) => (
+                                                s.value().as_ref().map(|s| s.as_str()).unwrap_or("(empty)").to_string(),
+                                                "String"
+                                            ),
+                                            Variant::DateTime(dt) => (dt.to_string(), "DateTime"),
+                                            Variant::Guid(g) => (g.to_string(), "Guid"),                                            Variant::ByteString(bs) => (
+                                                format!("ByteString[{}]", bs.as_ref().len()),
+                                                "ByteString"
+                                            ),
+                                            Variant::NodeId(id) => {
+                                                // Special handling for DataType attribute
+                                                if attr_id == AttributeId::DataType {
+                                                    (Self::format_data_type(id), "DataType")
+                                                } else {
+                                                    (id.to_string(), "NodeId")
+                                                }
+                                            },
+                                            Variant::QualifiedName(qn) => (
+                                                qn.name.value().as_ref().map(|s| s.as_str()).unwrap_or("(empty)").to_string(),
+                                                "QualifiedName"
+                                            ),
+                                            Variant::LocalizedText(lt) => (
+                                                lt.text.value().as_ref().map(|s| s.as_str()).unwrap_or("(empty)").to_string(),
+                                                "LocalizedText"
+                                            ),
+                                            Variant::StatusCode(sc) => (format!("{:?}", sc), "StatusCode"),
+                                            _ => (format!("{:?}", val), "Unknown"),
                                         };
                                         (value_str, type_str.to_string())
                                     }
@@ -292,19 +330,14 @@ impl OpcUaClientManager {
                                     }
                                 } else {
                                     "Unknown".to_string()
-                                };
-
-                                // Only add attributes that have meaningful values
-                                if let Some(status_code) = &result.status {
-                                    if status_code.is_good() && value != "(null)" {
-                                        attributes.push(OpcUaAttribute {
-                                            name,
-                                            value,
-                                            data_type,
-                                            status,
-                                        });
-                                    }
-                                }
+                                };                                // Add all attributes, even if they have bad status or null values
+                                // This gives users more visibility into what's available
+                                attributes.push(OpcUaAttribute {
+                                    name,
+                                    value,
+                                    data_type,
+                                    status,
+                                });
                             }
                     }
                     Err(e) => {
@@ -324,9 +357,7 @@ impl OpcUaClientManager {
             // Not connected, return demo data
             self.get_demo_attributes(node_id)
         }
-    }
-
-    fn get_demo_attributes(&self, node_id: &NodeId) -> Result<Vec<OpcUaAttribute>> {
+    }    fn get_demo_attributes(&self, node_id: &NodeId) -> Result<Vec<OpcUaAttribute>> {
         let attributes = vec![
             OpcUaAttribute {
                 name: "NodeId".to_string(),
@@ -336,25 +367,141 @@ impl OpcUaClientManager {
             },
             OpcUaAttribute {
                 name: "DisplayName".to_string(),
-                value: "Sample Node".to_string(),
+                value: "Demo Sample Node".to_string(),
                 data_type: "LocalizedText".to_string(),
                 status: "Good".to_string(),
             },
             OpcUaAttribute {
                 name: "BrowseName".to_string(),
-                value: "SampleNode".to_string(),
+                value: "DemoSampleNode".to_string(),
                 data_type: "QualifiedName".to_string(),
+                status: "Good".to_string(),
+            },
+            OpcUaAttribute {
+                name: "NodeClass".to_string(),
+                value: "Object".to_string(),
+                data_type: "NodeClass".to_string(),
+                status: "Good".to_string(),
+            },
+            OpcUaAttribute {
+                name: "Description".to_string(),
+                value: "This is a demo node for testing".to_string(),
+                data_type: "LocalizedText".to_string(),
+                status: "Good".to_string(),
+            },
+            OpcUaAttribute {
+                name: "Value".to_string(),
+                value: "42".to_string(),
+                data_type: "Int32".to_string(),
+                status: "Good".to_string(),
+            },
+            OpcUaAttribute {
+                name: "DataType".to_string(),
+                value: "Int32".to_string(),
+                data_type: "DataType".to_string(),
+                status: "Good".to_string(),
+            },
+            OpcUaAttribute {
+                name: "AccessLevel".to_string(),
+                value: "CurrentRead | CurrentWrite (3)".to_string(),
+                data_type: "AccessLevel".to_string(),
                 status: "Good".to_string(),
             },
         ];
         
         Ok(attributes)
-    }    pub async fn get_root_node(&self) -> Result<NodeId> {
+    }pub async fn get_root_node(&self) -> Result<NodeId> {
         // Return the Objects folder as the root
         Ok(ObjectId::ObjectsFolder.into())
     }
 
     pub fn is_connected(&self) -> bool {
         matches!(self.connection_status, ConnectionStatus::Connected)
+    }
+
+    // Helper function to format NodeClass values into human-readable text
+    fn format_node_class(node_class_value: i32) -> String {
+        match node_class_value {
+            1 => "Object".to_string(),
+            2 => "Variable".to_string(),
+            4 => "Method".to_string(),
+            8 => "ObjectType".to_string(),
+            16 => "VariableType".to_string(),
+            32 => "ReferenceType".to_string(),
+            64 => "DataType".to_string(),
+            128 => "View".to_string(),
+            _ => format!("Unknown NodeClass ({})", node_class_value),
+        }
+    }
+    
+    // Helper function to format AccessLevel values into human-readable text
+    fn format_access_level(access_level: u8) -> String {
+        let mut permissions = Vec::new();
+        
+        if access_level & 0x01 != 0 {
+            permissions.push("CurrentRead");
+        }
+        if access_level & 0x02 != 0 {
+            permissions.push("CurrentWrite");
+        }
+        if access_level & 0x04 != 0 {
+            permissions.push("HistoryRead");
+        }
+        if access_level & 0x08 != 0 {
+            permissions.push("HistoryWrite");
+        }
+        if access_level & 0x10 != 0 {
+            permissions.push("SemanticChange");
+        }
+        if access_level & 0x20 != 0 {
+            permissions.push("StatusWrite");
+        }
+        if access_level & 0x40 != 0 {
+            permissions.push("TimestampWrite");
+        }
+        
+        if permissions.is_empty() {
+            format!("None ({})", access_level)
+        } else {
+            format!("{} ({})", permissions.join(" | "), access_level)
+        }
+    }
+    
+    // Helper function to format DataType NodeIds into human-readable text
+    fn format_data_type(data_type_id: &NodeId) -> String {
+        // Common OPC UA data type NodeIds
+        match data_type_id.to_string().as_str() {
+            "i=1" => "Boolean".to_string(),
+            "i=2" => "SByte".to_string(),
+            "i=3" => "Byte".to_string(),
+            "i=4" => "Int16".to_string(),
+            "i=5" => "UInt16".to_string(),
+            "i=6" => "Int32".to_string(),
+            "i=7" => "UInt32".to_string(),
+            "i=8" => "Int64".to_string(),
+            "i=9" => "UInt64".to_string(),
+            "i=10" => "Float".to_string(),
+            "i=11" => "Double".to_string(),
+            "i=12" => "String".to_string(),
+            "i=13" => "DateTime".to_string(),
+            "i=14" => "Guid".to_string(),
+            "i=15" => "ByteString".to_string(),
+            "i=16" => "XmlElement".to_string(),
+            "i=17" => "NodeId".to_string(),
+            "i=18" => "ExpandedNodeId".to_string(),
+            "i=19" => "StatusCode".to_string(),
+            "i=20" => "QualifiedName".to_string(),
+            "i=21" => "LocalizedText".to_string(),
+            "i=22" => "Structure".to_string(),
+            "i=23" => "DataValue".to_string(),
+            "i=24" => "BaseDataType".to_string(),
+            "i=25" => "DiagnosticInfo".to_string(),
+            "i=26" => "Number".to_string(),
+            "i=27" => "Integer".to_string(),
+            "i=28" => "UInteger".to_string(),
+            "i=29" => "Enumeration".to_string(),
+            "i=30" => "Image".to_string(),
+            _ => format!("Custom DataType ({})", data_type_id),
+        }
     }
 }
