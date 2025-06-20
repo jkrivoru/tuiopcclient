@@ -16,19 +16,9 @@ impl ConnectScreen {
             ConnectDialogStep::SecurityConfiguration => self.handle_security_input(key, modifiers).await,
             ConnectDialogStep::Authentication => self.handle_authentication_input(key, modifiers).await,
         }
-    }    async fn handle_server_url_input(&mut self, key: KeyCode, modifiers: KeyModifiers) -> Result<Option<ConnectionStatus>> {        match key {
-            KeyCode::Enter => {
-                // Validate URL first
-                self.validate_server_url();
-                if self.server_url_validation_error.is_none() {
-                    // Discover endpoints
-                    self.discover_endpoints().await?;
-                } else {
-                    // Show validation error in log
-                    if let Some(ref error) = self.server_url_validation_error {
-                        log::error!("URL Validation: {}", error);
-                    }
-                }
+    }    async fn handle_server_url_input(&mut self, key: KeyCode, modifiers: KeyModifiers) -> Result<Option<ConnectionStatus>> {        match key {            KeyCode::Enter => {
+                // Use unified method for consistent behavior with button clicks
+                self.advance_to_next_step()?;
                 Ok(None)
             }
             KeyCode::Esc => {
@@ -83,23 +73,8 @@ impl ConnectScreen {
                 }
                 Ok(None)
             }            KeyCode::Enter => {
-                // Check if security configuration is needed
-                if self.needs_security_configuration() {
-                    // Move to security configuration step
-                    self.step = ConnectDialogStep::SecurityConfiguration;
-                    self.active_security_field = SecurityField::ClientCertificate;
-                    self.input_mode = InputMode::Editing;
-                } else {
-                    // Skip security and move directly to authentication step
-                    self.step = ConnectDialogStep::Authentication;
-                    if self.authentication_type == AuthenticationType::UserPassword {
-                        self.active_auth_field = AuthenticationField::Username;
-                        self.input_mode = InputMode::Editing;
-                    } else {
-                        self.input_mode = InputMode::Normal;
-                    }
-                }
-                self.setup_buttons_for_current_step();
+                // Use unified method for consistent behavior with button clicks
+                self.advance_to_next_step()?;
                 Ok(None)
             }
             KeyCode::Esc => {
@@ -187,14 +162,23 @@ impl ConnectScreen {
             KeyCode::Enter => {
                 // Connect with selected settings
                 self.connect_with_settings().await
-            }
-            KeyCode::Esc => {
-                // Go back to endpoint selection
-                self.step = ConnectDialogStep::EndpointSelection;
-                self.input_mode = InputMode::Normal;
+            }            KeyCode::Esc => {
+                // Go back to previous step
+                if self.needs_security_configuration() {
+                    self.step = ConnectDialogStep::SecurityConfiguration;
+                    self.active_security_field = SecurityField::ClientCertificate;
+                    self.input_mode = InputMode::Editing;
+                    // Reset security validation highlighting when going back
+                    self.show_security_validation = false;
+                } else {
+                    self.step = ConnectDialogStep::EndpointSelection;
+                    self.input_mode = InputMode::Normal;
+                }
+                // Reset authentication validation highlighting when going back
+                self.show_auth_validation = false;
                 self.setup_buttons_for_current_step();
                 Ok(None)
-            }            KeyCode::Char(_) | KeyCode::Backspace | KeyCode::Left | KeyCode::Right => {
+            }KeyCode::Char(_) | KeyCode::Backspace | KeyCode::Left | KeyCode::Right => {
                 match self.authentication_type {
                     AuthenticationType::UserPassword => {
                         match self.active_auth_field {
@@ -311,34 +295,17 @@ impl ConnectScreen {
                         }
                     }
                 }
-                Ok(None)
-            }KeyCode::Enter => {
-                // Validate security fields before proceeding
-                let validation_errors = self.validate_security_fields();
-                if !validation_errors.is_empty() {
-                    // Log validation errors
-                    for error in &validation_errors {
-                        log::error!("Security Validation: {}", error);
-                    }
-                    // Don't proceed if there are validation errors
-                    return Ok(None);
-                }
-                
-                // Move to authentication step
-                self.step = ConnectDialogStep::Authentication;
-                if self.authentication_type == AuthenticationType::UserPassword {
-                    self.active_auth_field = AuthenticationField::Username;
-                    self.input_mode = InputMode::Editing;
-                } else {
-                    self.input_mode = InputMode::Normal;
-                }
-                self.setup_buttons_for_current_step();
+                Ok(None)            }            KeyCode::Enter => {
+                // Use unified method for consistent behavior with button clicks
+                self.advance_to_next_step()?;
                 Ok(None)
             }
             KeyCode::Esc => {
                 // Go back to endpoint selection
                 self.step = ConnectDialogStep::EndpointSelection;
                 self.input_mode = InputMode::Normal;
+                // Reset validation highlighting when going back
+                self.show_security_validation = false;
                 self.setup_buttons_for_current_step();
                 Ok(None)
             }            KeyCode::Char(' ') => {

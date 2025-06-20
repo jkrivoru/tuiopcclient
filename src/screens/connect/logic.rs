@@ -132,71 +132,18 @@ impl ConnectScreen {    pub async fn discover_endpoints(&mut self) -> Result<()>
     }    pub async fn handle_button_action(&mut self, button_id: &str) -> Result<Option<ConnectionStatus>> {
         match button_id {
             "cancel" => Ok(Some(ConnectionStatus::Disconnected)),            "next" => {
-                match self.step {
-                    ConnectDialogStep::ServerUrl => {
-                        // Set flags for showing popup and triggering discovery
-                        self.connect_in_progress = true;
-                        self.pending_discovery = true;
+                match self.step {                    ConnectDialogStep::ServerUrl => {
+                        // Use unified method for consistent behavior
+                        self.advance_to_next_step()?;
                         Ok(None) // Return immediately to show the popup
-                    }
-                    ConnectDialogStep::EndpointSelection => {                        // Check if security configuration is needed
-                        if self.needs_security_configuration() {
-                            // Move to security configuration step
-                            self.step = ConnectDialogStep::SecurityConfiguration;
-                            self.active_security_field = SecurityField::ClientCertificate;
-                            self.input_mode = InputMode::Editing;
-                            // Reset validation highlighting when entering security step
-                            self.show_security_validation = false;                        } else {                            // Skip security and move directly to authentication step
-                            self.step = ConnectDialogStep::Authentication;
-                            // Reset authentication validation highlighting when entering auth step
-                            self.show_auth_validation = false;
-                            match self.authentication_type {
-                                AuthenticationType::UserPassword => {
-                                    self.active_auth_field = AuthenticationField::Username;
-                                    self.input_mode = InputMode::Editing;
-                                }
-                                AuthenticationType::X509Certificate => {
-                                    self.active_auth_field = AuthenticationField::UserCertificate;
-                                    self.input_mode = InputMode::Editing;
-                                }
-                                AuthenticationType::Anonymous => {
-                                    self.input_mode = InputMode::Normal;
-                                }
-                            }
-                        }
-                        self.setup_buttons_for_current_step();
+                    }ConnectDialogStep::EndpointSelection => {
+                        // Use unified method for consistent behavior
+                        self.advance_to_next_step()?;
                         Ok(None)
-                    }                    ConnectDialogStep::SecurityConfiguration => {
-                        // Show validation highlighting when Next is clicked
-                        self.show_security_validation = true;
-                        
-                        // Validate security fields before proceeding
-                        let validation_errors = self.validate_security_fields();
-                        if !validation_errors.is_empty() {
-                            // Log validation errors
-                            for error in &validation_errors {
-                                log::error!("Security Validation: {}", error);
-                            }
-                            // Don't proceed if there are validation errors
-                            return Ok(None);
-                        }                        // Move to authentication step
-                        self.step = ConnectDialogStep::Authentication;
-                        // Reset authentication validation highlighting when entering auth step
-                        self.show_auth_validation = false;
-                        match self.authentication_type {
-                            AuthenticationType::UserPassword => {
-                                self.active_auth_field = AuthenticationField::Username;
-                                self.input_mode = InputMode::Editing;
-                            }
-                            AuthenticationType::X509Certificate => {
-                                self.active_auth_field = AuthenticationField::UserCertificate;
-                                self.input_mode = InputMode::Editing;
-                            }
-                            AuthenticationType::Anonymous => {
-                                self.input_mode = InputMode::Normal;
-                            }
-                        }
-                        self.setup_buttons_for_current_step();
+                    }
+                    ConnectDialogStep::SecurityConfiguration => {
+                        // Use unified method for consistent behavior
+                        self.advance_to_next_step()?;
                         Ok(None)
                     }
                     _ => Ok(None)
@@ -317,6 +264,96 @@ impl ConnectScreen {    pub async fn discover_endpoints(&mut self) -> Result<()>
                         .with_color(ButtonColor::Green)
                         .with_enabled(!self.connect_in_progress)
                 );
+            }
+        }
+    }    /// Unified method for advancing to the next step from any step
+    /// Ensures consistent validation and state management regardless of how the user continues (button or Enter)
+    pub fn advance_to_next_step(&mut self) -> Result<()> {
+        match self.step {
+            ConnectDialogStep::ServerUrl => {
+                // Validate URL first
+                self.validate_server_url();
+                if self.server_url_validation_error.is_none() {
+                    // Set flags for showing popup and triggering discovery
+                    self.connect_in_progress = true;
+                    self.pending_discovery = true;
+                } else {
+                    // Show validation error in log
+                    if let Some(ref error) = self.server_url_validation_error {
+                        log::error!("URL Validation: {}", error);
+                    }
+                }
+                Ok(())
+            }
+            ConnectDialogStep::EndpointSelection => {
+                // Check if security configuration is needed
+                if self.needs_security_configuration() {
+                    // Move to security configuration step
+                    self.step = ConnectDialogStep::SecurityConfiguration;
+                    self.active_security_field = SecurityField::ClientCertificate;
+                    self.input_mode = InputMode::Editing;
+                    // Reset validation highlighting when entering security step
+                    self.show_security_validation = false;
+                } else {
+                    // Skip security and move directly to authentication step
+                    self.step = ConnectDialogStep::Authentication;
+                    // Reset authentication validation highlighting when entering auth step
+                    self.show_auth_validation = false;
+                    match self.authentication_type {
+                        AuthenticationType::UserPassword => {
+                            self.active_auth_field = AuthenticationField::Username;
+                            self.input_mode = InputMode::Editing;
+                        }
+                        AuthenticationType::X509Certificate => {
+                            self.active_auth_field = AuthenticationField::UserCertificate;
+                            self.input_mode = InputMode::Editing;
+                        }
+                        AuthenticationType::Anonymous => {
+                            self.input_mode = InputMode::Normal;
+                        }
+                    }
+                }
+                self.setup_buttons_for_current_step();
+                Ok(())
+            }
+            ConnectDialogStep::SecurityConfiguration => {
+                // Show validation highlighting when proceeding
+                self.show_security_validation = true;
+                
+                // Validate security fields before proceeding
+                let validation_errors = self.validate_security_fields();
+                if !validation_errors.is_empty() {
+                    // Log validation errors
+                    for error in &validation_errors {
+                        log::error!("Security Validation: {}", error);
+                    }
+                    // Don't proceed if there are validation errors
+                    return Ok(());
+                }
+                
+                // Move to authentication step
+                self.step = ConnectDialogStep::Authentication;
+                // Reset authentication validation highlighting when entering auth step
+                self.show_auth_validation = false;
+                match self.authentication_type {
+                    AuthenticationType::UserPassword => {
+                        self.active_auth_field = AuthenticationField::Username;
+                        self.input_mode = InputMode::Editing;
+                    }
+                    AuthenticationType::X509Certificate => {
+                        self.active_auth_field = AuthenticationField::UserCertificate;
+                        self.input_mode = InputMode::Editing;
+                    }
+                    AuthenticationType::Anonymous => {
+                        self.input_mode = InputMode::Normal;
+                    }
+                }
+                self.setup_buttons_for_current_step();
+                Ok(())
+            }
+            ConnectDialogStep::Authentication => {
+                // This case is handled separately in connect_with_settings due to async connection process
+                Ok(())
             }
         }
     }
