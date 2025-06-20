@@ -407,6 +407,16 @@ impl ConnectScreen {
         self.setup_authentication_fields();
     }
 
+    /// Helper method to cycle authentication types backward (up)
+    pub fn cycle_authentication_type_backward(&mut self) {
+        self.authentication_type = match self.authentication_type {
+            AuthenticationType::Anonymous => AuthenticationType::X509Certificate,
+            AuthenticationType::UserPassword => AuthenticationType::Anonymous,
+            AuthenticationType::X509Certificate => AuthenticationType::UserPassword,
+        };
+        self.setup_authentication_fields();
+    }
+
     /// Helper method to navigate authentication fields with Tab
     pub fn navigate_auth_fields_forward(&mut self) {
         match self.authentication_type {

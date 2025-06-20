@@ -145,10 +145,14 @@ impl ConnectScreen {
         &mut self,
         key: KeyCode,
         modifiers: KeyModifiers,
-    ) -> Result<Option<ConnectionStatus>> {
-        match key {
-            KeyCode::Up | KeyCode::Down => {
-                // Cycle through authentication types
+    ) -> Result<Option<ConnectionStatus>> {        match key {
+            KeyCode::Up => {
+                // Cycle through authentication types backward (up)
+                self.cycle_authentication_type_backward();
+                Ok(None)
+            }
+            KeyCode::Down => {
+                // Cycle through authentication types forward (down)
                 self.cycle_authentication_type();
                 Ok(None)
             }
