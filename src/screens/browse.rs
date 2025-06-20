@@ -138,15 +138,31 @@ impl BrowseScreen {
                 self.tree_nodes[index].is_expanded = true;
                 
                 // Add child nodes (demo data)
-                let child_nodes = self.get_demo_children(&node_id, level + 1, &parent_path);
+                let mut child_nodes = self.get_demo_children(&node_id, level + 1, &parent_path);
+                
+                // Restore expanded state for child nodes that were previously expanded
+                for child in &mut child_nodes {
+                    let child_path = if child.parent_path.is_empty() {
+                        child.name.clone()
+                    } else {
+                        format!("{}/{}", child.parent_path, child.name)
+                    };
+                    
+                    if self.expanded_nodes.contains(&child_path) {
+                        child.is_expanded = true;
+                    }
+                }
                 
                 // Insert children after the current node
                 for (i, child) in child_nodes.into_iter().enumerate() {
                     self.tree_nodes.insert(index + 1 + i, child);
                 }
+                
+                // Recursively expand any child nodes that should be expanded
+                self.restore_child_expansions(index + 1, level + 1);
             }
         }
-    }    fn collapse_node(&mut self, index: usize) {
+    }fn collapse_node(&mut self, index: usize) {
         if index < self.tree_nodes.len() {
             let (node_path, node_level) = {
                 let node = &self.tree_nodes[index];
@@ -166,26 +182,10 @@ impl BrowseScreen {
                 // Store the current selected node info before removing children
                 let was_selected_child_removed = self.selected_node_index > index;
                 
-                // Collect all child node paths to remove from expanded_nodes
-                let mut child_paths_to_remove = Vec::new();
-                let mut i = index + 1;
-                while i < self.tree_nodes.len() && self.tree_nodes[i].level > node_level {
-                    let child_node = &self.tree_nodes[i];
-                    let child_path = if child_node.parent_path.is_empty() {
-                        child_node.name.clone()
-                    } else {
-                        format!("{}/{}", child_node.parent_path, child_node.name)
-                    };
-                    child_paths_to_remove.push(child_path);
-                    i += 1;
-                }
+                // NOTE: We intentionally DO NOT remove child paths from expanded_nodes
+                // This preserves the expanded state of child nodes for when the parent is re-expanded
                 
-                // Remove all child paths from expanded_nodes
-                for child_path in child_paths_to_remove {
-                    self.expanded_nodes.remove(&child_path);
-                }
-                
-                // Count and remove all child nodes
+                // Count and remove all child nodes from the visual tree
                 let mut removed_count = 0;
                 let mut i = index + 1;
                 while i < self.tree_nodes.len() && self.tree_nodes[i].level > node_level {
@@ -905,6 +905,61 @@ impl BrowseScreen {
             self.scroll_offset = self.selected_node_index;
         } else if self.selected_node_index >= self.scroll_offset + visible_height {
             self.scroll_offset = self.selected_node_index.saturating_sub(visible_height - 1);
+        }
+    }
+
+    fn restore_child_expansions(&mut self, start_index: usize, current_level: usize) {
+        let mut i = start_index;
+        while i < self.tree_nodes.len() && self.tree_nodes[i].level >= current_level {
+            if self.tree_nodes[i].level == current_level {
+                let node = &self.tree_nodes[i];
+                if node.has_children && node.is_expanded {
+                    // This child was previously expanded, so expand it again
+                    let (node_id, level, parent_path) = {
+                        let node = &self.tree_nodes[i];
+                        let path = if node.parent_path.is_empty() {
+                            node.name.clone()
+                        } else {
+                            format!("{}/{}", node.parent_path, node.name)
+                        };
+                        (node.node_id.clone(), node.level, path)
+                    };
+                    
+                    // Add child nodes for this expanded node
+                    let mut child_nodes = self.get_demo_children(&node_id, level + 1, &parent_path);
+                    
+                    // Restore expanded state for grandchildren
+                    for child in &mut child_nodes {
+                        let child_path = if child.parent_path.is_empty() {
+                            child.name.clone()
+                        } else {
+                            format!("{}/{}", child.parent_path, child.name)
+                        };
+                        
+                        if self.expanded_nodes.contains(&child_path) {
+                            child.is_expanded = true;
+                        }
+                    }
+                    
+                    // Insert children after the current node
+                    for (j, child) in child_nodes.into_iter().enumerate() {
+                        self.tree_nodes.insert(i + 1 + j, child);
+                    }
+                    
+                    // Skip over the newly inserted children and continue
+                    let children_count = self.get_demo_children(&node_id, level + 1, &parent_path).len();
+                    i += children_count + 1;
+                    
+                    // Recursively restore expansions for the newly added children
+                    if children_count > 0 {
+                        self.restore_child_expansions(i - children_count, level + 1);
+                    }
+                } else {
+                    i += 1;
+                }
+            } else {
+                i += 1;
+            }
         }
     }
 }
