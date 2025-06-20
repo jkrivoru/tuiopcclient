@@ -79,10 +79,11 @@ impl ConnectScreen {
                     .borders(Borders::ALL)
                     .title_style(Style::default().fg(Color::Cyan)),
             )
-            .highlight_style(Style::default().bg(Color::Blue));        f.render_widget(endpoint_list, chunks[1]);
+            .highlight_style(Style::default().bg(Color::Blue));
+        f.render_widget(endpoint_list, chunks[1]);
 
         // Buttons (3 buttons for step 2) - left, center, right positioning with margins, 50% wider
-        let button_chunks = self.create_button_layout(chunks[2]);        // Render buttons using button manager (use chunks 1, 3, 5 for left/center/right positioning with margins)
+        let button_chunks = self.create_button_layout(chunks[2]); // Render buttons using button manager (use chunks 1, 3, 5 for left/center/right positioning with margins)
         let button_rects = self.get_button_rects(&button_chunks);
         self.button_manager.render_buttons(f, &button_rects);
     }

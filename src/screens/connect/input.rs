@@ -146,7 +146,8 @@ impl ConnectScreen {
         key: KeyCode,
         modifiers: KeyModifiers,
     ) -> Result<Option<ConnectionStatus>> {
-        match key {            KeyCode::Up | KeyCode::Down => {
+        match key {
+            KeyCode::Up | KeyCode::Down => {
                 // Cycle through authentication types
                 self.cycle_authentication_type();
                 Ok(None)
@@ -161,21 +162,10 @@ impl ConnectScreen {
             }
             KeyCode::Esc => {
                 // Go back to previous step
-                if self.needs_security_configuration() {
-                    self.step = ConnectDialogStep::SecurityConfiguration;
-                    self.active_security_field = SecurityField::ClientCertificate;
-                    self.input_mode = InputMode::Editing;
-                    // Reset security validation highlighting when going back
-                    self.show_security_validation = false;
-                } else {
-                    self.step = ConnectDialogStep::EndpointSelection;
-                    self.input_mode = InputMode::Normal;
-                }
-                // Reset authentication validation highlighting when going back
-                self.show_auth_validation = false;
-                self.setup_buttons_for_current_step();
+                self.navigate_back_from_auth();
                 Ok(None)
-            }            KeyCode::Char(_) | KeyCode::Backspace | KeyCode::Left | KeyCode::Right => {
+            }
+            KeyCode::Char(_) | KeyCode::Backspace | KeyCode::Left | KeyCode::Right => {
                 self.handle_auth_field_input(key, modifiers);
                 Ok(None)
             }
@@ -212,7 +202,8 @@ impl ConnectScreen {
         &mut self,
         key: KeyCode,
         modifiers: KeyModifiers,
-    ) -> Result<Option<ConnectionStatus>> {        match key {
+    ) -> Result<Option<ConnectionStatus>> {
+        match key {
             KeyCode::Tab => {
                 // Navigate between fields with Tab/Shift-Tab
                 if modifiers.contains(crossterm::event::KeyModifiers::SHIFT) {
@@ -250,37 +241,11 @@ impl ConnectScreen {
                     }
                 } else if self.input_mode == InputMode::Editing {
                     // Handle space character in text input
-                    match self.active_security_field {
-                        SecurityField::ClientCertificate => {
-                            self.client_certificate_input.handle_event(
-                                &crossterm::event::Event::Key(crossterm::event::KeyEvent::new(
-                                    key, modifiers,
-                                )),
-                            );
-                        }
-                        SecurityField::ClientPrivateKey => {
-                            self.client_private_key_input.handle_event(
-                                &crossterm::event::Event::Key(crossterm::event::KeyEvent::new(
-                                    key, modifiers,
-                                )),
-                            );
-                        }
-                        SecurityField::TrustedServerStore => {
-                            if !self.auto_trust_server_cert {
-                                self.trusted_server_store_input.handle_event(
-                                    &crossterm::event::Event::Key(crossterm::event::KeyEvent::new(
-                                        key, modifiers,
-                                    )),
-                                );
-                            }
-                        }
-                        SecurityField::AutoTrustCheckbox => {
-                            // Already handled above
-                        }
-                    }
+                    self.handle_security_field_input(key, modifiers);
                 }
                 Ok(None)
-            }            KeyCode::Char(_) | KeyCode::Backspace | KeyCode::Left | KeyCode::Right => {
+            }
+            KeyCode::Char(_) | KeyCode::Backspace | KeyCode::Left | KeyCode::Right => {
                 // Handle text input for the active field (only when in editing mode)
                 if self.input_mode == InputMode::Editing {
                     self.handle_security_field_input(key, modifiers);

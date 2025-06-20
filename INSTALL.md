@@ -7,10 +7,10 @@ Before you can build and run this OPC UA client, you need to install Rust:
 ### Windows
 
 1. **Download and install Rust:**
-   - Go to https://rustup.rs/
-   - Download and run `rustup-init.exe`
-   - Follow the installation prompts
-   - Choose the default installation options
+    - Go to https://rustup.rs/
+    - Download and run `rustup-init.exe`
+    - Follow the installation prompts
+    - Choose the default installation options
 
 2. **Restart your terminal** (or VS Code) after installation
 
@@ -23,16 +23,19 @@ Before you can build and run this OPC UA client, you need to install Rust:
 ### Alternative: Using Package Managers
 
 **Using Chocolatey:**
+
 ```powershell
 choco install rust
 ```
 
 **Using Scoop:**
+
 ```powershell
 scoop install rust
 ```
 
 **Using winget:**
+
 ```powershell
 winget install Rustlang.Rust.MSVC
 ```

@@ -1,0 +1,30 @@
+<problems>
+    <problem>
+        <file>file://$PROJECT_DIR$/jk-opc-client/analysis/script.js</file>
+        <line>20</line>
+        <module>jkopcclient</module>
+        <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/jk-opc-client/analysis/script.js"/>
+        <problem_class id="JSUndeclaredVariable" severity="WEAK WARNING" attribute_key="INFO_ATTRIBUTES">Implicitly
+            declared global JavaScript variable
+        </problem_class>
+        <description>Variable problem_div implicitly declared #loc</description>
+        <highlighted_element>problem_div</highlighted_element>
+        <language>JavaScript</language>
+        <offset>4</offset>
+        <length>11</length>
+    </problem>
+    <problem>
+        <file>file://$PROJECT_DIR$/jk-opc-client/analysis/script.js</file>
+        <line>21</line>
+        <module>jkopcclient</module>
+        <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/jk-opc-client/analysis/script.js"/>
+        <problem_class id="JSUndeclaredVariable" severity="WEAK WARNING" attribute_key="INFO_ATTRIBUTES">Implicitly
+            declared global JavaScript variable
+        </problem_class>
+        <description>Variable preview_div implicitly declared #loc</description>
+        <highlighted_element>preview_div</highlighted_element>
+        <language>JavaScript</language>
+        <offset>4</offset>
+        <length>11</length>
+    </problem>
+</problems>

@@ -6,7 +6,8 @@ use ratatui::{
     Frame,
 };
 
-impl ConnectScreen {    pub(super) fn render_security_step(&mut self, f: &mut Frame, area: Rect) {
+impl ConnectScreen {
+    pub(super) fn render_security_step(&mut self, f: &mut Frame, area: Rect) {
         // Dynamic layout based on auto-trust setting
         let chunks = self.create_security_layout(area);
 
@@ -14,8 +15,9 @@ impl ConnectScreen {    pub(super) fn render_security_step(&mut self, f: &mut Fr
         let title = Paragraph::new("Connect to OPC UA Server - Step 3/4: Security Configuration")
             .style(Style::default().fg(Color::White).bg(Color::Blue))
             .block(Block::default().borders(Borders::ALL));
-        f.render_widget(title, chunks[0]);// Client Certificate input
-        let cert_style = self.get_security_field_style(SecurityField::ClientCertificate, "certificate");
+        f.render_widget(title, chunks[0]); // Client Certificate input
+        let cert_style =
+            self.get_security_field_style(SecurityField::ClientCertificate, "certificate");
 
         let cert_width = chunks[1].width.max(3) - 3;
         let cert_scroll = self
@@ -28,7 +30,10 @@ impl ConnectScreen {    pub(super) fn render_security_step(&mut self, f: &mut Fr
                 Block::default()
                     .title("Client Certificate (.der/.pem)")
                     .borders(Borders::ALL)
-                    .border_style(self.get_security_border_style(SecurityField::ClientCertificate, ConnectScreen::has_certificate_validation_error)),
+                    .border_style(self.get_security_border_style(
+                        SecurityField::ClientCertificate,
+                        ConnectScreen::has_certificate_validation_error,
+                    )),
             );
 
         f.render_widget(cert_input, chunks[1]);
@@ -44,7 +49,7 @@ impl ConnectScreen {    pub(super) fn render_security_step(&mut self, f: &mut Fr
                 - cert_scroll
                 + 1;
             f.set_cursor(chunks[1].x + cursor_x as u16, chunks[1].y + 1);
-        }        // Client Private Key input
+        } // Client Private Key input
         let key_style = self.get_security_field_style(SecurityField::ClientPrivateKey, "key");
 
         let key_width = chunks[2].width.max(3) - 3;
@@ -58,7 +63,10 @@ impl ConnectScreen {    pub(super) fn render_security_step(&mut self, f: &mut Fr
                 Block::default()
                     .title("Client Private Key (.pem)")
                     .borders(Borders::ALL)
-                    .border_style(self.get_security_border_style(SecurityField::ClientPrivateKey, ConnectScreen::has_private_key_validation_error)),
+                    .border_style(self.get_security_border_style(
+                        SecurityField::ClientPrivateKey,
+                        ConnectScreen::has_private_key_validation_error,
+                    )),
             );
 
         f.render_widget(key_input, chunks[2]);
@@ -89,9 +97,10 @@ impl ConnectScreen {    pub(super) fn render_security_step(&mut self, f: &mut Fr
 
         let checkbox = Paragraph::new(checkbox_text).style(checkbox_style);
 
-        f.render_widget(checkbox, chunks[3]);        // Trusted Server Store input (only if auto-trust is disabled)
+        f.render_widget(checkbox, chunks[3]); // Trusted Server Store input (only if auto-trust is disabled)
         if !self.auto_trust_server_cert {
-            let store_style = self.get_security_field_style(SecurityField::TrustedServerStore, "store");
+            let store_style =
+                self.get_security_field_style(SecurityField::TrustedServerStore, "store");
 
             let store_width = chunks[4].width.max(3) - 3;
             let store_scroll = self
@@ -104,7 +113,10 @@ impl ConnectScreen {    pub(super) fn render_security_step(&mut self, f: &mut Fr
                     Block::default()
                         .title("Trusted Server Certificate Store")
                         .borders(Borders::ALL)
-                        .border_style(self.get_security_border_style(SecurityField::TrustedServerStore, ConnectScreen::has_trusted_store_validation_error)),
+                        .border_style(self.get_security_border_style(
+                            SecurityField::TrustedServerStore,
+                            ConnectScreen::has_trusted_store_validation_error,
+                        )),
                 );
 
             f.render_widget(store_input, chunks[4]);
@@ -121,30 +133,31 @@ impl ConnectScreen {    pub(super) fn render_security_step(&mut self, f: &mut Fr
                     + 1;
                 f.set_cursor(chunks[4].x + cursor_x as u16, chunks[4].y + 1);
             }
-        }        // Buttons (3 buttons for security step) - left, center, right positioning with margins
+        } // Buttons (3 buttons for security step) - left, center, right positioning with margins
         let button_chunk_index = if self.auto_trust_server_cert { 5 } else { 6 };
-        let button_chunks = self.create_button_layout(chunks[button_chunk_index]);        // Render buttons using button manager
+        let button_chunks = self.create_button_layout(chunks[button_chunk_index]); // Render buttons using button manager
         let button_rects = self.get_button_rects(&button_chunks);
         self.button_manager.render_buttons(f, &button_rects);
     }
-
     /// Helper method to get security field style based on active state and validation
     fn get_security_field_style(&self, field: SecurityField, field_name: &str) -> Style {
-        let is_active = self.active_security_field == field && self.input_mode == InputMode::Editing;
+        let is_active =
+            self.active_security_field == field && self.input_mode == InputMode::Editing;
         let has_validation_error = self.show_security_validation
-            && self.validate_security_fields().iter().any(|e| e.contains(field_name));
+            && self
+                .validate_security_fields()
+                .iter()
+                .any(|e| e.contains(field_name));
 
-        if has_validation_error {
-            Style::default().fg(Color::Red)
-        } else if is_active {
-            Style::default().fg(Color::Yellow)
-        } else {
-            Style::default().fg(Color::White)
-        }
+        Self::get_validation_style(is_active, has_validation_error)
     }
 
     /// Helper method to get security border style based on active state and validation
-    fn get_security_border_style(&self, field: SecurityField, has_error_fn: fn(&Self) -> bool) -> Style {
+    fn get_security_border_style(
+        &self,
+        field: SecurityField,
+        has_error_fn: fn(&Self) -> bool,
+    ) -> Style {
         if self.active_security_field == field && self.input_mode == InputMode::Editing {
             Style::default().fg(Color::Yellow)
         } else if has_error_fn(self) {

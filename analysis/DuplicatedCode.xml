@@ -1,326 +1,114 @@
 <problems>
-<problem>
-  <file>file://$PROJECT_DIR$/jk-opc-client/src/menu.rs</file>
-  <line>35</line>
-  <module>jkopcclient</module>
-  <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/jk-opc-client/src/menu.rs" />
-  <problem_class id="DuplicatedCode" severity="WEAK WARNING" attribute_key="INFO_ATTRIBUTES">Duplicated code fragment</problem_class>
-  <description>Duplicate code: lines 35-39</description>
-  <highlighted_element>if self.active_menu == Some(MenuType::File) {</highlighted_element>
-  <language>Rust</language>
-  <offset>25</offset>
-  <length>45</length>
-</problem>
-<problem>
-  <file>file://$PROJECT_DIR$/jk-opc-client/src/menu.rs</file>
-  <line>45</line>
-  <module>jkopcclient</module>
-  <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/jk-opc-client/src/menu.rs" />
-  <problem_class id="DuplicatedCode" severity="WEAK WARNING" attribute_key="INFO_ATTRIBUTES">Duplicated code fragment</problem_class>
-  <description>Duplicate code: lines 45-49</description>
-  <highlighted_element>if self.active_menu == Some(MenuType::Browse) {</highlighted_element>
-  <language>Rust</language>
-  <offset>12</offset>
-  <length>47</length>
-</problem>
-<problem>
-  <file>file://$PROJECT_DIR$/jk-opc-client/src/menu.rs</file>
-  <line>90</line>
-  <module>jkopcclient</module>
-  <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/jk-opc-client/src/menu.rs" />
-  <problem_class id="DuplicatedCode" severity="WEAK WARNING" attribute_key="INFO_ATTRIBUTES">Duplicated code fragment</problem_class>
-  <description>Duplicate code: lines 90-96</description>
-  <highlighted_element>let dropdown = Paragraph::new(menu_items.join(&quot;\n&quot;))</highlighted_element>
-  <language>Rust</language>
-  <offset>16</offset>
-  <length>52</length>
-</problem>
-<problem>
-  <file>file://$PROJECT_DIR$/jk-opc-client/src/menu.rs</file>
-  <line>113</line>
-  <module>jkopcclient</module>
-  <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/jk-opc-client/src/menu.rs" />
-  <problem_class id="DuplicatedCode" severity="WEAK WARNING" attribute_key="INFO_ATTRIBUTES">Duplicated code fragment</problem_class>
-  <description>Duplicate code: lines 113-119</description>
-  <highlighted_element>let dropdown = Paragraph::new(menu_items.join(&quot;\n&quot;))</highlighted_element>
-  <language>Rust</language>
-  <offset>16</offset>
-  <length>52</length>
-</problem>
-<problem>
-  <file>file://$PROJECT_DIR$/jk-opc-client/src/screens/browse.rs</file>
-  <line>261</line>
-  <module>jkopcclient</module>
-  <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/jk-opc-client/src/screens/browse.rs" />
-  <problem_class id="DuplicatedCode" severity="WEAK WARNING" attribute_key="INFO_ATTRIBUTES">Duplicated code fragment</problem_class>
-  <description>Duplicate code: lines 261-268</description>
-  <highlighted_element>let chunks = Layout::default()</highlighted_element>
-  <language>Rust</language>
-  <offset>8</offset>
-  <length>30</length>
-</problem>
-<problem>
-  <file>file://$PROJECT_DIR$/jk-opc-client/src/screens/connect/input.rs</file>
-  <line>159</line>
-  <module>jkopcclient</module>
-  <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/jk-opc-client/src/screens/connect/input.rs" />
-  <problem_class id="DuplicatedCode" severity="WEAK WARNING" attribute_key="INFO_ATTRIBUTES">Duplicated code fragment</problem_class>
-  <description>Duplicate code: lines 159-171</description>
-  <highlighted_element>match self.authentication_type {</highlighted_element>
-  <language>Rust</language>
-  <offset>16</offset>
-  <length>32</length>
-</problem>
-<problem>
-  <file>file://$PROJECT_DIR$/jk-opc-client/src/screens/connect/input.rs</file>
-  <line>210</line>
-  <module>jkopcclient</module>
-  <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/jk-opc-client/src/screens/connect/input.rs" />
-  <problem_class id="DuplicatedCode" severity="WEAK WARNING" attribute_key="INFO_ATTRIBUTES">Duplicated code fragment</problem_class>
-  <description>Duplicate code: lines 210-219</description>
-  <highlighted_element>if self.needs_security_configuration() {</highlighted_element>
-  <language>Rust</language>
-  <offset>16</offset>
-  <length>40</length>
-</problem>
-<problem>
-  <file>file://$PROJECT_DIR$/jk-opc-client/src/screens/connect/input.rs</file>
-  <line>306</line>
-  <module>jkopcclient</module>
-  <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/jk-opc-client/src/screens/connect/input.rs" />
-  <problem_class id="DuplicatedCode" severity="WEAK WARNING" attribute_key="INFO_ATTRIBUTES">Duplicated code fragment</problem_class>
-  <description>Duplicate code: lines 306-312</description>
-  <highlighted_element>if !self.auto_trust_server_cert {</highlighted_element>
-  <language>Rust</language>
-  <offset>28</offset>
-  <length>33</length>
-</problem>
-<problem>
-  <file>file://$PROJECT_DIR$/jk-opc-client/src/screens/connect/input.rs</file>
-  <line>339</line>
-  <module>jkopcclient</module>
-  <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/jk-opc-client/src/screens/connect/input.rs" />
-  <problem_class id="DuplicatedCode" severity="WEAK WARNING" attribute_key="INFO_ATTRIBUTES">Duplicated code fragment</problem_class>
-  <description>Duplicate code: lines 339-345</description>
-  <highlighted_element>if !self.auto_trust_server_cert {</highlighted_element>
-  <language>Rust</language>
-  <offset>28</offset>
-  <length>33</length>
-</problem>
-<problem>
-  <file>file://$PROJECT_DIR$/jk-opc-client/src/screens/connect/input.rs</file>
-  <line>381</line>
-  <module>jkopcclient</module>
-  <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/jk-opc-client/src/screens/connect/input.rs" />
-  <problem_class id="DuplicatedCode" severity="WEAK WARNING" attribute_key="INFO_ATTRIBUTES">Duplicated code fragment</problem_class>
-  <description>Duplicate code: lines 381-411</description>
-  <highlighted_element>if self.input_mode == InputMode::Editing {</highlighted_element>
-  <language>Rust</language>
-  <offset>23</offset>
-  <length>42</length>
-</problem>
-<problem>
-  <file>file://$PROJECT_DIR$/jk-opc-client/src/screens/connect/input.rs</file>
-  <line>416</line>
-  <module>jkopcclient</module>
-  <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/jk-opc-client/src/screens/connect/input.rs" />
-  <problem_class id="DuplicatedCode" severity="WEAK WARNING" attribute_key="INFO_ATTRIBUTES">Duplicated code fragment</problem_class>
-  <description>Duplicate code: lines 416-445</description>
-  <highlighted_element>if self.input_mode == InputMode::Editing {</highlighted_element>
-  <language>Rust</language>
-  <offset>16</offset>
-  <length>42</length>
-</problem>
-<problem>
-  <file>file://$PROJECT_DIR$/jk-opc-client/src/screens/connect/logic.rs</file>
-  <line>193</line>
-  <module>jkopcclient</module>
-  <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/jk-opc-client/src/screens/connect/logic.rs" />
-  <problem_class id="DuplicatedCode" severity="WEAK WARNING" attribute_key="INFO_ATTRIBUTES">Duplicated code fragment</problem_class>
-  <description>Duplicate code: lines 193-202</description>
-  <highlighted_element>if self.needs_security_configuration() {</highlighted_element>
-  <language>Rust</language>
-  <offset>24</offset>
-  <length>40</length>
-</problem>
-<problem>
-  <file>file://$PROJECT_DIR$/jk-opc-client/src/screens/connect/logic.rs</file>
-  <line>329</line>
-  <module>jkopcclient</module>
-  <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/jk-opc-client/src/screens/connect/logic.rs" />
-  <problem_class id="DuplicatedCode" severity="WEAK WARNING" attribute_key="INFO_ATTRIBUTES">Duplicated code fragment</problem_class>
-  <description>Duplicate code: lines 329-341</description>
-  <highlighted_element>match self.authentication_type {</highlighted_element>
-  <language>Rust</language>
-  <offset>20</offset>
-  <length>32</length>
-</problem>
-<problem>
-  <file>file://$PROJECT_DIR$/jk-opc-client/src/screens/connect/logic.rs</file>
-  <line>365</line>
-  <module>jkopcclient</module>
-  <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/jk-opc-client/src/screens/connect/logic.rs" />
-  <problem_class id="DuplicatedCode" severity="WEAK WARNING" attribute_key="INFO_ATTRIBUTES">Duplicated code fragment</problem_class>
-  <description>Duplicate code: lines 365-377</description>
-  <highlighted_element>match self.authentication_type {</highlighted_element>
-  <language>Rust</language>
-  <offset>16</offset>
-  <length>32</length>
-</problem>
-<problem>
-  <file>file://$PROJECT_DIR$/jk-opc-client/src/screens/connect/render_auth.rs</file>
-  <line>62</line>
-  <module>jkopcclient</module>
-  <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/jk-opc-client/src/screens/connect/render_auth.rs" />
-  <problem_class id="DuplicatedCode" severity="WEAK WARNING" attribute_key="INFO_ATTRIBUTES">Duplicated code fragment</problem_class>
-  <description>Duplicate code: lines 62-68</description>
-  <highlighted_element>let username_style = if self.active_auth_field == AuthenticationField::Username</highlighted_element>
-  <language>Rust</language>
-  <offset>12</offset>
-  <length>79</length>
-</problem>
-<problem>
-  <file>file://$PROJECT_DIR$/jk-opc-client/src/screens/connect/render_auth.rs</file>
-  <line>102</line>
-  <module>jkopcclient</module>
-  <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/jk-opc-client/src/screens/connect/render_auth.rs" />
-  <problem_class id="DuplicatedCode" severity="WEAK WARNING" attribute_key="INFO_ATTRIBUTES">Duplicated code fragment</problem_class>
-  <description>Duplicate code: lines 102-108</description>
-  <highlighted_element>let password_style = if self.active_auth_field == AuthenticationField::Password</highlighted_element>
-  <language>Rust</language>
-  <offset>12</offset>
-  <length>79</length>
-</problem>
-<problem>
-  <file>file://$PROJECT_DIR$/jk-opc-client/src/screens/connect/render_auth.rs</file>
-  <line>151</line>
-  <module>jkopcclient</module>
-  <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/jk-opc-client/src/screens/connect/render_auth.rs" />
-  <problem_class id="DuplicatedCode" severity="WEAK WARNING" attribute_key="INFO_ATTRIBUTES">Duplicated code fragment</problem_class>
-  <description>Duplicate code: lines 151-157</description>
-  <highlighted_element>let cert_style = if self.active_auth_field == AuthenticationField::UserCertificate</highlighted_element>
-  <language>Rust</language>
-  <offset>12</offset>
-  <length>82</length>
-</problem>
-<problem>
-  <file>file://$PROJECT_DIR$/jk-opc-client/src/screens/connect/render_auth.rs</file>
-  <line>191</line>
-  <module>jkopcclient</module>
-  <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/jk-opc-client/src/screens/connect/render_auth.rs" />
-  <problem_class id="DuplicatedCode" severity="WEAK WARNING" attribute_key="INFO_ATTRIBUTES">Duplicated code fragment</problem_class>
-  <description>Duplicate code: lines 191-197</description>
-  <highlighted_element>let key_style = if self.active_auth_field == AuthenticationField::UserPrivateKey</highlighted_element>
-  <language>Rust</language>
-  <offset>12</offset>
-  <length>80</length>
-</problem>
-<problem>
-  <file>file://$PROJECT_DIR$/jk-opc-client/src/screens/connect/render_auth.rs</file>
-  <line>232</line>
-  <module>jkopcclient</module>
-  <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/jk-opc-client/src/screens/connect/render_auth.rs" />
-  <problem_class id="DuplicatedCode" severity="WEAK WARNING" attribute_key="INFO_ATTRIBUTES">Duplicated code fragment</problem_class>
-  <description>Duplicate code: lines 232-242</description>
-  <highlighted_element>Layout::default()</highlighted_element>
-  <language>Rust</language>
-  <offset>28</offset>
-  <length>17</length>
-</problem>
-<problem>
-  <file>file://$PROJECT_DIR$/jk-opc-client/src/screens/connect/render_endpoint.rs</file>
-  <line>11</line>
-  <module>jkopcclient</module>
-  <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/jk-opc-client/src/screens/connect/render_endpoint.rs" />
-  <problem_class id="DuplicatedCode" severity="WEAK WARNING" attribute_key="INFO_ATTRIBUTES">Duplicated code fragment</problem_class>
-  <description>Duplicate code: lines 11-18</description>
-  <highlighted_element>let chunks = Layout::default()</highlighted_element>
-  <language>Rust</language>
-  <offset>8</offset>
-  <length>30</length>
-</problem>
-<problem>
-  <file>file://$PROJECT_DIR$/jk-opc-client/src/screens/connect/render_endpoint.rs</file>
-  <line>94</line>
-  <module>jkopcclient</module>
-  <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/jk-opc-client/src/screens/connect/render_endpoint.rs" />
-  <problem_class id="DuplicatedCode" severity="WEAK WARNING" attribute_key="INFO_ATTRIBUTES">Duplicated code fragment</problem_class>
-  <description>Duplicate code: lines 94-104</description>
-  <highlighted_element>Layout::default()</highlighted_element>
-  <language>Rust</language>
-  <offset>28</offset>
-  <length>17</length>
-</problem>
-<problem>
-  <file>file://$PROJECT_DIR$/jk-opc-client/src/screens/connect/render_security.rs</file>
-  <line>47</line>
-  <module>jkopcclient</module>
-  <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/jk-opc-client/src/screens/connect/render_security.rs" />
-  <problem_class id="DuplicatedCode" severity="WEAK WARNING" attribute_key="INFO_ATTRIBUTES">Duplicated code fragment</problem_class>
-  <description>Duplicate code: lines 47-53</description>
-  <highlighted_element>let cert_style = if self.active_security_field == SecurityField::ClientCertificate</highlighted_element>
-  <language>Rust</language>
-  <offset>8</offset>
-  <length>82</length>
-</problem>
-<problem>
-  <file>file://$PROJECT_DIR$/jk-opc-client/src/screens/connect/render_security.rs</file>
-  <line>93</line>
-  <module>jkopcclient</module>
-  <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/jk-opc-client/src/screens/connect/render_security.rs" />
-  <problem_class id="DuplicatedCode" severity="WEAK WARNING" attribute_key="INFO_ATTRIBUTES">Duplicated code fragment</problem_class>
-  <description>Duplicate code: lines 93-99</description>
-  <highlighted_element>let key_style = if self.active_security_field == SecurityField::ClientPrivateKey</highlighted_element>
-  <language>Rust</language>
-  <offset>8</offset>
-  <length>80</length>
-</problem>
-<problem>
-  <file>file://$PROJECT_DIR$/jk-opc-client/src/screens/connect/render_security.rs</file>
-  <line>153</line>
-  <module>jkopcclient</module>
-  <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/jk-opc-client/src/screens/connect/render_security.rs" />
-  <problem_class id="DuplicatedCode" severity="WEAK WARNING" attribute_key="INFO_ATTRIBUTES">Duplicated code fragment</problem_class>
-  <description>Duplicate code: lines 153-159</description>
-  <highlighted_element>let store_style = if self.active_security_field == SecurityField::TrustedServerStore</highlighted_element>
-  <language>Rust</language>
-  <offset>12</offset>
-  <length>84</length>
-</problem>
-<problem>
-  <file>file://$PROJECT_DIR$/jk-opc-client/src/screens/connect/render_security.rs</file>
-  <line>199</line>
-  <module>jkopcclient</module>
-  <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/jk-opc-client/src/screens/connect/render_security.rs" />
-  <problem_class id="DuplicatedCode" severity="WEAK WARNING" attribute_key="INFO_ATTRIBUTES">Duplicated code fragment</problem_class>
-  <description>Duplicate code: lines 199-209</description>
-  <highlighted_element>Layout::default()</highlighted_element>
-  <language>Rust</language>
-  <offset>28</offset>
-  <length>17</length>
-</problem>
-<problem>
-  <file>file://$PROJECT_DIR$/jk-opc-client/src/ui.rs</file>
-  <line>122</line>
-  <module>jkopcclient</module>
-  <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/jk-opc-client/src/ui.rs" />
-  <problem_class id="DuplicatedCode" severity="WEAK WARNING" attribute_key="INFO_ATTRIBUTES">Duplicated code fragment</problem_class>
-  <description>Duplicate code: lines 122-141</description>
-  <highlighted_element>match connection_result {</highlighted_element>
-  <language>Rust</language>
-  <offset>20</offset>
-  <length>25</length>
-</problem>
-<problem>
-  <file>file://$PROJECT_DIR$/jk-opc-client/src/ui.rs</file>
-  <line>187</line>
-  <module>jkopcclient</module>
-  <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/jk-opc-client/src/ui.rs" />
-  <problem_class id="DuplicatedCode" severity="WEAK WARNING" attribute_key="INFO_ATTRIBUTES">Duplicated code fragment</problem_class>
-  <description>Duplicate code: lines 187-207</description>
-  <highlighted_element>match connection_result {</highlighted_element>
-  <language>Rust</language>
-  <offset>32</offset>
-  <length>25</length>
-</problem>
+    <problem>
+        <file>file://$PROJECT_DIR$/jk-opc-client/src/screens/connect/input.rs</file>
+        <line>165</line>
+        <module>jkopcclient</module>
+        <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/jk-opc-client/src/screens/connect/input.rs"/>
+        <problem_class id="DuplicatedCode" severity="WEAK WARNING" attribute_key="INFO_ATTRIBUTES">Duplicated code
+            fragment
+        </problem_class>
+        <description>Duplicate code: lines 165-174</description>
+        <highlighted_element>if self.needs_security_configuration() {</highlighted_element>
+        <language>Rust</language>
+        <offset>16</offset>
+        <length>40</length>
+    </problem>
+    <problem>
+        <file>file://$PROJECT_DIR$/jk-opc-client/src/screens/connect/input.rs</file>
+        <line>256</line>
+        <module>jkopcclient</module>
+        <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/jk-opc-client/src/screens/connect/input.rs"/>
+        <problem_class id="DuplicatedCode" severity="WEAK WARNING" attribute_key="INFO_ATTRIBUTES">Duplicated code
+            fragment
+        </problem_class>
+        <description>Duplicate code: lines 256-283</description>
+        <highlighted_element>match self.active_security_field {</highlighted_element>
+        <language>Rust</language>
+        <offset>20</offset>
+        <length>34</length>
+    </problem>
+    <problem>
+        <file>file://$PROJECT_DIR$/jk-opc-client/src/screens/connect/logic.rs</file>
+        <line>192</line>
+        <module>jkopcclient</module>
+        <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/jk-opc-client/src/screens/connect/logic.rs"/>
+        <problem_class id="DuplicatedCode" severity="WEAK WARNING" attribute_key="INFO_ATTRIBUTES">Duplicated code
+            fragment
+        </problem_class>
+        <description>Duplicate code: lines 192-201</description>
+        <highlighted_element>if self.needs_security_configuration() {</highlighted_element>
+        <language>Rust</language>
+        <offset>24</offset>
+        <length>40</length>
+    </problem>
+    <problem>
+        <file>file://$PROJECT_DIR$/jk-opc-client/src/screens/connect/logic.rs</file>
+        <line>457</line>
+        <module>jkopcclient</module>
+        <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/jk-opc-client/src/screens/connect/logic.rs"/>
+        <problem_class id="DuplicatedCode" severity="WEAK WARNING" attribute_key="INFO_ATTRIBUTES">Duplicated code
+            fragment
+        </problem_class>
+        <description>Duplicate code: lines 457-463</description>
+        <highlighted_element>if !self.auto_trust_server_cert {</highlighted_element>
+        <language>Rust</language>
+        <offset>16</offset>
+        <length>33</length>
+    </problem>
+    <problem>
+        <file>file://$PROJECT_DIR$/jk-opc-client/src/screens/connect/logic.rs</file>
+        <line>476</line>
+        <module>jkopcclient</module>
+        <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/jk-opc-client/src/screens/connect/logic.rs"/>
+        <problem_class id="DuplicatedCode" severity="WEAK WARNING" attribute_key="INFO_ATTRIBUTES">Duplicated code
+            fragment
+        </problem_class>
+        <description>Duplicate code: lines 476-482</description>
+        <highlighted_element>if !self.auto_trust_server_cert {</highlighted_element>
+        <language>Rust</language>
+        <offset>16</offset>
+        <length>33</length>
+    </problem>
+    <problem>
+        <file>file://$PROJECT_DIR$/jk-opc-client/src/screens/connect/logic.rs</file>
+        <line>535</line>
+        <module>jkopcclient</module>
+        <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/jk-opc-client/src/screens/connect/logic.rs"/>
+        <problem_class id="DuplicatedCode" severity="WEAK WARNING" attribute_key="INFO_ATTRIBUTES">Duplicated code
+            fragment
+        </problem_class>
+        <description>Duplicate code: lines 535-556</description>
+        <highlighted_element>match self.active_security_field {</highlighted_element>
+        <language>Rust</language>
+        <offset>8</offset>
+        <length>34</length>
+    </problem>
+    <problem>
+        <file>file://$PROJECT_DIR$/jk-opc-client/src/screens/connect/render_auth.rs</file>
+        <line>175</line>
+        <module>jkopcclient</module>
+        <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/jk-opc-client/src/screens/connect/render_auth.rs"/>
+        <problem_class id="DuplicatedCode" severity="WEAK WARNING" attribute_key="INFO_ATTRIBUTES">Duplicated code
+            fragment
+        </problem_class>
+        <description>Duplicate code: lines 175-181</description>
+        <highlighted_element>if has_validation_error {</highlighted_element>
+        <language>Rust</language>
+        <offset>8</offset>
+        <length>25</length>
+    </problem>
+    <problem>
+        <file>file://$PROJECT_DIR$/jk-opc-client/src/screens/connect/render_security.rs</file>
+        <line>138</line>
+        <module>jkopcclient</module>
+        <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/jk-opc-client/src/screens/connect/render_security.rs"/>
+        <problem_class id="DuplicatedCode" severity="WEAK WARNING" attribute_key="INFO_ATTRIBUTES">Duplicated code
+            fragment
+        </problem_class>
+        <description>Duplicate code: lines 138-144</description>
+        <highlighted_element>if has_validation_error {</highlighted_element>
+        <language>Rust</language>
+        <offset>8</offset>
+        <length>25</length>
+    </problem>
 </problems>

@@ -1,0 +1,31 @@
+<problems>
+    <problem>
+        <file>file://$PROJECT_DIR$/jk-opc-client/Cargo.toml</file>
+        <line>11</line>
+        <module>jkopcclient</module>
+        <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/jk-opc-client/Cargo.toml"/>
+        <problem_class id="CargoUnusedDependency" severity="WARNING" attribute_key="NOT_USED_ELEMENT_ATTRIBUTES">Unused
+            dependency
+        </problem_class>
+        <description>Unused crate: serde_json</description>
+        <highlighted_element>serde_json = &quot;1.0&quot;</highlighted_element>
+        <language>TOML</language>
+        <offset>0</offset>
+        <length>18</length>
+    </problem>
+    <problem>
+        <file>file://$PROJECT_DIR$/jk-opc-client/Cargo.toml</file>
+        <line>13</line>
+        <module>jkopcclient</module>
+        <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/jk-opc-client/Cargo.toml"/>
+        <problem_class id="CargoUnusedDependency" severity="WARNING" attribute_key="NOT_USED_ELEMENT_ATTRIBUTES">Unused
+            dependency
+        </problem_class>
+        <description>Unused crate: chrono</description>
+        <highlighted_element>chrono = { version = &quot;0.4&quot;, features = [&quot;serde&quot;] }
+        </highlighted_element>
+        <language>TOML</language>
+        <offset>0</offset>
+        <length>50</length>
+    </problem>
+</problems>

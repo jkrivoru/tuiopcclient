@@ -38,11 +38,13 @@ cargo run
 ### Navigation
 
 #### Global Hotkeys
+
 - `Alt+F` - File menu / Connect to server
 - `Alt+H` - Help screen
 - `Alt+X` - Exit application
 
 #### Main Screen
+
 - `1` - Browse OPC Server
 - `2` - View Subscriptions
 - `3` - Help
@@ -51,6 +53,7 @@ cargo run
 - `Q` - Quit application
 
 #### Browse Screen
+
 - `↑↓` - Navigate nodes
 - `Enter` - Browse into folder
 - `A` - Add node to subscription
@@ -60,6 +63,7 @@ cargo run
 - `Esc` - Return to main menu
 
 #### Subscription Screen
+
 - `↑↓` - Navigate subscriptions
 - `D` or `Del` - Remove from subscription
 - `Esc` - Return to main menu
@@ -67,6 +71,7 @@ cargo run
 ## Configuration
 
 The client supports various OPC UA security policies:
+
 - None (no encryption)
 - Basic128Rsa15
 - Basic256

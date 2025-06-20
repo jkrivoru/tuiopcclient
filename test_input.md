@@ -2,20 +2,20 @@
 
 ## Issues to Test:
 
-1. **Double Input Issue**: 
-   - Type a character and see if it appears once or twice
-   - Test with letters, numbers, and special characters
-   - Test backspace and arrow keys
+1. **Double Input Issue**:
+    - Type a character and see if it appears once or twice
+    - Test with letters, numbers, and special characters
+    - Test backspace and arrow keys
 
 2. **Cursor Visibility**:
-   - Check if cursor is visible in server URL field ✅ (working)
-   - Check if cursor is visible in username field (need to test)
-   - Check if cursor is visible in password field (need to test)
+    - Check if cursor is visible in server URL field ✅ (working)
+    - Check if cursor is visible in username field (need to test)
+    - Check if cursor is visible in password field (need to test)
 
 3. **Field Navigation**:
-   - Test Tab key to navigate between fields
-   - Test arrow keys for cursor movement within fields
-   - Test switching between username and password fields
+    - Test Tab key to navigate between fields
+    - Test arrow keys for cursor movement within fields
+    - Test switching between username and password fields
 
 ## Test Steps:
 

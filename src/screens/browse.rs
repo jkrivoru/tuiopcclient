@@ -1,3 +1,4 @@
+use crate::client::ConnectionStatus;
 use anyhow::Result;
 use crossterm::event::{KeyCode, KeyModifiers};
 use ratatui::{
@@ -7,7 +8,6 @@ use ratatui::{
     widgets::{Block, Borders, List, ListItem, ListState, Paragraph},
     Frame,
 };
-use crate::client::ConnectionStatus;
 
 pub struct BrowseScreen {
     // Navigation state
@@ -15,7 +15,7 @@ pub struct BrowseScreen {
     nodes: Vec<NodeItem>,
     selected_node: Option<usize>,
     list_state: ListState,
-    
+
     // Connection info
     server_url: String,
     connection_status: ConnectionStatus,
@@ -51,12 +51,12 @@ impl BrowseScreen {
             server_url,
             connection_status: ConnectionStatus::Connected,
         };
-        
+
         // Initialize with some demo nodes
         browse_screen.load_demo_nodes();
         browse_screen
     }
-    
+
     fn load_demo_nodes(&mut self) {
         // Demo OPC UA server structure
         self.nodes = vec![
@@ -85,15 +85,19 @@ impl BrowseScreen {
                 has_children: true,
             },
         ];
-        
+
         // Select first item
         if !self.nodes.is_empty() {
             self.selected_node = Some(0);
             self.list_state.select(Some(0));
         }
     }
-    
-    pub async fn handle_input(&mut self, key: KeyCode, modifiers: KeyModifiers) -> Result<Option<ConnectionStatus>> {
+
+    pub async fn handle_input(
+        &mut self,
+        key: KeyCode,
+        modifiers: KeyModifiers,
+    ) -> Result<Option<ConnectionStatus>> {
         match key {
             KeyCode::Up => {
                 if let Some(selected) = self.selected_node {
@@ -141,16 +145,17 @@ impl BrowseScreen {
                 self.refresh_current_view();
                 Ok(None)
             }
-            _ => Ok(None)
+            _ => Ok(None),
         }
     }
-    
+
     fn navigate_into_node(&mut self, node: NodeItem) {
         self.current_path.push(node.name.clone());
-        
+
         // Load child nodes (demo implementation)
         match node.node_id.as_str() {
-            "i=85" => { // Objects
+            "i=85" => {
+                // Objects
                 self.nodes = vec![
                     NodeItem {
                         name: "DeviceSet".to_string(),
@@ -166,7 +171,8 @@ impl BrowseScreen {
                     },
                 ];
             }
-            "i=86" => { // Types
+            "i=86" => {
+                // Types
                 self.nodes = vec![
                     NodeItem {
                         name: "ObjectTypes".to_string(),
@@ -200,16 +206,20 @@ impl BrowseScreen {
                 ];
             }
         }
-        
+
         // Reset selection
-        self.selected_node = if !self.nodes.is_empty() { Some(0) } else { None };
+        self.selected_node = if !self.nodes.is_empty() {
+            Some(0)
+        } else {
+            None
+        };
         self.list_state.select(self.selected_node);
     }
-    
+
     fn navigate_back(&mut self) {
         if self.current_path.len() > 1 {
             self.current_path.pop();
-            
+
             // Reload parent nodes (simplified demo)
             if self.current_path.len() == 1 {
                 self.load_demo_nodes();
@@ -230,19 +240,23 @@ impl BrowseScreen {
                     },
                 ];
             }
-            
+
             // Reset selection
-            self.selected_node = if !self.nodes.is_empty() { Some(0) } else { None };
+            self.selected_node = if !self.nodes.is_empty() {
+                Some(0)
+            } else {
+                None
+            };
             self.list_state.select(self.selected_node);
         }
     }
-    
+
     fn refresh_current_view(&mut self) {
         // For demo, just reload the current view
         log::info!("Refreshing current view: {}", self.current_path.join(" > "));
         // In a real implementation, this would re-query the OPC UA server
     }
-    
+
     pub fn render(&mut self, f: &mut Frame, area: Rect) {
         let chunks = Layout::default()
             .direction(Direction::Vertical)
@@ -252,66 +266,71 @@ impl BrowseScreen {
                 Constraint::Length(3), // Details
             ])
             .split(area);
-        
+
         // Header
         self.render_header(f, chunks[0]);
-        
+
         // Node list
         self.render_node_list(f, chunks[1]);
-        
+
         // Details
         self.render_details(f, chunks[2]);
     }
-    
+
     fn render_header(&self, f: &mut Frame, area: Rect) {
         let header_text = vec![
             Span::styled("OPC UA Browser", Style::default().fg(Color::Green)),
             Span::raw(" - "),
             Span::styled(&self.server_url, Style::default().fg(Color::Cyan)),
             Span::raw("\nPath: "),
-            Span::styled(self.current_path.join(" > "), Style::default().fg(Color::Yellow)),
+            Span::styled(
+                self.current_path.join(" > "),
+                Style::default().fg(Color::Yellow),
+            ),
         ];
-        
+
         let header = Paragraph::new(Line::from(header_text))
             .block(Block::default().borders(Borders::ALL))
             .style(Style::default().fg(Color::White));
-        
+
         f.render_widget(header, area);
     }
-    
+
     fn render_node_list(&mut self, f: &mut Frame, area: Rect) {
-        let items: Vec<ListItem> = self.nodes.iter().map(|node| {
-            let icon = match node.node_type {
-                NodeType::Object => "📁",
-                NodeType::Variable => "📊",
-                NodeType::Method => "⚙️",
-                NodeType::View => "👁️",
-                NodeType::ObjectType => "🏷️",
-                NodeType::VariableType => "🔧",
-                NodeType::DataType => "📝",
-                NodeType::ReferenceType => "🔗",
-            };
-            
-            let name = if node.has_children {
-                format!("{} {} >", icon, node.name)
-            } else {
-                format!("{} {}", icon, node.name)
-            };
-            
-            ListItem::new(name)
-        }).collect();
-        
+        let items: Vec<ListItem> = self
+            .nodes
+            .iter()
+            .map(|node| {
+                let icon = match node.node_type {
+                    NodeType::Object => "📁",
+                    NodeType::Variable => "📊",
+                    NodeType::Method => "⚙️",
+                    NodeType::View => "👁️",
+                    NodeType::ObjectType => "🏷️",
+                    NodeType::VariableType => "🔧",
+                    NodeType::DataType => "📝",
+                    NodeType::ReferenceType => "🔗",
+                };
+
+                let name = if node.has_children {
+                    format!("{} {} >", icon, node.name)
+                } else {
+                    format!("{} {}", icon, node.name)
+                };
+
+                ListItem::new(name)
+            })
+            .collect();
+
         let list = List::new(items)
-            .block(Block::default()
-                .title("Nodes")
-                .borders(Borders::ALL))
+            .block(Block::default().title("Nodes").borders(Borders::ALL))
             .style(Style::default().fg(Color::White))
             .highlight_style(Style::default().bg(Color::Blue).fg(Color::White))
             .highlight_symbol("▶ ");
-        
+
         f.render_stateful_widget(list, area, &mut self.list_state);
     }
-    
+
     fn render_details(&self, f: &mut Frame, area: Rect) {
         let details_text = if let Some(selected) = self.selected_node {
             if let Some(node) = self.nodes.get(selected) {
@@ -319,7 +338,10 @@ impl BrowseScreen {
                     Span::raw("Node ID: "),
                     Span::styled(&node.node_id, Style::default().fg(Color::Green)),
                     Span::raw(" | Type: "),
-                    Span::styled(format!("{:?}", node.node_type), Style::default().fg(Color::Yellow)),
+                    Span::styled(
+                        format!("{:?}", node.node_type),
+                        Style::default().fg(Color::Yellow),
+                    ),
                 ]
             } else {
                 vec![Span::raw("No node selected")]
@@ -327,20 +349,18 @@ impl BrowseScreen {
         } else {
             vec![Span::raw("No nodes available")]
         };
-        
+
         let details = Paragraph::new(Line::from(details_text))
-            .block(Block::default()
-                .title("Details")
-                .borders(Borders::ALL))
+            .block(Block::default().title("Details").borders(Borders::ALL))
             .style(Style::default().fg(Color::White));
-        
+
         f.render_widget(details, area);
     }
-    
+
     pub fn render_help_line(&self, f: &mut Frame, area: Rect) {
-        let help_text = "↑↓ - Navigate | Enter - Expand | Backspace - Back | Ctrl+R - Refresh | Ctrl+Q - Quit";
-        let help = Paragraph::new(help_text)
-            .style(Style::default().fg(Color::Gray));
+        let help_text =
+            "↑↓ - Navigate | Enter - Expand | Backspace - Back | Ctrl+R - Refresh | Ctrl+Q - Quit";
+        let help = Paragraph::new(help_text).style(Style::default().fg(Color::Gray));
         f.render_widget(help, area);
     }
 }

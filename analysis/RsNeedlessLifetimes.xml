@@ -1,0 +1,17 @@
+<problems>
+    <problem>
+        <file>file://$PROJECT_DIR$/jk-opc-client/src/screens/connect/render.rs</file>
+        <line>148</line>
+        <module>jkopcclient</module>
+        <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/jk-opc-client/src/screens/connect/render.rs"/>
+        <problem_class id="RsNeedlessLifetimes" severity="WEAK WARNING" attribute_key="INFO_ATTRIBUTES">Unnecessary
+            lifetime annotations
+        </problem_class>
+        <description>Parameter types contain explicit lifetimes that could be elided</description>
+        <highlighted_element>fn get_button_rects&lt;'a&gt;(&amp;self, button_chunks: &amp;'a [Rect]) -&gt; [Rect; 3]
+        </highlighted_element>
+        <language>Rust</language>
+        <offset>8</offset>
+        <length>70</length>
+    </problem>
+</problems>

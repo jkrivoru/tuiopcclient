@@ -1,0 +1,100 @@
+<problems>
+    <problem>
+        <file>file://$PROJECT_DIR$/jk-opc-client/INSTALL.md</file>
+        <line>76</line>
+        <module>jkopcclient</module>
+        <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/jk-opc-client/INSTALL.md"/>
+        <problem_class id="HttpUrlsUsage" severity="WEAK WARNING" attribute_key="INFO_ATTRIBUTES">Link with unencrypted
+            protocol
+        </problem_class>
+        <description>HTTP links are not secure</description>
+        <highlighted_element>http://</highlighted_element>
+        <language>Markdown</language>
+        <offset>12</offset>
+        <length>7</length>
+    </problem>
+    <problem>
+        <file>file://$PROJECT_DIR$/jk-opc-client/analysis/.descriptions.xml</file>
+        <line>167</line>
+        <module>jkopcclient</module>
+        <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/jk-opc-client/analysis/.descriptions.xml"/>
+        <problem_class id="HttpUrlsUsage" severity="WEAK WARNING" attribute_key="INFO_ATTRIBUTES">Link with unencrypted
+            protocol
+        </problem_class>
+        <description>HTTP links are not secure</description>
+        <highlighted_element>http://</highlighted_element>
+        <language>XML</language>
+        <offset>24</offset>
+        <length>7</length>
+    </problem>
+    <problem>
+        <file>file://$PROJECT_DIR$/jk-opc-client/analysis/.descriptions.xml</file>
+        <line>197</line>
+        <module>jkopcclient</module>
+        <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/jk-opc-client/analysis/.descriptions.xml"/>
+        <problem_class id="HttpUrlsUsage" severity="WEAK WARNING" attribute_key="INFO_ATTRIBUTES">Link with unencrypted
+            protocol
+        </problem_class>
+        <description>HTTP links are not secure</description>
+        <highlighted_element>http://</highlighted_element>
+        <language>XML</language>
+        <offset>51</offset>
+        <length>7</length>
+    </problem>
+    <problem>
+        <file>file://$PROJECT_DIR$/jk-opc-client/analysis/.descriptions.xml</file>
+        <line>2783</line>
+        <module>jkopcclient</module>
+        <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/jk-opc-client/analysis/.descriptions.xml"/>
+        <problem_class id="HttpUrlsUsage" severity="WEAK WARNING" attribute_key="INFO_ATTRIBUTES">Link with unencrypted
+            protocol
+        </problem_class>
+        <description>HTTP links are not secure</description>
+        <highlighted_element>http://</highlighted_element>
+        <language>XML</language>
+        <offset>24</offset>
+        <length>7</length>
+    </problem>
+    <problem>
+        <file>file://$PROJECT_DIR$/jk-opc-client/analysis/.descriptions.xml</file>
+        <line>2798</line>
+        <module>jkopcclient</module>
+        <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/jk-opc-client/analysis/.descriptions.xml"/>
+        <problem_class id="HttpUrlsUsage" severity="WEAK WARNING" attribute_key="INFO_ATTRIBUTES">Link with unencrypted
+            protocol
+        </problem_class>
+        <description>HTTP links are not secure</description>
+        <highlighted_element>http://</highlighted_element>
+        <language>XML</language>
+        <offset>49</offset>
+        <length>7</length>
+    </problem>
+    <problem>
+        <file>file://$PROJECT_DIR$/jk-opc-client/analysis/.descriptions.xml</file>
+        <line>2814</line>
+        <module>jkopcclient</module>
+        <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/jk-opc-client/analysis/.descriptions.xml"/>
+        <problem_class id="HttpUrlsUsage" severity="WEAK WARNING" attribute_key="INFO_ATTRIBUTES">Link with unencrypted
+            protocol
+        </problem_class>
+        <description>HTTP links are not secure</description>
+        <highlighted_element>http://</highlighted_element>
+        <language>XML</language>
+        <offset>49</offset>
+        <length>7</length>
+    </problem>
+    <problem>
+        <file>file://$PROJECT_DIR$/jk-opc-client/analysis/.descriptions.xml</file>
+        <line>3934</line>
+        <module>jkopcclient</module>
+        <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/jk-opc-client/analysis/.descriptions.xml"/>
+        <problem_class id="HttpUrlsUsage" severity="WEAK WARNING" attribute_key="INFO_ATTRIBUTES">Link with unencrypted
+            protocol
+        </problem_class>
+        <description>HTTP links are not secure</description>
+        <highlighted_element>http://</highlighted_element>
+        <language>XML</language>
+        <offset>62</offset>
+        <length>7</length>
+    </problem>
+</problems>

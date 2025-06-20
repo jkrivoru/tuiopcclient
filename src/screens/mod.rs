@@ -1,5 +1,5 @@
-pub mod connect;
 pub mod browse;
+pub mod connect;
 
-pub use connect::ConnectScreen;
 pub use browse::BrowseScreen;
+pub use connect::ConnectScreen;

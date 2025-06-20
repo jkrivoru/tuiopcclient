@@ -56,18 +56,22 @@ impl ConnectScreen {
                     Constraint::Length(3), // Username
                     Constraint::Length(3), // Password
                 ])
-                .split(chunks[2]);            // Username field with validation styling
+                .split(chunks[2]); // Username field with validation styling
             let username_style = self.get_field_style(AuthenticationField::Username, "username");
 
             let width = user_chunks[0].width.max(3) - 3;
             let scroll = self.username_input.visual_scroll(width as usize);
             let username_text = Paragraph::new(self.username_input.value())
                 .style(username_style)
-                .scroll((0, scroll as u16))                .block(
+                .scroll((0, scroll as u16))
+                .block(
                     Block::default()
                         .title("Username")
                         .borders(Borders::ALL)
-                        .border_style(self.get_border_style(AuthenticationField::Username, ConnectScreen::has_username_validation_error)),
+                        .border_style(self.get_border_style(
+                            AuthenticationField::Username,
+                            ConnectScreen::has_username_validation_error,
+                        )),
                 );
             f.render_widget(username_text, user_chunks[0]);
 
@@ -77,7 +81,7 @@ impl ConnectScreen {
             {
                 let cursor_x = self.username_input.visual_cursor().max(scroll) - scroll + 1;
                 f.set_cursor(user_chunks[0].x + cursor_x as u16, user_chunks[0].y + 1);
-            }            // Password field
+            } // Password field
             let password_style = self.get_field_style(AuthenticationField::Password, "password");
 
             let width = user_chunks[1].width.max(3) - 3;
@@ -90,7 +94,10 @@ impl ConnectScreen {
                     Block::default()
                         .title("Password")
                         .borders(Borders::ALL)
-                        .border_style(self.get_border_style(AuthenticationField::Password, ConnectScreen::has_password_validation_error)),
+                        .border_style(self.get_border_style(
+                            AuthenticationField::Password,
+                            ConnectScreen::has_password_validation_error,
+                        )),
                 );
             f.render_widget(password_text, user_chunks[1]);
 
@@ -108,8 +115,9 @@ impl ConnectScreen {
                     Constraint::Length(3), // User Certificate
                     Constraint::Length(3), // User Private Key
                 ])
-                .split(chunks[2]);            // User Certificate field
-            let cert_style = self.get_field_style(AuthenticationField::UserCertificate, "certificate");
+                .split(chunks[2]); // User Certificate field
+            let cert_style =
+                self.get_field_style(AuthenticationField::UserCertificate, "certificate");
 
             let width = cert_chunks[0].width.max(3) - 3;
             let scroll = self.user_certificate_input.visual_scroll(width as usize);
@@ -120,7 +128,10 @@ impl ConnectScreen {
                     Block::default()
                         .title("User Certificate (.der/.pem)")
                         .borders(Borders::ALL)
-                        .border_style(self.get_border_style(AuthenticationField::UserCertificate, ConnectScreen::has_user_certificate_validation_error)),
+                        .border_style(self.get_border_style(
+                            AuthenticationField::UserCertificate,
+                            ConnectScreen::has_user_certificate_validation_error,
+                        )),
                 );
             f.render_widget(cert_text, cert_chunks[0]);
 
@@ -130,7 +141,7 @@ impl ConnectScreen {
             {
                 let cursor_x = self.user_certificate_input.visual_cursor().max(scroll) - scroll + 1;
                 f.set_cursor(cert_chunks[0].x + cursor_x as u16, cert_chunks[0].y + 1);
-            }            // User Private Key field
+            } // User Private Key field
             let key_style = self.get_field_style(AuthenticationField::UserPrivateKey, "private");
 
             let width = cert_chunks[1].width.max(3) - 3;
@@ -142,7 +153,10 @@ impl ConnectScreen {
                     Block::default()
                         .title("User Private Key (.pem)")
                         .borders(Borders::ALL)
-                        .border_style(self.get_border_style(AuthenticationField::UserPrivateKey, ConnectScreen::has_user_private_key_validation_error)),
+                        .border_style(self.get_border_style(
+                            AuthenticationField::UserPrivateKey,
+                            ConnectScreen::has_user_private_key_validation_error,
+                        )),
                 );
             f.render_widget(key_text, cert_chunks[1]);
 
@@ -153,7 +167,7 @@ impl ConnectScreen {
                 let cursor_x = self.user_private_key_input.visual_cursor().max(scroll) - scroll + 1;
                 f.set_cursor(cert_chunks[1].x + cursor_x as u16, cert_chunks[1].y + 1);
             }
-        }        // Buttons (3 buttons for step 3) - left, center, right positioning with margins, 50% wider
+        } // Buttons (3 buttons for step 3) - left, center, right positioning with margins, 50% wider
         let button_chunks = self.create_button_layout(chunks[4]);
 
         // Update button states based on current progress
@@ -161,26 +175,27 @@ impl ConnectScreen {
             self.button_manager.set_button_enabled("connect", false);
         } else {
             self.button_manager.set_button_enabled("connect", true);
-        }        // Render buttons using button manager (use chunks 1, 3, 5 for left/center/right positioning with margins)
+        } // Render buttons using button manager (use chunks 1, 3, 5 for left/center/right positioning with margins)
         let button_rects = self.get_button_rects(&button_chunks);
         self.button_manager.render_buttons(f, &button_rects);
     }
-
     /// Helper method to get field style based on active state and validation
     fn get_field_style(&self, field: AuthenticationField, field_name: &str) -> Style {
         let is_active = self.active_auth_field == field && self.input_mode == InputMode::Editing;
         let has_validation_error = self.show_auth_validation
-            && self.validate_authentication_fields().iter().any(|e| e.contains(field_name));
+            && self
+                .validate_authentication_fields()
+                .iter()
+                .any(|e| e.contains(field_name));
 
-        if has_validation_error {
-            Style::default().fg(Color::Red)
-        } else if is_active {
-            Style::default().fg(Color::Yellow)
-        } else {
-            Style::default().fg(Color::White)
-        }
-    }    /// Helper method to get border style based on active state and validation
-    fn get_border_style(&self, field: AuthenticationField, has_error_fn: fn(&Self) -> bool) -> Style {
+        Self::get_validation_style(is_active, has_validation_error)
+    }
+    /// Helper method to get border style based on active state and validation
+    fn get_border_style(
+        &self,
+        field: AuthenticationField,
+        has_error_fn: fn(&Self) -> bool,
+    ) -> Style {
         if self.active_auth_field == field && self.input_mode == InputMode::Editing {
             Style::default().fg(Color::Yellow)
         } else if has_error_fn(self) {
