@@ -14,12 +14,13 @@ impl super::BrowseScreen {
             KeyCode::Esc | KeyCode::Char('q') => {
                 // Disconnect and return to connect screen
                 Ok(Some(ConnectionStatus::Disconnected))
-            }
-            KeyCode::Up => {
+            }            KeyCode::Up => {
                 if self.selected_node_index > 0 {
                     self.selected_node_index -= 1;
                     self.update_scroll();
-                    self.update_selected_attributes();
+                    if let Err(e) = self.update_selected_attributes_async().await {
+                        log::error!("Failed to update attributes: {}", e);
+                    }
                 }
                 Ok(None)
             }
@@ -27,17 +28,22 @@ impl super::BrowseScreen {
                 if self.selected_node_index < self.tree_nodes.len().saturating_sub(1) {
                     self.selected_node_index += 1;
                     self.update_scroll();
-                    self.update_selected_attributes();
+                    if let Err(e) = self.update_selected_attributes_async().await {
+                        log::error!("Failed to update attributes: {}", e);
+                    }
                 }
                 Ok(None)
-            }
-            KeyCode::Right | KeyCode::Enter => {
+            }KeyCode::Right | KeyCode::Enter => {
                 // Expand node if it has children
                 if self.selected_node_index < self.tree_nodes.len() {
                     let node = &self.tree_nodes[self.selected_node_index];
                     if node.has_children && !node.is_expanded {
-                        self.expand_node(self.selected_node_index);
-                        self.update_selected_attributes();
+                        if let Err(e) = self.expand_node_async(self.selected_node_index).await {
+                            log::error!("Failed to expand node: {}", e);
+                        }
+                        if let Err(e) = self.update_selected_attributes_async().await {
+                            log::error!("Failed to update attributes: {}", e);
+                        }
                     }
                 }
                 Ok(None)
@@ -53,8 +59,7 @@ impl super::BrowseScreen {
                 // Clear all selections
                 self.clear_selections();
                 Ok(None)
-            }
-            KeyCode::Left => {
+            }            KeyCode::Left => {
                 // Left key behavior:
                 // 1. If current node is expanded, collapse it
                 // 2. If current node is not expanded, move to parent
@@ -63,20 +68,25 @@ impl super::BrowseScreen {
                     if node.is_expanded {
                         // Collapse the current node
                         self.collapse_node(self.selected_node_index);
-                        self.update_selected_attributes();
+                        if let Err(e) = self.update_selected_attributes_async().await {
+                            log::error!("Failed to update attributes: {}", e);
+                        }
                     } else if node.level > 0 {
                         // Move to immediate parent node
                         self.move_to_parent();
-                        self.update_selected_attributes();
+                        if let Err(e) = self.update_selected_attributes_async().await {
+                            log::error!("Failed to update attributes: {}", e);
+                        }
                     }
                 }
                 Ok(None)
-            }
-            KeyCode::PageUp => {
+            }KeyCode::PageUp => {
                 let page_size = 10;
                 self.selected_node_index = self.selected_node_index.saturating_sub(page_size);
                 self.update_scroll();
-                self.update_selected_attributes();
+                if let Err(e) = self.update_selected_attributes_async().await {
+                    log::error!("Failed to update attributes: {}", e);
+                }
                 Ok(None)
             }
             KeyCode::PageDown => {
@@ -84,19 +94,36 @@ impl super::BrowseScreen {
                 self.selected_node_index = (self.selected_node_index + page_size)
                     .min(self.tree_nodes.len().saturating_sub(1));
                 self.update_scroll();
-                self.update_selected_attributes();
+                if let Err(e) = self.update_selected_attributes_async().await {
+                    log::error!("Failed to update attributes: {}", e);
+                }
                 Ok(None)
             }
             KeyCode::Home => {
                 self.selected_node_index = 0;
                 self.scroll_offset = 0;
-                self.update_selected_attributes();
+                if let Err(e) = self.update_selected_attributes_async().await {
+                    log::error!("Failed to update attributes: {}", e);
+                }
                 Ok(None)
             }
             KeyCode::End => {
                 self.selected_node_index = self.tree_nodes.len().saturating_sub(1);
                 self.update_scroll();
-                self.update_selected_attributes();
+                if let Err(e) = self.update_selected_attributes_async().await {
+                    log::error!("Failed to update attributes: {}", e);
+                }
+                Ok(None)
+            }
+            KeyCode::Char('r') => {
+                // Refresh/reload real OPC UA data
+                if let Err(e) = self.load_real_tree().await {
+                    log::error!("Failed to load real OPC UA data: {}", e);
+                    // If real data fails, keep using demo data
+                }
+                if let Err(e) = self.update_selected_attributes_async().await {
+                    log::error!("Failed to update attributes: {}", e);
+                }
                 Ok(None)
             }
             _ => Ok(None),
@@ -170,13 +197,13 @@ impl super::BrowseScreen {
             }
         }
         Ok(None)
-    }
-
-    async fn handle_single_click(&mut self, index: usize) -> Result<Option<ConnectionStatus>> {
+    }    async fn handle_single_click(&mut self, index: usize) -> Result<Option<ConnectionStatus>> {
         // Navigate to the clicked node
         self.selected_node_index = index;
         self.update_scroll();
-        self.update_selected_attributes();
+        if let Err(e) = self.update_selected_attributes_async().await {
+            log::error!("Failed to update attributes: {}", e);
+        }
         Ok(None)
     }
 
@@ -192,9 +219,13 @@ impl super::BrowseScreen {
                 if node.is_expanded {
                     self.collapse_node(index);
                 } else {
-                    self.expand_node(index);
+                    if let Err(e) = self.expand_node_async(index).await {
+                        log::error!("Failed to expand node: {}", e);
+                    }
                 }
-                self.update_selected_attributes();
+                if let Err(e) = self.update_selected_attributes_async().await {
+                    log::error!("Failed to update attributes: {}", e);
+                }
             }
         }
         Ok(None)

@@ -1,9 +1,13 @@
-use crate::client::ConnectionStatus;
+use crate::client::{ConnectionStatus, OpcUaClientManager};
+use opcua::types::NodeId;
+use std::sync::Arc;
+use tokio::sync::RwLock;
 
 #[derive(Clone)]
 pub struct TreeNode {
     pub name: String,
     pub node_id: String,
+    pub opcua_node_id: Option<NodeId>, // Add the actual OPC UA NodeId
     pub node_type: NodeType,
     pub level: usize,
     pub has_children: bool,
@@ -51,9 +55,16 @@ pub struct BrowseScreen {
     // Mouse state for double-click detection
     pub last_click_time: Option<std::time::Instant>,
     pub last_click_position: Option<(u16, u16)>,
+    
+    // OPC UA client
+    pub client: Arc<RwLock<OpcUaClientManager>>,
+    
+    // Loading state
+    pub is_loading: bool,
 }
 
-impl BrowseScreen {    pub fn new(server_url: String) -> Self {
+impl BrowseScreen {
+    pub fn new(server_url: String, client: Arc<RwLock<OpcUaClientManager>>) -> Self {
         let mut browse_screen = Self {
             current_path: vec!["Root".to_string()],
             tree_nodes: Vec::new(),
@@ -67,29 +78,30 @@ impl BrowseScreen {    pub fn new(server_url: String) -> Self {
             selected_items: std::collections::HashSet::new(),
             last_click_time: None,
             last_click_position: None,
+            client,
+            is_loading: false,
         };
 
-        // Initialize with demo OPC UA tree structure
+        // Initialize with demo OPC UA tree structure (will be replaced with real data)
         browse_screen.load_demo_tree();
         browse_screen.update_selected_attributes();
         browse_screen
-    }
-
-    fn load_demo_tree(&mut self) {
+    }    fn load_demo_tree(&mut self) {
         // Create a hierarchical OPC UA server structure
         self.tree_nodes = vec![
             TreeNode {
                 name: "Objects".to_string(),
                 node_id: "i=85".to_string(),
+                opcua_node_id: None, // Demo data doesn't have real NodeIds
                 node_type: NodeType::Object,
                 level: 0,
                 has_children: true,
                 is_expanded: false,
                 parent_path: "".to_string(),
-            },
-            TreeNode {
+            },            TreeNode {
                 name: "Types".to_string(),
                 node_id: "i=86".to_string(),
+                opcua_node_id: None,
                 node_type: NodeType::Object,
                 level: 0,
                 has_children: true,
@@ -99,15 +111,16 @@ impl BrowseScreen {    pub fn new(server_url: String) -> Self {
             TreeNode {
                 name: "Views".to_string(),
                 node_id: "i=87".to_string(),
+                opcua_node_id: None,
                 node_type: NodeType::Object,
                 level: 0,
                 has_children: true,
                 is_expanded: false,
                 parent_path: "".to_string(),
-            },
-            TreeNode {
+            },            TreeNode {
                 name: "Server".to_string(),
                 node_id: "i=2253".to_string(),
+                opcua_node_id: None,
                 node_type: NodeType::Object,
                 level: 0,
                 has_children: true,

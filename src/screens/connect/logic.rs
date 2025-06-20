@@ -112,9 +112,7 @@ impl ConnectScreen {
         self.connect_in_progress = true;
         self.pending_connection = true;
         Ok(None) // Return immediately to show the popup
-    }
-
-    pub async fn perform_connection(&mut self) -> Result<Option<ConnectionStatus>> {
+    }    pub async fn perform_connection(&mut self) -> Result<Option<ConnectionStatus>> {
         info!("Starting connection process...");
 
         let auth_desc = match self.authentication_type {
@@ -131,23 +129,26 @@ impl ConnectScreen {
 
         info!("Connecting with {}", auth_desc);
 
-        // Simulate connection process with a delay to show popup
-        time::sleep(Duration::from_millis(1500)).await;
-
-        // For demo purposes, we can simulate both success and failure
-        // In a real implementation, this would attempt actual OPC UA connection
-        let connection_successful = true; // Change to false to test error handling
-
-        if connection_successful {
-            info!("Connected successfully!");
-            Ok(Some(ConnectionStatus::Connected))
-        } else {
-            // Connection failed - log error and stay on authentication screen
-            log::error!("Connection failed: Unable to connect to OPC UA server");
-            log::error!("Please check server URL, endpoint selection, and authentication settings");
-            warn!("Verify that the OPC UA server is running and accessible");
-            Ok(None) // Return None to stay on current screen
+        // Get the server URL from input
+        let server_url = self.server_url_input.value().trim();
+        
+        if server_url.is_empty() {
+            log::error!("Server URL is empty");
+            return Ok(Some(ConnectionStatus::Error("Server URL is required".to_string())));
         }
+
+        info!("Attempting to connect to: {}", server_url);
+
+        // Validate the server URL format
+        if !server_url.starts_with("opc.tcp://") {
+            log::error!("Invalid OPC UA server URL: must start with 'opc.tcp://'");
+            return Ok(Some(ConnectionStatus::Error("Invalid URL format. Must start with 'opc.tcp://'".to_string())));
+        }
+
+        // Return Connecting status - the actual connection will be handled by the UI layer
+        // This ensures we don't show "Connected" until the real connection succeeds
+        info!("Connection parameters validated, initiating connection...");
+        Ok(Some(ConnectionStatus::Connecting))
     }
     pub async fn handle_button_action(
         &mut self,

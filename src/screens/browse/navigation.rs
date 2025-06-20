@@ -1,5 +1,7 @@
-impl super::BrowseScreen {
-    pub fn expand_node(&mut self, index: usize) {
+use anyhow::Result;
+
+impl super::BrowseScreen {    // Renamed existing method for demo data
+    pub fn expand_node_demo(&mut self, index: usize) {
         if index < self.tree_nodes.len() && self.tree_nodes[index].has_children {
             let node_path = {
                 let node = &self.tree_nodes[index];
@@ -10,41 +12,37 @@ impl super::BrowseScreen {
                 }
             };
             
-            if !self.expanded_nodes.contains(&node_path) {
-                self.expanded_nodes.insert(node_path.clone());
-                
-                // Get node info before modifying the vector
-                let (node_id, level, parent_path) = {
-                    let node = &self.tree_nodes[index];
-                    (node.node_id.clone(), node.level, node_path.clone())
+            // Get node info before modifying the vector
+            let (node_id, level, parent_path) = {
+                let node = &self.tree_nodes[index];
+                (node.node_id.clone(), node.level, node_path.clone())
+            };
+            
+            self.tree_nodes[index].is_expanded = true;
+            
+            // Add child nodes (demo data)
+            let mut child_nodes = self.get_demo_children(&node_id, level + 1, &parent_path);
+            
+            // Restore expanded state for child nodes that were previously expanded
+            for child in &mut child_nodes {
+                let child_path = if child.parent_path.is_empty() {
+                    child.name.clone()
+                } else {
+                    format!("{}/{}", child.parent_path, child.name)
                 };
                 
-                self.tree_nodes[index].is_expanded = true;
-                
-                // Add child nodes (demo data)
-                let mut child_nodes = self.get_demo_children(&node_id, level + 1, &parent_path);
-                
-                // Restore expanded state for child nodes that were previously expanded
-                for child in &mut child_nodes {
-                    let child_path = if child.parent_path.is_empty() {
-                        child.name.clone()
-                    } else {
-                        format!("{}/{}", child.parent_path, child.name)
-                    };
-                    
-                    if self.expanded_nodes.contains(&child_path) {
-                        child.is_expanded = true;
-                    }
+                if self.expanded_nodes.contains(&child_path) {
+                    child.is_expanded = true;
                 }
-                
-                // Insert children after the current node
-                for (i, child) in child_nodes.into_iter().enumerate() {
-                    self.tree_nodes.insert(index + 1 + i, child);
-                }
-                
-                // Recursively expand any child nodes that should be expanded
-                self.restore_child_expansions(index + 1, level + 1);
             }
+            
+            // Insert children after the current node
+            for (i, child) in child_nodes.into_iter().enumerate() {
+                self.tree_nodes.insert(index + 1 + i, child);
+            }
+            
+            // Recursively expand any child nodes that should be expanded
+            self.restore_child_expansions(index + 1, level + 1);
         }
     }
 
@@ -184,4 +182,38 @@ impl super::BrowseScreen {
             self.scroll_offset = self.selected_node_index.saturating_sub(visible_height - 1);
         }
     }
-}
+
+    // New async method that handles both demo and real data
+    pub async fn expand_node_async(&mut self, index: usize) -> Result<()> {
+        if index >= self.tree_nodes.len() || !self.tree_nodes[index].has_children {
+            return Ok(());
+        }
+
+        let node_path = {
+            let node = &self.tree_nodes[index];
+            if node.parent_path.is_empty() {
+                node.name.clone()
+            } else {
+                format!("{}/{}", node.parent_path, node.name)
+            }
+        };
+        
+        if self.expanded_nodes.contains(&node_path) {
+            return Ok(()); // Already expanded
+        }
+
+        self.expanded_nodes.insert(node_path.clone());
+        
+        // Check if this is real OPC UA data or demo data
+        let has_real_node_id = self.tree_nodes[index].opcua_node_id.is_some();
+        
+        if has_real_node_id {
+            // Use real OPC UA data
+            self.expand_real_node(index).await?;
+        } else {
+            // Use demo data (fallback to existing sync method)
+            self.expand_node_demo(index);
+        }
+        
+        Ok(())
+    }}

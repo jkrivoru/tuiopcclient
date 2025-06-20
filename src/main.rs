@@ -1,6 +1,6 @@
 use anyhow::Result;
 use std::sync::Arc;
-use tokio::sync::Mutex;
+use tokio::sync::RwLock;
 
 mod client;
 mod components;
@@ -17,7 +17,7 @@ async fn main() -> Result<()> {
     tui_logger::init_logger(log::LevelFilter::Info).unwrap();
     tui_logger::set_default_level(log::LevelFilter::Info);
 
-    let client_manager = Arc::new(Mutex::new(OpcUaClientManager::new()));
+    let client_manager = Arc::new(RwLock::new(OpcUaClientManager::new()));
     
     // Check for test mode argument
     let args: Vec<String> = std::env::args().collect();
