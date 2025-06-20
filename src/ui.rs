@@ -8,7 +8,7 @@ use crossterm::{
 };
 use ratatui::{
     backend::CrosstermBackend,
-    layout::{Constraint, Direction, Layout},
+    layout::{Constraint, Direction, Layout, Rect},
     Frame, Terminal,
 };
 use std::{
@@ -189,10 +189,52 @@ impl App {    pub fn new(client_manager: Arc<Mutex<OpcUaClientManager>>) -> Self
                     }
                     _ => {}
                 }
-            }
-            AppState::Connected(_) => {
-                // Browse screen doesn't handle mouse events yet
-                // Could add mouse support for node selection in the future
+            }            AppState::Connected(_) => {
+                // Handle browse screen mouse events
+                if let Some(browse_screen) = &mut self.browse_screen {
+                    let size = terminal.size()?;
+                    let full_area = ratatui::layout::Rect {
+                        x: 0,
+                        y: 0,
+                        width: size.width,
+                        height: size.height,
+                    };
+                    
+                    // Calculate the tree area (70% of the main content area)
+                    let main_chunks = Layout::default()
+                        .direction(Direction::Vertical)
+                        .constraints([
+                            Constraint::Min(0),    // Main content area
+                            Constraint::Length(1), // Status bar
+                        ])
+                        .split(full_area);
+
+                    let content_chunks = Layout::default()
+                        .direction(Direction::Horizontal)
+                        .constraints([
+                            Constraint::Percentage(70), // Tree view
+                            Constraint::Percentage(30), // Attributes panel
+                        ])
+                        .split(main_chunks[0]);
+                    
+                    // Tree area with borders - inner area for actual content
+                    let tree_area = Rect {
+                        x: content_chunks[0].x + 1,  // Account for left border
+                        y: content_chunks[0].y + 1,  // Account for top border  
+                        width: content_chunks[0].width.saturating_sub(2), // Account for both borders
+                        height: content_chunks[0].height.saturating_sub(2), // Account for both borders
+                    };
+                    
+                    if let Some(connection_result) = 
+                        browse_screen.handle_mouse_input(mouse, tree_area).await? {
+                        match connection_result {
+                            ConnectionStatus::Disconnected => {
+                                self.should_quit = true;
+                            }
+                            _ => {}
+                        }
+                    }
+                }
             }
         }
 

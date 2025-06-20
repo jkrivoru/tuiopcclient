@@ -1,6 +1,8 @@
 use anyhow::Result;
-use crossterm::event::KeyCode;
+use crossterm::event::{KeyCode, MouseEvent, MouseEventKind, MouseButton};
+use ratatui::layout::Rect;
 use crate::client::ConnectionStatus;
+use std::time::{Duration, Instant};
 
 impl super::BrowseScreen {
     pub async fn handle_input(
@@ -99,5 +101,126 @@ impl super::BrowseScreen {
             }
             _ => Ok(None),
         }
+    }
+
+    pub async fn handle_mouse_input(
+        &mut self,
+        mouse: MouseEvent,
+        tree_area: Rect,
+    ) -> Result<Option<ConnectionStatus>> {
+        match mouse.kind {
+            MouseEventKind::Down(MouseButton::Left) => {
+                self.handle_left_click(mouse.column, mouse.row, tree_area).await
+            }
+            MouseEventKind::Down(MouseButton::Right) => {
+                self.handle_right_click(mouse.column, mouse.row, tree_area).await
+            }
+            _ => Ok(None),
+        }
+    }
+
+    async fn handle_left_click(
+        &mut self,
+        x: u16,
+        y: u16,
+        tree_area: Rect,
+    ) -> Result<Option<ConnectionStatus>> {
+        // Check if click is within the tree area
+        if x >= tree_area.x && x < tree_area.x + tree_area.width 
+            && y >= tree_area.y && y < tree_area.y + tree_area.height {
+            
+            let relative_y = y.saturating_sub(tree_area.y);
+            let clicked_index = (relative_y as usize).saturating_add(self.scroll_offset);
+            
+            if clicked_index < self.tree_nodes.len() {
+                let now = Instant::now();
+                let is_double_click = self.is_double_click(x, y, now);
+                
+                if is_double_click {
+                    // Double-click: expand/collapse node
+                    self.handle_double_click(clicked_index).await
+                } else {
+                    // Single click: navigate to node
+                    self.handle_single_click(clicked_index).await
+                }
+            } else {
+                Ok(None)
+            }
+        } else {
+            Ok(None)
+        }
+    }
+
+    async fn handle_right_click(
+        &mut self,
+        x: u16,
+        y: u16,
+        tree_area: Rect,
+    ) -> Result<Option<ConnectionStatus>> {
+        // Check if right-click is within the tree area
+        if x >= tree_area.x && x < tree_area.x + tree_area.width 
+            && y >= tree_area.y && y < tree_area.y + tree_area.height {
+            
+            let relative_y = y.saturating_sub(tree_area.y);
+            let clicked_index = (relative_y as usize).saturating_add(self.scroll_offset);
+            
+            if clicked_index < self.tree_nodes.len() {
+                // Right-click: toggle selection
+                self.toggle_node_selection(clicked_index);
+            }
+        }
+        Ok(None)
+    }
+
+    async fn handle_single_click(&mut self, index: usize) -> Result<Option<ConnectionStatus>> {
+        // Navigate to the clicked node
+        self.selected_node_index = index;
+        self.update_scroll();
+        self.update_selected_attributes();
+        Ok(None)
+    }
+
+    async fn handle_double_click(&mut self, index: usize) -> Result<Option<ConnectionStatus>> {
+        // First, navigate to the node
+        self.selected_node_index = index;
+        self.update_scroll();
+        
+        // Then expand/collapse if it has children
+        if index < self.tree_nodes.len() {
+            let node = &self.tree_nodes[index];
+            if node.has_children {
+                if node.is_expanded {
+                    self.collapse_node(index);
+                } else {
+                    self.expand_node(index);
+                }
+                self.update_selected_attributes();
+            }
+        }
+        Ok(None)
+    }
+
+    fn is_double_click(&mut self, x: u16, y: u16, now: Instant) -> bool {
+        const DOUBLE_CLICK_THRESHOLD: Duration = Duration::from_millis(500);
+        const DOUBLE_CLICK_DISTANCE: u16 = 2; // pixels
+        
+        if let (Some(last_time), Some(last_pos)) = (self.last_click_time, self.last_click_position) {
+            let time_diff = now.duration_since(last_time);
+            let distance = ((x as i32 - last_pos.0 as i32).abs() + (y as i32 - last_pos.1 as i32).abs()) as u16;
+            
+            let is_double = time_diff <= DOUBLE_CLICK_THRESHOLD && distance <= DOUBLE_CLICK_DISTANCE;
+            
+            if is_double {
+                // Reset click tracking after detecting double-click
+                self.last_click_time = None;
+                self.last_click_position = None;
+                return true;
+            }
+        }
+        
+        // Update last click info for next time
+        self.last_click_time = Some(now);
+        self.last_click_position = Some((x, y));
+        false
     }
 }

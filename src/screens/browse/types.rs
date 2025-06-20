@@ -47,10 +47,13 @@ pub struct BrowseScreen {
     
     // Selection state for subscription
     pub selected_items: std::collections::HashSet<String>, // Store node IDs of selected items
+    
+    // Mouse state for double-click detection
+    pub last_click_time: Option<std::time::Instant>,
+    pub last_click_position: Option<(u16, u16)>,
 }
 
-impl BrowseScreen {
-    pub fn new(server_url: String) -> Self {
+impl BrowseScreen {    pub fn new(server_url: String) -> Self {
         let mut browse_screen = Self {
             current_path: vec!["Root".to_string()],
             tree_nodes: Vec::new(),
@@ -62,6 +65,8 @@ impl BrowseScreen {
             server_url,
             connection_status: ConnectionStatus::Connected,
             selected_items: std::collections::HashSet::new(),
+            last_click_time: None,
+            last_click_position: None,
         };
 
         // Initialize with demo OPC UA tree structure
