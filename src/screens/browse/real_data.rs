@@ -82,8 +82,7 @@ impl super::BrowseScreen {
         
         Ok(tree_nodes)
     }
-    
-    pub async fn expand_real_node(&mut self, index: usize) -> Result<()> {
+      pub async fn expand_real_node(&mut self, index: usize) -> Result<()> {
         if index >= self.tree_nodes.len() || !self.tree_nodes[index].has_children {
             return Ok(());
         }
@@ -96,12 +95,6 @@ impl super::BrowseScreen {
                 format!("{}/{}", node.parent_path, node.name)
             }
         };
-        
-        if self.expanded_nodes.contains(&node_path) {
-            return Ok(()); // Already expanded
-        }
-        
-        self.expanded_nodes.insert(node_path.clone());
         
         // Get node info before modifying the vector
         let (opcua_node_id, level, parent_path) = {
