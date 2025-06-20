@@ -184,7 +184,7 @@ impl Button {
             },
             ButtonState::Hovered => {
                 let bg = self.get_background_color();
-                Style::default().fg(Color::Yellow).bg(bg)
+                Style::default().bg(bg)
             },            ButtonState::MouseDown => {
                 let bg = self.get_lighter_background_color();
                 let fg = self.get_text_color();
@@ -237,7 +237,7 @@ impl Button {
     }    fn get_text_color(&self) -> Color {
         match self.color {
             ButtonColor::Red => Color::White,
-            ButtonColor::Green => Color::Black,        // Standard text color for green button
+            ButtonColor::Green => Color::White,        // Standard text color for green button
             ButtonColor::Blue => Color::White,
             ButtonColor::Default => Color::White,
         }

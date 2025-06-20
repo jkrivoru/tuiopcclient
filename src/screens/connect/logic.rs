@@ -104,14 +104,31 @@ impl ConnectScreen {    pub async fn discover_endpoints(&mut self) -> Result<()>
         info!("Use Up/Down arrows to navigate, Enter to select endpoint");
         
         Ok(())
-    }
-
-    pub async fn connect_with_settings(&mut self) -> Result<Option<ConnectionStatus>> {
-        self.connect_in_progress = true;
+    }    pub async fn connect_with_settings(&mut self) -> Result<Option<ConnectionStatus>> {
+        // Show validation highlighting when Connect is clicked
+        self.show_auth_validation = true;
         
-        let auth_desc = match self.authentication_type {
+        // Validate authentication fields before proceeding
+        let validation_errors = self.validate_authentication_fields();
+        if !validation_errors.is_empty() {
+            // Log validation errors
+            for error in &validation_errors {
+                log::error!("Authentication Validation: {}", error);
+            }
+            // Don't proceed if there are validation errors
+            return Ok(None);
+        }
+        
+        self.connect_in_progress = true;
+          let auth_desc = match self.authentication_type {
             AuthenticationType::Anonymous => "Anonymous".to_string(),
             AuthenticationType::UserPassword => format!("User: {}", self.username_input.value()),
+            AuthenticationType::X509Certificate => format!("Certificate: {}", 
+                std::path::Path::new(self.user_certificate_input.value())
+                    .file_name()
+                    .and_then(|s| s.to_str())
+                    .unwrap_or("Unknown")
+            ),
         };
         
         info!("Connecting with {}", auth_desc);
@@ -134,27 +151,37 @@ impl ConnectScreen {    pub async fn discover_endpoints(&mut self) -> Result<()>
                         self.pending_discovery = true;
                         Ok(None) // Return immediately to show the popup
                     }
-                    ConnectDialogStep::EndpointSelection => {
-                        // Check if security configuration is needed
+                    ConnectDialogStep::EndpointSelection => {                        // Check if security configuration is needed
                         if self.needs_security_configuration() {
                             // Move to security configuration step
                             self.step = ConnectDialogStep::SecurityConfiguration;
                             self.active_security_field = SecurityField::ClientCertificate;
                             self.input_mode = InputMode::Editing;
-                        } else {
-                            // Skip security and move directly to authentication step
+                            // Reset validation highlighting when entering security step
+                            self.show_security_validation = false;                        } else {                            // Skip security and move directly to authentication step
                             self.step = ConnectDialogStep::Authentication;
-                            if self.authentication_type == AuthenticationType::UserPassword {
-                                self.active_auth_field = AuthenticationField::Username;
-                                self.input_mode = InputMode::Editing;
-                            } else {
-                                self.input_mode = InputMode::Normal;
+                            // Reset authentication validation highlighting when entering auth step
+                            self.show_auth_validation = false;
+                            match self.authentication_type {
+                                AuthenticationType::UserPassword => {
+                                    self.active_auth_field = AuthenticationField::Username;
+                                    self.input_mode = InputMode::Editing;
+                                }
+                                AuthenticationType::X509Certificate => {
+                                    self.active_auth_field = AuthenticationField::UserCertificate;
+                                    self.input_mode = InputMode::Editing;
+                                }
+                                AuthenticationType::Anonymous => {
+                                    self.input_mode = InputMode::Normal;
+                                }
                             }
                         }
                         self.setup_buttons_for_current_step();
                         Ok(None)
-                    }
-                    ConnectDialogStep::SecurityConfiguration => {
+                    }                    ConnectDialogStep::SecurityConfiguration => {
+                        // Show validation highlighting when Next is clicked
+                        self.show_security_validation = true;
+                        
                         // Validate security fields before proceeding
                         let validation_errors = self.validate_security_fields();
                         if !validation_errors.is_empty() {
@@ -164,15 +191,22 @@ impl ConnectScreen {    pub async fn discover_endpoints(&mut self) -> Result<()>
                             }
                             // Don't proceed if there are validation errors
                             return Ok(None);
-                        }
-                        
-                        // Move to authentication step
+                        }                        // Move to authentication step
                         self.step = ConnectDialogStep::Authentication;
-                        if self.authentication_type == AuthenticationType::UserPassword {
-                            self.active_auth_field = AuthenticationField::Username;
-                            self.input_mode = InputMode::Editing;
-                        } else {
-                            self.input_mode = InputMode::Normal;
+                        // Reset authentication validation highlighting when entering auth step
+                        self.show_auth_validation = false;
+                        match self.authentication_type {
+                            AuthenticationType::UserPassword => {
+                                self.active_auth_field = AuthenticationField::Username;
+                                self.input_mode = InputMode::Editing;
+                            }
+                            AuthenticationType::X509Certificate => {
+                                self.active_auth_field = AuthenticationField::UserCertificate;
+                                self.input_mode = InputMode::Editing;
+                            }
+                            AuthenticationType::Anonymous => {
+                                self.input_mode = InputMode::Normal;
+                            }
                         }
                         self.setup_buttons_for_current_step();
                         Ok(None)
@@ -192,13 +226,14 @@ impl ConnectScreen {    pub async fn discover_endpoints(&mut self) -> Result<()>
                         self.input_mode = InputMode::Normal;
                         self.setup_buttons_for_current_step();
                         Ok(None)
-                    }
-                    ConnectDialogStep::Authentication => {
+                    }                    ConnectDialogStep::Authentication => {
                         // Check if we came from security configuration or endpoint selection
                         if self.needs_security_configuration() {
                             self.step = ConnectDialogStep::SecurityConfiguration;
                             self.active_security_field = SecurityField::ClientCertificate;
                             self.input_mode = InputMode::Editing;
+                            // Reset validation highlighting when going back
+                            self.show_security_validation = false;
                         } else {
                             self.step = ConnectDialogStep::EndpointSelection;
                             self.input_mode = InputMode::Normal;

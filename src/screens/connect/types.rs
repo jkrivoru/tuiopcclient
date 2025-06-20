@@ -31,12 +31,15 @@ pub enum SecurityMode {
 pub enum AuthenticationType {
     Anonymous,
     UserPassword,
+    X509Certificate,
 }
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum AuthenticationField {
     Username,
     Password,
+    UserCertificate,
+    UserPrivateKey,
 }
 
 #[derive(Debug, Clone)]
@@ -76,13 +79,15 @@ pub struct ConnectScreen {
     pub auto_trust_server_cert: bool,
     pub trusted_server_store_input: Input,
     pub active_security_field: SecurityField,
-    
-    pub authentication_type: AuthenticationType,
+      pub authentication_type: AuthenticationType,
     pub active_auth_field: AuthenticationField,
     pub username_input: Input,
     pub password_input: Input,
-    pub connect_in_progress: bool,
-    pub pending_discovery: bool, // New field to track if discovery should happen
+    pub user_certificate_input: Input,
+    pub user_private_key_input: Input,
+    pub connect_in_progress: bool,    pub pending_discovery: bool, // New field to track if discovery should happen
+    pub show_security_validation: bool, // Track whether to show validation highlighting
+    pub show_auth_validation: bool, // Track whether to show authentication validation highlighting
     
     // Input handling
     pub input_mode: InputMode,
@@ -171,51 +176,45 @@ impl ConnectScreen {    pub fn validate_server_url(&mut self) {
     
     pub fn validate_security_fields(&self) -> Vec<String> {
         let mut errors = Vec::new();
-        
-        let cert_path = self.client_certificate_input.value().trim();
+          let cert_path = self.client_certificate_input.value().trim();
         let key_path = self.client_private_key_input.value().trim();
         let store_path = self.trusted_server_store_input.value().trim();
         
-        // Validate client certificate if provided
-        if !cert_path.is_empty() {
-            if !std::path::Path::new(cert_path).exists() {
-                errors.push(format!("Client certificate file not found: {}", cert_path));
-            } else {
-                let ext = std::path::Path::new(cert_path)
-                    .extension()
-                    .and_then(|s| s.to_str())
-                    .unwrap_or("");
-                if !["der", "pem", "crt", "cer"].contains(&ext.to_lowercase().as_str()) {
-                    errors.push("Client certificate must be a .der, .pem, .crt, or .cer file".to_string());
-                }
+        // Client certificate is mandatory
+        if cert_path.is_empty() {
+            errors.push("Client certificate path is required".to_string());
+        } else if !std::path::Path::new(cert_path).exists() {
+            errors.push(format!("Client certificate file not found: {}", cert_path));
+        } else {
+            let ext = std::path::Path::new(cert_path)
+                .extension()
+                .and_then(|s| s.to_str())
+                .unwrap_or("");
+            if !["der", "pem", "crt", "cer"].contains(&ext.to_lowercase().as_str()) {
+                errors.push("Client certificate must be a .der, .pem, .crt, or .cer file".to_string());
             }
         }
         
-        // Validate private key if provided
-        if !key_path.is_empty() {
-            if !std::path::Path::new(key_path).exists() {
-                errors.push(format!("Client private key file not found: {}", key_path));
-            } else {
-                let ext = std::path::Path::new(key_path)
-                    .extension()
-                    .and_then(|s| s.to_str())
-                    .unwrap_or("");
-                if !["pem", "key"].contains(&ext.to_lowercase().as_str()) {
-                    errors.push("Client private key must be a .pem or .key file".to_string());
-                }
+        // Private key is mandatory
+        if key_path.is_empty() {
+            errors.push("Client private key path is required".to_string());
+        } else if !std::path::Path::new(key_path).exists() {
+            errors.push(format!("Client private key file not found: {}", key_path));
+        } else {
+            let ext = std::path::Path::new(key_path)
+                .extension()
+                .and_then(|s| s.to_str())
+                .unwrap_or("");
+            if !["pem", "key"].contains(&ext.to_lowercase().as_str()) {
+                errors.push("Client private key must be a .pem or .key file".to_string());
             }
         }
         
-        // Validate trusted server store if not auto-trusting and provided
-        if !self.auto_trust_server_cert && !store_path.is_empty() {
-            if !std::path::Path::new(store_path).exists() {
+        // Trusted server store is mandatory when auto-trust is disabled
+        if !self.auto_trust_server_cert {
+            if !store_path.is_empty() && !std::path::Path::new(store_path).exists() {
                 errors.push(format!("Trusted server store path not found: {}", store_path));
             }
-        }
-        
-        // Check if both certificate and key are provided together
-        if (!cert_path.is_empty() && key_path.is_empty()) || (cert_path.is_empty() && !key_path.is_empty()) {
-            errors.push("Both client certificate and private key must be provided together, or both left empty".to_string());
         }
         
         errors
@@ -228,5 +227,175 @@ impl ConnectScreen {    pub fn validate_server_url(&mut self) {
         } else {
             Some(errors.join("; "))
         }
+    }
+      pub fn has_certificate_validation_error(&self) -> bool {
+        if !self.show_security_validation {
+            return false;
+        }
+        let cert_path = self.client_certificate_input.value().trim();
+        if cert_path.is_empty() {
+            return true;
+        }
+        if !std::path::Path::new(cert_path).exists() {
+            return true;
+        }
+        let ext = std::path::Path::new(cert_path)
+            .extension()
+            .and_then(|s| s.to_str())
+            .unwrap_or("");
+        !["der", "pem", "crt", "cer"].contains(&ext.to_lowercase().as_str())
+    }
+    
+    pub fn has_private_key_validation_error(&self) -> bool {
+        if !self.show_security_validation {
+            return false;
+        }
+        let key_path = self.client_private_key_input.value().trim();
+        if key_path.is_empty() {
+            return true;
+        }
+        if !std::path::Path::new(key_path).exists() {
+            return true;
+        }
+        let ext = std::path::Path::new(key_path)
+            .extension()
+            .and_then(|s| s.to_str())
+            .unwrap_or("");
+        !["pem", "key"].contains(&ext.to_lowercase().as_str())
+    }
+    
+    pub fn has_trusted_store_validation_error(&self) -> bool {
+        if !self.show_security_validation {
+            return false;
+        }
+        if self.auto_trust_server_cert {
+            return false; // Not required when auto-trust is enabled
+        }
+        let store_path = self.trusted_server_store_input.value().trim();
+        if store_path.is_empty() {
+            return false;
+        }
+        !std::path::Path::new(store_path).exists()
+    }
+    
+    // Authentication validation helper methods
+    pub fn has_username_validation_error(&self) -> bool {
+        if !self.show_auth_validation {
+            return false;
+        }
+        if self.authentication_type != AuthenticationType::UserPassword {
+            return false;
+        }
+        self.username_input.value().trim().is_empty()
+    }
+    
+    pub fn has_password_validation_error(&self) -> bool {
+        if !self.show_auth_validation {
+            return false;
+        }
+        if self.authentication_type != AuthenticationType::UserPassword {
+            return false;
+        }
+        self.password_input.value().trim().is_empty()
+    }
+    
+    pub fn has_user_certificate_validation_error(&self) -> bool {
+        if !self.show_auth_validation {
+            return false;
+        }
+        if self.authentication_type != AuthenticationType::X509Certificate {
+            return false;
+        }
+        let cert_path = self.user_certificate_input.value().trim();
+        if cert_path.is_empty() {
+            return true;
+        }
+        if !std::path::Path::new(cert_path).exists() {
+            return true;
+        }
+        let ext = std::path::Path::new(cert_path)
+            .extension()
+            .and_then(|s| s.to_str())
+            .unwrap_or("");
+        !["der", "pem", "crt", "cer"].contains(&ext.to_lowercase().as_str())
+    }
+    
+    pub fn has_user_private_key_validation_error(&self) -> bool {
+        if !self.show_auth_validation {
+            return false;
+        }
+        if self.authentication_type != AuthenticationType::X509Certificate {
+            return false;
+        }
+        let key_path = self.user_private_key_input.value().trim();
+        if key_path.is_empty() {
+            return true;
+        }
+        if !std::path::Path::new(key_path).exists() {
+            return true;
+        }
+        let ext = std::path::Path::new(key_path)
+            .extension()
+            .and_then(|s| s.to_str())
+            .unwrap_or("");
+        !["pem", "key"].contains(&ext.to_lowercase().as_str())
+    }
+    
+    // Validate authentication fields
+    pub fn validate_authentication_fields(&self) -> Vec<String> {
+        let mut errors = Vec::new();
+        
+        match self.authentication_type {
+            AuthenticationType::UserPassword => {
+                let username = self.username_input.value().trim();
+                let password = self.password_input.value().trim();
+                
+                if username.is_empty() {
+                    errors.push("Username is required".to_string());
+                }
+                if password.is_empty() {
+                    errors.push("Password is required".to_string());
+                }
+            }
+            AuthenticationType::X509Certificate => {
+                let cert_path = self.user_certificate_input.value().trim();
+                let key_path = self.user_private_key_input.value().trim();
+                
+                // User certificate is mandatory
+                if cert_path.is_empty() {
+                    errors.push("User certificate path is required".to_string());
+                } else if !std::path::Path::new(cert_path).exists() {
+                    errors.push(format!("User certificate file not found: {}", cert_path));
+                } else {
+                    let ext = std::path::Path::new(cert_path)
+                        .extension()
+                        .and_then(|s| s.to_str())
+                        .unwrap_or("");
+                    if !["der", "pem", "crt", "cer"].contains(&ext.to_lowercase().as_str()) {
+                        errors.push("User certificate must be a .der, .pem, .crt, or .cer file".to_string());
+                    }
+                }
+                
+                // User private key is mandatory
+                if key_path.is_empty() {
+                    errors.push("User private key path is required".to_string());
+                } else if !std::path::Path::new(key_path).exists() {
+                    errors.push(format!("User private key file not found: {}", key_path));
+                } else {
+                    let ext = std::path::Path::new(key_path)
+                        .extension()
+                        .and_then(|s| s.to_str())
+                        .unwrap_or("");
+                    if !["pem", "key"].contains(&ext.to_lowercase().as_str()) {
+                        errors.push("User private key must be a .pem or .key file".to_string());
+                    }
+                }
+            }
+            AuthenticationType::Anonymous => {
+                // No validation needed for anonymous
+            }
+        }
+        
+        errors
     }
 }

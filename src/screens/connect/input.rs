@@ -135,30 +135,52 @@ impl ConnectScreen {
     }
 
     async fn handle_authentication_input(&mut self, key: KeyCode, modifiers: KeyModifiers) -> Result<Option<ConnectionStatus>> {
-        match key {
-            KeyCode::Up | KeyCode::Down => {
-                // Toggle authentication type
+        match key {            KeyCode::Up | KeyCode::Down => {
+                // Cycle through authentication types
                 self.authentication_type = match self.authentication_type {
                     AuthenticationType::Anonymous => AuthenticationType::UserPassword,
-                    AuthenticationType::UserPassword => AuthenticationType::Anonymous,
+                    AuthenticationType::UserPassword => AuthenticationType::X509Certificate,
+                    AuthenticationType::X509Certificate => AuthenticationType::Anonymous,
                 };
                 
-                if self.authentication_type == AuthenticationType::UserPassword {
-                    self.active_auth_field = AuthenticationField::Username;
-                    self.input_mode = InputMode::Editing;
-                } else {
-                    self.input_mode = InputMode::Normal;
+                // Set appropriate active field and input mode
+                match self.authentication_type {
+                    AuthenticationType::UserPassword => {
+                        self.active_auth_field = AuthenticationField::Username;
+                        self.input_mode = InputMode::Editing;
+                    }
+                    AuthenticationType::X509Certificate => {
+                        self.active_auth_field = AuthenticationField::UserCertificate;
+                        self.input_mode = InputMode::Editing;
+                    }
+                    AuthenticationType::Anonymous => {
+                        self.input_mode = InputMode::Normal;
+                    }
                 }
                 Ok(None)
-            }
-            KeyCode::Tab => {
-                if self.authentication_type == AuthenticationType::UserPassword {
-                    // Switch between username and password fields
-                    self.active_auth_field = match self.active_auth_field {
-                        AuthenticationField::Username => AuthenticationField::Password,
-                        AuthenticationField::Password => AuthenticationField::Username,
-                    };
-                    self.input_mode = InputMode::Editing;
+            }            KeyCode::Tab => {
+                match self.authentication_type {
+                    AuthenticationType::UserPassword => {
+                        // Switch between username and password fields
+                        self.active_auth_field = match self.active_auth_field {
+                            AuthenticationField::Username => AuthenticationField::Password,
+                            AuthenticationField::Password => AuthenticationField::Username,
+                            _ => AuthenticationField::Username,
+                        };
+                        self.input_mode = InputMode::Editing;
+                    }
+                    AuthenticationType::X509Certificate => {
+                        // Switch between certificate and private key fields
+                        self.active_auth_field = match self.active_auth_field {
+                            AuthenticationField::UserCertificate => AuthenticationField::UserPrivateKey,
+                            AuthenticationField::UserPrivateKey => AuthenticationField::UserCertificate,
+                            _ => AuthenticationField::UserCertificate,
+                        };
+                        self.input_mode = InputMode::Editing;
+                    }
+                    AuthenticationType::Anonymous => {
+                        // No fields to switch between
+                    }
                 }
                 Ok(None)
             }
@@ -172,20 +194,40 @@ impl ConnectScreen {
                 self.input_mode = InputMode::Normal;
                 self.setup_buttons_for_current_step();
                 Ok(None)
-            }
-            KeyCode::Char(_) | KeyCode::Backspace | KeyCode::Left | KeyCode::Right => {
-                if self.authentication_type == AuthenticationType::UserPassword {
-                    match self.active_auth_field {
-                        AuthenticationField::Username => {
-                            self.username_input.handle_event(&crossterm::event::Event::Key(
-                                crossterm::event::KeyEvent::new(key, modifiers)
-                            ));
+            }            KeyCode::Char(_) | KeyCode::Backspace | KeyCode::Left | KeyCode::Right => {
+                match self.authentication_type {
+                    AuthenticationType::UserPassword => {
+                        match self.active_auth_field {
+                            AuthenticationField::Username => {
+                                self.username_input.handle_event(&crossterm::event::Event::Key(
+                                    crossterm::event::KeyEvent::new(key, modifiers)
+                                ));
+                            }
+                            AuthenticationField::Password => {
+                                self.password_input.handle_event(&crossterm::event::Event::Key(
+                                    crossterm::event::KeyEvent::new(key, modifiers)
+                                ));
+                            }
+                            _ => {}
                         }
-                        AuthenticationField::Password => {
-                            self.password_input.handle_event(&crossterm::event::Event::Key(
-                                crossterm::event::KeyEvent::new(key, modifiers)
-                            ));
+                    }
+                    AuthenticationType::X509Certificate => {
+                        match self.active_auth_field {
+                            AuthenticationField::UserCertificate => {
+                                self.user_certificate_input.handle_event(&crossterm::event::Event::Key(
+                                    crossterm::event::KeyEvent::new(key, modifiers)
+                                ));
+                            }
+                            AuthenticationField::UserPrivateKey => {
+                                self.user_private_key_input.handle_event(&crossterm::event::Event::Key(
+                                    crossterm::event::KeyEvent::new(key, modifiers)
+                                ));
+                            }
+                            _ => {}
                         }
+                    }
+                    AuthenticationType::Anonymous => {
+                        // No input fields for anonymous authentication
                     }
                 }
                 Ok(None)

@@ -50,19 +50,21 @@ impl ConnectScreen {    pub(super) fn render_security_step(&mut self, f: &mut Fr
         };
         
         let cert_width = chunks[1].width.max(3) - 3;
-        let cert_scroll = self.client_certificate_input.visual_scroll(cert_width as usize);
-        
-        let cert_input = Paragraph::new(self.client_certificate_input.value())
+        let cert_scroll = self.client_certificate_input.visual_scroll(cert_width as usize);        let cert_input = Paragraph::new(self.client_certificate_input.value())
             .style(cert_style)
             .scroll((0, cert_scroll as u16))
             .block(Block::default()
                 .title("Client Certificate (.der/.pem)")
                 .borders(Borders::ALL)
-                .border_style(if self.active_security_field == SecurityField::ClientCertificate { 
-                    Style::default().fg(Color::Yellow) 
-                } else { 
-                    Style::default() 
-                }));
+                .border_style(
+                    if self.active_security_field == SecurityField::ClientCertificate { 
+                        Style::default().fg(Color::Yellow) 
+                    } else if self.has_certificate_validation_error() {
+                        Style::default().fg(Color::Red)
+                    } else { 
+                        Style::default() 
+                    }
+                ));
         
         f.render_widget(cert_input, chunks[1]);
         
@@ -80,19 +82,21 @@ impl ConnectScreen {    pub(super) fn render_security_step(&mut self, f: &mut Fr
         };
         
         let key_width = chunks[2].width.max(3) - 3;
-        let key_scroll = self.client_private_key_input.visual_scroll(key_width as usize);
-        
-        let key_input = Paragraph::new(self.client_private_key_input.value())
+        let key_scroll = self.client_private_key_input.visual_scroll(key_width as usize);        let key_input = Paragraph::new(self.client_private_key_input.value())
             .style(key_style)
             .scroll((0, key_scroll as u16))
             .block(Block::default()
                 .title("Client Private Key (.pem)")
                 .borders(Borders::ALL)
-                .border_style(if self.active_security_field == SecurityField::ClientPrivateKey { 
-                    Style::default().fg(Color::Yellow) 
-                } else { 
-                    Style::default() 
-                }));
+                .border_style(
+                    if self.active_security_field == SecurityField::ClientPrivateKey { 
+                        Style::default().fg(Color::Yellow) 
+                    } else if self.has_private_key_validation_error() {
+                        Style::default().fg(Color::Red)
+                    } else { 
+                        Style::default() 
+                    }
+                ));
         
         f.render_widget(key_input, chunks[2]);
         
@@ -125,19 +129,21 @@ impl ConnectScreen {    pub(super) fn render_security_step(&mut self, f: &mut Fr
             };
             
             let store_width = chunks[4].width.max(3) - 3;
-            let store_scroll = self.trusted_server_store_input.visual_scroll(store_width as usize);
-            
-            let store_input = Paragraph::new(self.trusted_server_store_input.value())
+            let store_scroll = self.trusted_server_store_input.visual_scroll(store_width as usize);            let store_input = Paragraph::new(self.trusted_server_store_input.value())
                 .style(store_style)
                 .scroll((0, store_scroll as u16))
                 .block(Block::default()
                     .title("Trusted Server Certificate Store")
                     .borders(Borders::ALL)
-                    .border_style(if self.active_security_field == SecurityField::TrustedServerStore { 
-                        Style::default().fg(Color::Yellow) 
-                    } else { 
-                        Style::default() 
-                    }));
+                    .border_style(
+                        if self.active_security_field == SecurityField::TrustedServerStore { 
+                            Style::default().fg(Color::Yellow) 
+                        } else if self.has_trusted_store_validation_error() {
+                            Style::default().fg(Color::Red)
+                        } else { 
+                            Style::default() 
+                        }
+                    ));
             
             f.render_widget(store_input, chunks[4]);
             
