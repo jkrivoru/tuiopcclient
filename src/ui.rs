@@ -92,9 +92,8 @@ impl App {
                         if key.kind == KeyEventKind::Press {
                             self.handle_key_input(key.code, key.modifiers).await?;
                         }
-                    }
-                    Event::Mouse(mouse) => {
-                        self.handle_mouse_input(mouse).await?;
+                    }                    Event::Mouse(mouse) => {
+                        self.handle_mouse_input(mouse, terminal).await?;
                     }
                     _ => {}
                 }
@@ -141,9 +140,7 @@ impl App {
         }
 
         Ok(())
-    }
-
-    async fn handle_mouse_input(&mut self, mouse: MouseEvent) -> Result<()> {
+    }    async fn handle_mouse_input(&mut self, mouse: MouseEvent, terminal: &mut Terminal<CrosstermBackend<Stdout>>) -> Result<()> {
         // Ignore mouse move events to prevent spam
         if let MouseEventKind::Moved = mouse.kind {
             return Ok(());
@@ -158,6 +155,7 @@ impl App {
                             .handle_mouse_down(mouse.column, mouse.row);
                     }
                     MouseEventKind::Up(MouseButton::Left) => {
+                        // First check for button clicks
                         if let Some(button_id) =
                             self.connect_screen.handle_mouse_up(mouse.column, mouse.row)
                         {
@@ -166,7 +164,16 @@ impl App {
                                 self.connect_screen.handle_button_action(&button_id).await?
                             {
                                 self.handle_connection_result(connection_result);
-                            }
+                            }                        } else {
+                            // If not a button, handle other mouse clicks (endpoints, fields, etc.)
+                            let size = terminal.size()?;
+                            let rect = ratatui::layout::Rect {
+                                x: 0,
+                                y: 0,
+                                width: size.width,
+                                height: size.height,
+                            };
+                            self.connect_screen.handle_mouse_click(mouse.column, mouse.row, rect);
                         }
                     }
                     _ => {}
