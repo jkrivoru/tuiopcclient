@@ -1,97 +1,134 @@
 use super::types::*;
 use crate::client::ConnectionStatus;
 use crate::components::{Button, ButtonColor};
-use anyhow::Result;
+use anyhow::{Result, anyhow};
 use log::{error, info, warn};
-use std::time::Duration;
-use tokio::time;
+use opcua::client::prelude::*;
+use opcua::types::{EndpointDescription, MessageSecurityMode};
 use tui_input::backend::crossterm::EventHandler;
 
-impl ConnectScreen {
-    pub async fn discover_endpoints(&mut self) -> Result<()> {
+impl ConnectScreen {    pub async fn discover_endpoints(&mut self) -> Result<()> {
         info!("Discovering endpoints...");
-        warn!("Using demo mode - actual endpoint discovery not implemented yet");
-        // Check for invalid URL to demonstrate error logging
+        
+        // Get the server URL
         let url = self.get_server_url();
         if !url.starts_with("opc.tcp://") {
             error!("Invalid OPC UA server URL: must start with 'opc.tcp://'");
-            return Ok(());
+            return Err(anyhow!("Invalid URL format"));
         }
 
-        // Simulate endpoint discovery with a longer delay to show popup        time::sleep(Duration::from_millis(1500)).await;
+        info!("Querying OPC UA server for available endpoints: {}", url);        // Use spawn_blocking to avoid runtime conflicts
+        let url_clone = url.clone();
+        let endpoints_result = tokio::task::spawn_blocking(move || -> Result<Vec<EndpointDescription>> {
+            // Create a simple client for endpoint discovery
+            let client_builder = ClientBuilder::new()
+                .application_name("OPC UA TUI Client - Discovery")
+                .application_uri("urn:opcua-tui-client-discovery")
+                .create_sample_keypair(true)
+                .trust_server_certs(true);
+                
+            let client = client_builder.client().ok_or_else(|| anyhow!("Failed to create discovery client"))?;            // Get endpoints using get_server_endpoints_from_url (instance method)
+            match client.get_server_endpoints_from_url(&url_clone) {
+                Ok(endpoints) => {
+                    info!("Successfully discovered {} endpoints from server", endpoints.len());
+                    Ok(endpoints)
+                }
+                Err(e) => {
+                    warn!("Failed to discover endpoints from server: {}. Using fallback demo endpoints.", e);
+                    Ok(Vec::new())
+                }
+            }
+        }).await??;// Convert OPC UA endpoints to our internal format
+        if !endpoints_result.is_empty() {
+            self.discovered_endpoints = endpoints_result
+                .into_iter()
+                .filter_map(|endpoint| {
+                    // Convert OPC UA security policy and mode to our types
+                    let security_policy = match endpoint.security_policy_uri.as_ref() {
+                        "http://opcfoundation.org/UA/SecurityPolicy#None" => crate::screens::connect::types::SecurityPolicy::None,
+                        "http://opcfoundation.org/UA/SecurityPolicy#Basic128Rsa15" => crate::screens::connect::types::SecurityPolicy::Basic128Rsa15,
+                        "http://opcfoundation.org/UA/SecurityPolicy#Basic256" => crate::screens::connect::types::SecurityPolicy::Basic256,
+                        "http://opcfoundation.org/UA/SecurityPolicy#Basic256Sha256" => crate::screens::connect::types::SecurityPolicy::Basic256Sha256,
+                        "http://opcfoundation.org/UA/SecurityPolicy#Aes128_Sha256_RsaOaep" => crate::screens::connect::types::SecurityPolicy::Aes128Sha256RsaOaep,
+                        "http://opcfoundation.org/UA/SecurityPolicy#Aes256_Sha256_RsaPss" => crate::screens::connect::types::SecurityPolicy::Aes256Sha256RsaPss,
+                        _ => {
+                            warn!("Unknown security policy: {}", endpoint.security_policy_uri);
+                            return None; // Skip unknown policies
+                        }
+                    };
 
-        // Mock discovered endpoints - comprehensive test data
+                    let security_mode = match endpoint.security_mode {
+                        MessageSecurityMode::None => crate::screens::connect::types::SecurityMode::None,
+                        MessageSecurityMode::Sign => crate::screens::connect::types::SecurityMode::Sign,
+                        MessageSecurityMode::SignAndEncrypt => crate::screens::connect::types::SecurityMode::SignAndEncrypt,
+                        _ => {
+                            warn!("Unknown security mode: {:?}", endpoint.security_mode);
+                            return None; // Skip unknown modes
+                        }
+                    };
+
+                    // Create a display name
+                    let display_name = match (&security_policy, &security_mode) {
+                        (crate::screens::connect::types::SecurityPolicy::None, crate::screens::connect::types::SecurityMode::None) => "None - No Security".to_string(),
+                        (policy, mode) => format!("{:?} - {:?}", policy, mode),
+                    };
+
+                    Some(EndpointInfo {
+                        security_policy,
+                        security_mode,
+                        display_name,
+                    })
+                })
+                .collect();
+
+            info!("Processed {} valid endpoints from server", self.discovered_endpoints.len());
+        }
+
+        // If no endpoints were discovered, fall back to demo data
+        if self.discovered_endpoints.is_empty() {
+            warn!("No endpoints discovered from server, using demo endpoints for testing");
+            self.use_demo_endpoints();
+        }
+
+        // Log discovered endpoints
+        for (i, endpoint) in self.discovered_endpoints.iter().enumerate() {
+            info!("Endpoint {}: {}", i + 1, endpoint.display_name);
+        }
+        
+        info!("Use Up/Down arrows to navigate, Enter to select endpoint");
+        Ok(())
+    }    /// Fallback method to use demo endpoints when real discovery fails
+    fn use_demo_endpoints(&mut self) {
         self.discovered_endpoints = vec![
             // No Security
             EndpointInfo {
-                security_policy: SecurityPolicy::None,
-                security_mode: SecurityMode::None,
+                security_policy: crate::screens::connect::types::SecurityPolicy::None,
+                security_mode: crate::screens::connect::types::SecurityMode::None,
                 display_name: "None - No Security".to_string(),
             },
             // Basic128Rsa15 combinations
             EndpointInfo {
-                security_policy: SecurityPolicy::Basic128Rsa15,
-                security_mode: SecurityMode::Sign,
+                security_policy: crate::screens::connect::types::SecurityPolicy::Basic128Rsa15,
+                security_mode: crate::screens::connect::types::SecurityMode::Sign,
                 display_name: "Basic128Rsa15 - Sign Only".to_string(),
             },
             EndpointInfo {
-                security_policy: SecurityPolicy::Basic128Rsa15,
-                security_mode: SecurityMode::SignAndEncrypt,
+                security_policy: crate::screens::connect::types::SecurityPolicy::Basic128Rsa15,
+                security_mode: crate::screens::connect::types::SecurityMode::SignAndEncrypt,
                 display_name: "Basic128Rsa15 - Sign & Encrypt".to_string(),
-            },
-            // Basic256 combinations
-            EndpointInfo {
-                security_policy: SecurityPolicy::Basic256,
-                security_mode: SecurityMode::Sign,
-                display_name: "Basic256 - Sign Only".to_string(),
-            },
-            EndpointInfo {
-                security_policy: SecurityPolicy::Basic256,
-                security_mode: SecurityMode::SignAndEncrypt,
-                display_name: "Basic256 - Sign & Encrypt".to_string(),
             },
             // Basic256Sha256 combinations (most common)
             EndpointInfo {
-                security_policy: SecurityPolicy::Basic256Sha256,
-                security_mode: SecurityMode::Sign,
+                security_policy: crate::screens::connect::types::SecurityPolicy::Basic256Sha256,
+                security_mode: crate::screens::connect::types::SecurityMode::Sign,
                 display_name: "Basic256Sha256 - Sign Only".to_string(),
             },
             EndpointInfo {
-                security_policy: SecurityPolicy::Basic256Sha256,
-                security_mode: SecurityMode::SignAndEncrypt,
+                security_policy: crate::screens::connect::types::SecurityPolicy::Basic256Sha256,
+                security_mode: crate::screens::connect::types::SecurityMode::SignAndEncrypt,
                 display_name: "Basic256Sha256 - Sign & Encrypt".to_string(),
             },
-            // Aes128Sha256RsaOaep combinations
-            EndpointInfo {
-                security_policy: SecurityPolicy::Aes128Sha256RsaOaep,
-                security_mode: SecurityMode::Sign,
-                display_name: "Aes128Sha256RsaOaep - Sign Only".to_string(),
-            },
-            EndpointInfo {
-                security_policy: SecurityPolicy::Aes128Sha256RsaOaep,
-                security_mode: SecurityMode::SignAndEncrypt,
-                display_name: "Aes128Sha256RsaOaep - Sign & Encrypt".to_string(),
-            },
-            // Aes256Sha256RsaPss combinations (most secure)
-            EndpointInfo {
-                security_policy: SecurityPolicy::Aes256Sha256RsaPss,
-                security_mode: SecurityMode::Sign,
-                display_name: "Aes256Sha256RsaPss - Sign Only".to_string(),
-            },
-            EndpointInfo {
-                security_policy: SecurityPolicy::Aes256Sha256RsaPss,
-                security_mode: SecurityMode::SignAndEncrypt,
-                display_name: "Aes256Sha256RsaPss - Sign & Encrypt".to_string(),
-            },
         ];
-        info!(
-            "Found {} endpoints with various security configurations",
-            self.discovered_endpoints.len()
-        );
-        info!("Endpoints range from no security to high-security configurations");
-        info!("Use Up/Down arrows to navigate, Enter to select endpoint");
-
-        Ok(())
     }
     pub async fn connect_with_settings(&mut self) -> Result<Option<ConnectionStatus>> {
         // Show validation highlighting when Connect is clicked
