@@ -71,13 +71,12 @@ impl ConnectScreen {
             visible_endpoints.len(),
             self.discovered_endpoints.len(),
             scroll_indicators
-        );
-        let endpoint_list = List::new(items)
+        );        let endpoint_list = List::new(items)
             .block(
                 Block::default()
                     .title(title_text)
                     .borders(Borders::ALL)
-                    .title_style(Style::default().fg(Color::Cyan)),
+                    .title_style(Style::default().fg(Color::White)),
             )
             .highlight_style(Style::default().bg(Color::Blue));
         f.render_widget(endpoint_list, chunks[1]);

@@ -86,17 +86,25 @@ impl ConnectScreen {
         key: KeyCode,
         _modifiers: KeyModifiers,
     ) -> Result<Option<ConnectionStatus>> {
-        match key {
-            KeyCode::Up => {
-                if self.selected_endpoint_index > 0 {
+        match key {            KeyCode::Up => {
+                if self.discovered_endpoints.is_empty() {
+                    // No endpoints to navigate
+                } else if self.selected_endpoint_index > 0 {
                     self.selected_endpoint_index -= 1;
+                } else {
+                    // Cycle to the bottom when at the top
+                    self.selected_endpoint_index = self.discovered_endpoints.len() - 1;
                 }
                 Ok(None)
             }
             KeyCode::Down => {
-                if self.selected_endpoint_index < self.discovered_endpoints.len().saturating_sub(1)
-                {
+                if self.discovered_endpoints.is_empty() {
+                    // No endpoints to navigate
+                } else if self.selected_endpoint_index < self.discovered_endpoints.len() - 1 {
                     self.selected_endpoint_index += 1;
+                } else {
+                    // Cycle to the top when at the bottom
+                    self.selected_endpoint_index = 0;
                 }
                 Ok(None)
             }
