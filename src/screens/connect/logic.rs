@@ -25,7 +25,9 @@ impl ConnectScreen {    pub async fn discover_endpoints(&mut self) -> Result<()>
                 .application_name("OPC UA TUI Client - Discovery")
                 .application_uri("urn:opcua-tui-client-discovery")
                 .create_sample_keypair(true)
-                .trust_server_certs(true);
+                .trust_server_certs(true)
+                .session_retry_limit(1)
+                .session_timeout(5000);
                 
             let client = client_builder.client().ok_or_else(|| anyhow!("Failed to create discovery client"))?;            // Get endpoints using get_server_endpoints_from_url (instance method)
             match client.get_server_endpoints_from_url(&url_clone) {
@@ -34,8 +36,8 @@ impl ConnectScreen {    pub async fn discover_endpoints(&mut self) -> Result<()>
                     Ok(endpoints)
                 }
                 Err(e) => {
-                    warn!("Failed to discover endpoints from server: {}. Using fallback demo endpoints.", e);
-                    Ok(Vec::new())
+                    error!("Failed to discover endpoints from server: {}", e);
+                    Err(anyhow!("Failed to discover endpoints: {}", e))
                 }
             }
         }).await??;// Convert OPC UA endpoints to our internal format
@@ -79,25 +81,23 @@ impl ConnectScreen {    pub async fn discover_endpoints(&mut self) -> Result<()>
                         display_name,
                     })
                 })
-                .collect();
-
-            info!("Processed {} valid endpoints from server", self.discovered_endpoints.len());
+                .collect();            info!("Processed {} valid endpoints from server", self.discovered_endpoints.len());
+        } else {
+            error!("Server returned no endpoints");
+            return Err(anyhow!("Server returned no endpoints"));
         }
 
-        // If no endpoints were discovered, fall back to demo data
+        // Ensure we have at least one valid endpoint
         if self.discovered_endpoints.is_empty() {
-            warn!("No endpoints discovered from server, using demo endpoints for testing");
-            self.use_demo_endpoints();
-        }
-
-        // Log discovered endpoints
+            error!("No valid endpoints found after filtering");
+            return Err(anyhow!("No valid endpoints found"));
+        }        // Log discovered endpoints
         for (i, endpoint) in self.discovered_endpoints.iter().enumerate() {
             info!("Endpoint {}: {}", i + 1, endpoint.display_name);
         }
         
-        info!("Use Up/Down arrows to navigate, Enter to select endpoint");
         Ok(())
-    }    /// Fallback method to use demo endpoints when real discovery fails
+    }/// Fallback method to use demo endpoints when real discovery fails
     fn use_demo_endpoints(&mut self) {
         self.discovered_endpoints = vec![
             // No Security
@@ -325,14 +325,15 @@ impl ConnectScreen {    pub async fn discover_endpoints(&mut self) -> Result<()>
     /// Unified method for advancing to the next step from any step
     /// Ensures consistent validation and state management regardless of how the user continues (button or Enter)
     pub fn advance_to_next_step(&mut self) -> Result<()> {
-        match self.step {
-            ConnectDialogStep::ServerUrl => {
+        match self.step {            ConnectDialogStep::ServerUrl => {
                 // Validate URL first
                 self.validate_server_url();
                 if self.server_url_validation_error.is_none() {
                     // Set flags for showing popup and triggering discovery
                     self.connect_in_progress = true;
                     self.pending_discovery = true;
+                    // Disable input while discovery is in progress
+                    self.input_mode = InputMode::Normal;
                 } else {
                     // Show validation error in log
                     if let Some(ref error) = self.server_url_validation_error {
@@ -388,19 +389,28 @@ impl ConnectScreen {    pub async fn discover_endpoints(&mut self) -> Result<()>
                 Ok(())
             }
         }
-    } // Method to be called from the main UI loop to handle pending operations
+    }    // Method to be called from the main UI loop to handle pending operations
     pub async fn handle_pending_operations(&mut self) -> Result<Option<ConnectionStatus>> {
         if self.pending_discovery {
             self.pending_discovery = false;
 
             // Perform the actual discovery
-            self.discover_endpoints().await?;
-
-            // After discovery, hide popup and transition to next step
-            self.connect_in_progress = false;
-            self.step = ConnectDialogStep::EndpointSelection;
-            self.setup_buttons_for_current_step();
-            self.input_mode = InputMode::Normal;
+            match self.discover_endpoints().await {
+                Ok(()) => {
+                    // After successful discovery, hide popup and transition to next step
+                    self.connect_in_progress = false;
+                    self.step = ConnectDialogStep::EndpointSelection;
+                    self.setup_buttons_for_current_step();
+                    self.input_mode = InputMode::Normal;
+                }
+                Err(_) => {
+                    // After discovery failure, hide popup and re-enable Server URL input
+                    self.connect_in_progress = false;
+                    self.input_mode = InputMode::Editing; // Re-enable Server URL input
+                    self.setup_buttons_for_current_step(); // Re-enable Next button
+                    // Stay on the Server URL step so user can correct the URL and retry
+                }
+            }
         }
 
         if self.pending_connection {

@@ -36,18 +36,12 @@ impl ConnectScreen {
             button_manager: ButtonManager::new(),
         };
 
-        // Add initial log messages using the log crate
-        info!("OPC UA Client initialized");
+        // Add initial log messages using the log crate        info!("OPC UA Client initialized");
         info!("Loading configuration from config.json");
         warn!("Configuration file not found, using defaults");
         info!("Default server URL loaded");
-        info!("Enter server URL and press Alt+N to discover endpoints");
-        info!("Log Navigation: PageUp/PageDown to scroll, Home/End to jump, Escape to return to latest");
-        info!("Keyboard: Alt+N to Next, Alt+C to Cancel");
-        info!("Connection log initialized");
         debug!("Button manager created with hotkeys");
         debug!("Input handlers configured");
-        info!("Connect screen ready");
 
         screen.setup_buttons_for_current_step();
         screen
