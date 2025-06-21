@@ -24,20 +24,31 @@ impl ConnectScreen {
                 self.handle_mouse_click_authentication(column, row, area)
             }
         }
-    }
-
-    /// Handle mouse clicks in the server URL step
+    }    /// Handle mouse clicks in the server URL step
     fn handle_mouse_click_server_url(&mut self, column: u16, row: u16, area: Rect) -> bool {
-        let chunks = self.create_step_layout(area);
+        let chunks = self.create_server_url_layout(area);
         
         // Check if click is in the server URL input area (chunks[1])
         if self.is_point_in_rect(column, row, chunks[1]) {
             self.input_mode = InputMode::Editing;
             return true;
         }
+          // Check if click is in the "Use Original URL" checkbox area (chunks[2])
+        // Only respond to clicks on the first row of the checkbox area
+        let checkbox_click_area = Rect {
+            x: chunks[2].x,
+            y: chunks[2].y,
+            width: chunks[2].width,
+            height: 1, // Only the first row where the checkbox text is
+        };
+        if self.is_point_in_rect(column, row, checkbox_click_area) {
+            // Toggle the checkbox
+            self.use_original_url = !self.use_original_url;
+            return true;
+        }
         
         false
-    }    /// Handle mouse clicks in the endpoint selection step
+    }/// Handle mouse clicks in the endpoint selection step
     fn handle_mouse_click_endpoint(&mut self, column: u16, row: u16, area: Rect) -> bool {
         let chunks = self.create_step_layout(area);
         

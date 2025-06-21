@@ -59,11 +59,15 @@ impl ConnectScreen {
                         .transition(TuiWidgetEvent::PrevPageKey);
                 }
                 Ok(None)
-            }
-            KeyCode::End => {
+            }            KeyCode::End => {
                 // Go to the end (latest messages) - exit page mode
                 self.logger_widget_state
                     .transition(TuiWidgetEvent::EscapeKey);
+                Ok(None)
+            }
+            KeyCode::Char(' ') => {
+                // Toggle "Use Original URL" checkbox with spacebar
+                self.use_original_url = !self.use_original_url;
                 Ok(None)
             }
             _ => {
@@ -167,9 +171,12 @@ impl ConnectScreen {
             KeyCode::Tab => {
                 self.navigate_auth_fields_forward();
                 Ok(None)
-            }
-            KeyCode::Enter => {
+            }            KeyCode::Enter => {
                 // Connect with selected settings
+                self.connect_with_settings().await
+            }
+            KeyCode::Char('n') if modifiers.contains(KeyModifiers::ALT) => {
+                // Alt+N also connects (same as Enter)
                 self.connect_with_settings().await
             }
             KeyCode::Esc => {

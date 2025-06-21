@@ -81,15 +81,19 @@ impl OpcUaClientManager {
         self.connection_status = ConnectionStatus::Connected;
         
         Ok(())
-    }
-
-    pub async fn disconnect(&mut self) -> Result<()> {
-        if let Some(session) = &self.session {
-            session.write().disconnect();
+    }    pub async fn disconnect(&mut self) -> Result<()> {
+        if let Some(session) = self.session.take() {
+            // Use spawn_blocking to handle the synchronous disconnect call
+            let disconnect_result = tokio::task::spawn_blocking(move || {
+                session.write().disconnect();
+            }).await;
+            
+            if let Err(e) = disconnect_result {
+                log::warn!("Error during session disconnect: {}", e);
+            }
         }
         
         self.client = None;
-        self.session = None;
         self.connection_status = ConnectionStatus::Disconnected;
         self.server_url.clear();
         

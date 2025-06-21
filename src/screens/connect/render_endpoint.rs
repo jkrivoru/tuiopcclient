@@ -8,10 +8,10 @@ use ratatui::{
 
 impl ConnectScreen {
     pub fn render_endpoint_step(&mut self, f: &mut Frame, area: Rect) {
-        let chunks = self.create_step_layout(area);
-
-        // Title
-        let title = Paragraph::new("Connect to OPC UA Server - Step 2/3: Select Endpoint")
+        let chunks = self.create_step_layout(area);        // Title
+        let title_text = format!("Connect to OPC UA Server - Step {}/{}: Select Endpoint", 
+                                 self.get_current_step_number(), self.get_total_steps());
+        let title = Paragraph::new(title_text)
             .style(Style::default().fg(Color::White).bg(Color::Blue))
             .block(Block::default().borders(Borders::ALL));
         f.render_widget(title, chunks[0]);

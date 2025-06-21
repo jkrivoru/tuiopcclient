@@ -9,13 +9,13 @@ use ratatui::{
 impl ConnectScreen {
     pub(super) fn render_security_step(&mut self, f: &mut Frame, area: Rect) {
         // Dynamic layout based on auto-trust setting
-        let chunks = self.create_security_layout(area);
-
-        // Title
-        let title = Paragraph::new("Connect to OPC UA Server - Step 3/4: Security Configuration")
+        let chunks = self.create_security_layout(area);        // Title
+        let title_text = format!("Connect to OPC UA Server - Step {}/{}: Security Configuration", 
+                                 self.get_current_step_number(), self.get_total_steps());
+        let title = Paragraph::new(title_text)
             .style(Style::default().fg(Color::White).bg(Color::Blue))
             .block(Block::default().borders(Borders::ALL));
-        f.render_widget(title, chunks[0]); // Client Certificate input
+        f.render_widget(title, chunks[0]);// Client Certificate input
         let cert_style =
             self.get_security_field_style(SecurityField::ClientCertificate, "certificate");
 

@@ -9,6 +9,8 @@ use crossterm::{
 use ratatui::{
     backend::CrosstermBackend,
     layout::{Constraint, Direction, Layout, Rect},
+    style::{Color, Style},
+    widgets::Paragraph,
     Frame, Terminal,
 };
 use std::{
@@ -20,6 +22,7 @@ use tokio::sync::RwLock;
 
 use crate::client::{ConnectionStatus, OpcUaClientManager};
 use crate::screens::{BrowseScreen, ConnectScreen};
+use crate::screens::connect::ConnectDialogStep;
 
 pub struct App {
     client_manager: Arc<RwLock<OpcUaClientManager>>,
@@ -261,12 +264,11 @@ impl App {
                 // Update connection status from client manager
                 if let Ok(client) = self.client_manager.try_read() {
                     let status = client.get_connection_status();
-                    if status == ConnectionStatus::Disconnected {
-                        // Connection was lost, go back to connect screen
+                    if status == ConnectionStatus::Disconnected {                        // Connection was lost, go back to connect screen
                         log::warn!("Lost connection to server, returning to connect screen");
                         self.app_state = AppState::Connecting;
                         self.browse_screen = None;
-                        self.connect_screen.reset();
+                        self.connect_screen.async_reset().await;
                     }
                 }
             }
@@ -302,10 +304,9 @@ impl App {
                             log::error!("Failed to load real tree data: {}. Using demo data.", e);
                         }
                         
-                        self.browse_screen = Some(browse_screen);
-                    }Err(e) => {
+                        self.browse_screen = Some(browse_screen);                    }                    Err(e) => {
                         log::error!("Failed to connect client manager: {}", e);
-                        self.connect_screen.reset();
+                        self.connect_screen.clear_connection().await;
                         // Set client manager to error state
                         if let Ok(mut client) = self.client_manager.try_write() {
                             client.set_connection_status(ConnectionStatus::Error(format!("Connection failed: {}", e)));
@@ -329,32 +330,32 @@ impl App {
             ConnectionStatus::Disconnected => {
                 // User cancelled connection or wants to quit
                 self.should_quit = true;
-            }
-            ConnectionStatus::Error(error) => {
-                // Connection failed, log error but stay on connect screen
+            }            ConnectionStatus::Error(error) => {
+                // Connection failed, log error but stay on connect screen at current step
                 log::error!("Connection failed: {}", error);
-                self.connect_screen.reset();
+                self.connect_screen.clear_connection().await;
                 // Set client manager to error state
                 if let Ok(mut client) = self.client_manager.try_write() {
                     client.set_connection_status(ConnectionStatus::Error(error));
-                }            }
+                }}
         }
     }    fn render_ui(&mut self, f: &mut Frame) {
         let size = f.size();
 
-        match &self.app_state {
-            AppState::Connecting => {
-                // Show connect screen with help line
+        match &self.app_state {            AppState::Connecting => {
+                // Show connect screen with help line and status bar at bottom
                 let chunks = Layout::default()
                     .direction(Direction::Vertical)
                     .constraints([
                         Constraint::Min(0),    // Connect screen
                         Constraint::Length(1), // Help line
+                        Constraint::Length(1), // Status bar at bottom
                     ])
                     .split(size);
 
                 self.connect_screen.render(f, chunks[0]);
                 self.connect_screen.render_help_line(f, chunks[1]);
+                self.render_connection_status_bar(f, chunks[2]);
             }
             AppState::Connected(_) => {
                 // Show browse screen with help line
@@ -370,5 +371,87 @@ impl App {
                 }
             }
         }
+    }
+
+    fn render_connection_status_bar(&mut self, f: &mut Frame, area: Rect) {        let status_text = match self.connect_screen.step {
+            ConnectDialogStep::ServerUrl => {
+                // Show placeholder on first step
+                "Enter valid OPC UA server URL".to_string()
+            }ConnectDialogStep::EndpointSelection => {
+                // Show the server URL that will be used
+                let url = if self.connect_screen.use_original_url {
+                    self.connect_screen.server_url_input.value()
+                } else {
+                    // Show the URL from selected endpoint if available
+                    if let Some(endpoint) = self.connect_screen.get_selected_endpoint() {
+                        endpoint.original_endpoint.endpoint_url.as_ref()
+                    } else {
+                        self.connect_screen.server_url_input.value()
+                    }
+                };
+                format!("Server: {}", url)
+            }            ConnectDialogStep::SecurityConfiguration => {
+                // Show server URL and selected endpoint info
+                let url = if self.connect_screen.use_original_url {
+                    self.connect_screen.server_url_input.value()
+                } else {
+                    if let Some(endpoint) = self.connect_screen.get_selected_endpoint() {
+                        endpoint.original_endpoint.endpoint_url.as_ref()
+                    } else {
+                        self.connect_screen.server_url_input.value()
+                    }
+                };
+                
+                let endpoint_info = if let Some(endpoint) = self.connect_screen.get_selected_endpoint() {
+                    format!(" | Endpoint: [{}, {}]", 
+                        match &endpoint.security_policy {
+                            crate::screens::connect::SecurityPolicy::None => "None",
+                            crate::screens::connect::SecurityPolicy::Basic128Rsa15 => "Basic128Rsa15",
+                            crate::screens::connect::SecurityPolicy::Basic256 => "Basic256",
+                            crate::screens::connect::SecurityPolicy::Basic256Sha256 => "Basic256Sha256",
+                            crate::screens::connect::SecurityPolicy::Aes128Sha256RsaOaep => "Aes128Sha256RsaOaep",
+                            crate::screens::connect::SecurityPolicy::Aes256Sha256RsaPss => "Aes256Sha256RsaPss",
+                        },
+                        format!("{:?}", endpoint.security_mode)
+                    )
+                } else {
+                    " | Endpoint: [None, None]".to_string()
+                };
+                
+                format!("Server: {}{}", url, endpoint_info)
+            }            ConnectDialogStep::Authentication => {
+                // Show server URL and endpoint info
+                let url = if self.connect_screen.use_original_url {
+                    self.connect_screen.server_url_input.value()
+                } else {
+                    if let Some(endpoint) = self.connect_screen.get_selected_endpoint() {
+                        endpoint.original_endpoint.endpoint_url.as_ref()
+                    } else {
+                        self.connect_screen.server_url_input.value()
+                    }
+                };
+                
+                let endpoint_info = if let Some(endpoint) = self.connect_screen.get_selected_endpoint() {
+                    format!(" | Endpoint: [{}, {}]", 
+                        match &endpoint.security_policy {
+                            crate::screens::connect::SecurityPolicy::None => "None",
+                            crate::screens::connect::SecurityPolicy::Basic128Rsa15 => "Basic128Rsa15",
+                            crate::screens::connect::SecurityPolicy::Basic256 => "Basic256",
+                            crate::screens::connect::SecurityPolicy::Basic256Sha256 => "Basic256Sha256",
+                            crate::screens::connect::SecurityPolicy::Aes128Sha256RsaOaep => "Aes128Sha256RsaOaep",
+                            crate::screens::connect::SecurityPolicy::Aes256Sha256RsaPss => "Aes256Sha256RsaPss",
+                        },
+                        format!("{:?}", endpoint.security_mode)
+                    )
+                } else {
+                    " | Endpoint: [None, None]".to_string()
+                };
+                
+                format!("Server: {}{}", url, endpoint_info)
+            }
+        };        // Always show the status bar
+        let status_bar = Paragraph::new(status_text)
+            .style(Style::default().fg(Color::White).bg(Color::Blue));
+        f.render_widget(status_bar, area);
     }
 }

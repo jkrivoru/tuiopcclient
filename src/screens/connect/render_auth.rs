@@ -17,11 +17,13 @@ impl ConnectScreen {
                 Constraint::Min(0),    // Space (removed help text)
                 Constraint::Length(3), // Buttons
             ])
-            .split(area); // Title
-        let title = Paragraph::new("Connect to OPC UA Server - Step 4/4: Authentication")
+            .split(area);        // Title
+        let title_text = format!("Connect to OPC UA Server - Step {}/{}: Authentication", 
+                                 self.get_current_step_number(), self.get_total_steps());
+        let title = Paragraph::new(title_text)
             .style(Style::default().fg(Color::White).bg(Color::Blue))
             .block(Block::default().borders(Borders::ALL));
-        f.render_widget(title, chunks[0]); // Authentication type selection
+        f.render_widget(title, chunks[0]);// Authentication type selection
         let auth_items = [
             if self.authentication_type == AuthenticationType::Anonymous {
                 "▶ Anonymous (No credentials required)"

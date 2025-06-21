@@ -73,6 +73,7 @@ pub struct ConnectScreen {
     pub step: ConnectDialogStep,
     pub server_url_input: Input,
     pub server_url_validation_error: Option<String>,
+    pub use_original_url: bool, // New field for forcing original URL usage
     pub discovered_endpoints: Vec<EndpointInfo>,
     pub selected_endpoint_index: usize,
     pub endpoint_scroll_offset: usize, // New field for scrolling
@@ -426,8 +427,31 @@ impl ConnectScreen {
             AuthenticationType::Anonymous => {
                 // No validation needed for anonymous
             }
-        }
+        }        errors
+    }
 
-        errors
+    /// Get total number of steps in the connect flow
+    pub fn get_total_steps(&self) -> u8 {
+        if self.needs_security_configuration() {
+            4 // Server URL -> Endpoint -> Security -> Authentication
+        } else {
+            3 // Server URL -> Endpoint -> Authentication
+        }
+    }
+
+    /// Get current step number (1-based)
+    pub fn get_current_step_number(&self) -> u8 {
+        match self.step {
+            ConnectDialogStep::ServerUrl => 1,
+            ConnectDialogStep::EndpointSelection => 2,
+            ConnectDialogStep::SecurityConfiguration => 3,
+            ConnectDialogStep::Authentication => {
+                if self.needs_security_configuration() {
+                    4
+                } else {
+                    3
+                }
+            }
+        }
     }
 }

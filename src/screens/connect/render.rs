@@ -25,13 +25,11 @@ impl ConnectScreen {
             ConnectDialogStep::EndpointSelection => self.render_endpoint_step(f, chunks[0]),
             ConnectDialogStep::SecurityConfiguration => self.render_security_step(f, chunks[0]),
             ConnectDialogStep::Authentication => self.render_auth_step(f, chunks[0]),
-        }
-
-        // Connection logs with scrolling support
+        }        // Connection logs with scrolling support
         let logger_widget = TuiLoggerWidget::default()
             .block(
                 Block::default()
-                    .title("Connection Log")
+                    .title("Connection Log (PgUp\\PgDown)")
                     .borders(Borders::ALL),
             )
             // Custom formatting: datetime + severity only, no callstack
@@ -57,23 +55,22 @@ impl ConnectScreen {
                 self.render_connecting_popup(f, area, "Connecting to Server");
             }
         }
-    }
-    pub fn render_help_line(&self, f: &mut Frame, area: Rect) {
+    }    pub fn render_help_line(&self, f: &mut Frame, area: Rect) {
         let help_text = match self.step {
             ConnectDialogStep::ServerUrl => {
-                "PageUp/PageDown - scroll log | Esc/Alt+C - Cancel | Enter/Alt+N - Next"
+                "Space - toggle URL override | Esc/Alt+C - Cancel | Enter/Alt+N - Next"
             }
             ConnectDialogStep::EndpointSelection => {
-                "↑↓ - Select endpoint | PageUp/PageDown - scroll log | Esc/Alt+B - Back | Enter/Alt+N - Next | Alt+C - Cancel"
+                "↑↓ - Select endpoint | Alt+C - Cancel | Esc/Alt+B - Back | Enter/Alt+N - Next"
             }
             ConnectDialogStep::SecurityConfiguration => {
-                "↑↓ - Navigate fields | Tab - Next field | Space - Toggle auto-trust | Alt+N - Next | Alt+B - Back | Alt+C - Cancel"
+                "Tab - Next field | Space - Toggle auto-trust | Alt+C - Cancel | Esc/Alt+B - Back | Enter/Alt+N - Next"
             }
             ConnectDialogStep::Authentication => {
                 if self.authentication_type == AuthenticationType::UserPassword {
-                    "↑↓ - Change auth type | Tab - Switch fields | Alt+O - Connect | Alt+B - Back | Alt+C - Cancel"
+                    "↑↓ - Change auth type | Tab - Next field | Alt+C - Cancel | Esc/Alt+B - Back | Enter/Alt+N - Connect"
                 } else {
-                    "↑↓ - Change auth type | Alt+O - Connect | Alt+B - Back | Alt+C - Cancel"
+                    "↑↓ - Change auth type | Alt+C - Cancel | Esc/Alt+B - Back | Enter/Alt+N - Connect"
                 }
             }
         };
@@ -176,6 +173,20 @@ impl ConnectScreen {
         Layout::default()
             .direction(Direction::Vertical)
             .constraints(constraints)
+            .split(area)
+    }
+    /// Helper method to create the server URL step layout (with checkbox)
+    pub fn create_server_url_layout(&self, area: Rect) -> Rc<[Rect]> {
+        Layout::default()
+            .direction(Direction::Vertical)
+            .constraints([
+                Constraint::Length(3), // Title
+                Constraint::Length(3), // URL input
+                Constraint::Length(3), // Use original URL checkbox
+                Constraint::Length(2), // Error message space (always reserved)
+                Constraint::Min(0),    // Space
+                Constraint::Length(3), // Buttons
+            ])
             .split(area)
     }
     /// Common helper method for validation-based styling

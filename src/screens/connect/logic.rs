@@ -21,7 +21,11 @@ impl ConnectScreen {
             return Err(anyhow!("Invalid URL format"));
         }
 
-        info!("Querying OPC UA server for available endpoints: {}", url);        // Use spawn_blocking to avoid runtime conflicts
+        info!("Querying OPC UA server for available endpoints: {}", url);
+
+        if self.use_original_url {
+            info!("Original URL override is enabled - will use '{}' instead of server-provided endpoint URLs", url);
+        }        // Use spawn_blocking to avoid runtime conflicts
         let url_clone = url.clone();
         let endpoints_result = tokio::task::spawn_blocking(move || -> Result<Vec<EndpointDescription>> {
             // Create a simple client for endpoint discovery
@@ -81,7 +85,22 @@ impl ConnectScreen {
                         security_policy,
                         security_mode,
                         display_name,
-                        original_endpoint: endpoint, // Store the original endpoint
+                        original_endpoint: if self.use_original_url {
+                            // Replace the endpoint URL with the original user-entered URL
+                            EndpointDescription {
+                                endpoint_url: UAString::from(url.clone()),
+                                security_mode: endpoint.security_mode,
+                                security_policy_uri: endpoint.security_policy_uri.clone(),
+                                server_certificate: endpoint.server_certificate.clone(),
+                                user_identity_tokens: endpoint.user_identity_tokens.clone(),
+                                transport_profile_uri: endpoint.transport_profile_uri.clone(),
+                                security_level: endpoint.security_level,
+                                server: endpoint.server.clone(),
+                            }
+                        } else {
+                            // Use the original endpoint as-is
+                            endpoint
+                        },
                     })
                 })
                 .collect();            info!("Processed {} valid endpoints from server", self.discovered_endpoints.len());
@@ -334,13 +353,12 @@ impl ConnectScreen {
                 return Ok(Some(ConnectionStatus::Error(format!("Connection failed: {}", e))));
             }
         };
-        
-        // Store the client and session
+          // Store the client and session
         self.client = Some(client);
         self.session = Some(session);
         
         info!("OPC UA connection established successfully");
-        Ok(Some(ConnectionStatus::Connected))
+        Ok(Some(ConnectionStatus::Connecting))
     }
     pub async fn handle_button_action(
         &mut self,
@@ -466,11 +484,9 @@ impl ConnectScreen {
                     Button::new("back", "Back")
                         .with_hotkey('b')
                         .with_color(ButtonColor::Blue),
-                );
-
-                self.button_manager.add_button(
+                );                self.button_manager.add_button(
                     Button::new("connect", "Connect")
-                        .with_hotkey('o')
+                        .with_hotkey('n')
                         .with_color(ButtonColor::Green)
                         .with_enabled(!self.connect_in_progress),
                 );
@@ -815,18 +831,30 @@ impl ConnectScreen {
     /// Check if we have an active OPC UA connection
     pub fn is_connected(&self) -> bool {
         self.client.is_some() && self.session.is_some()
-    }
-
-    /// Disconnect from the OPC UA server
+    }    /// Disconnect from the OPC UA server
     pub async fn disconnect(&mut self) -> Result<()> {
-        if let Some(session) = &self.session {
-            session.write().disconnect();
+        if let Some(session) = self.session.take() {
+            // Use spawn_blocking to handle the synchronous disconnect call
+            let disconnect_result = tokio::task::spawn_blocking(move || {
+                session.write().disconnect();
+            }).await;
+            
+            if let Err(e) = disconnect_result {
+                warn!("Error during session disconnect: {}", e);
+            }
         }
         
         self.client = None;
-        self.session = None;
         
         info!("Disconnected from OPC UA server");
         Ok(())
+    }    /// Get the currently selected endpoint
+    pub fn get_selected_endpoint(&self) -> Option<&EndpointInfo> {
+        if self.discovered_endpoints.is_empty() {
+            return None;
+        }
+        
+        let index = self.selected_endpoint_index.min(self.discovered_endpoints.len() - 1);
+        self.discovered_endpoints.get(index)
     }
 }
