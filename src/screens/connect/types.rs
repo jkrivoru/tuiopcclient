@@ -71,6 +71,7 @@ pub struct ConnectScreen {
     pub discovered_endpoints: Vec<EndpointInfo>,
     pub selected_endpoint_index: usize,
     pub endpoint_scroll_offset: usize, // New field for scrolling
+    pub current_visible_endpoints_count: usize, // Store actual visible endpoints from render
 
     // Security configuration
     pub client_certificate_input: Input,
@@ -129,8 +130,7 @@ impl ConnectScreen {
 
     pub fn get_server_url(&self) -> String {
         self.server_url_input.value().to_string()
-    }
-    pub fn update_endpoint_scroll(&mut self, visible_items: usize) {
+    }    pub fn update_endpoint_scroll(&mut self, visible_items: usize) {
         if self.discovered_endpoints.is_empty() {
             return;
         }
@@ -162,6 +162,26 @@ impl ConnectScreen {
 
     pub fn has_endpoints_below(&self, visible_items: usize) -> bool {
         self.endpoint_scroll_offset + visible_items < self.discovered_endpoints.len()
+    }    /// Center the selected endpoint in the visible area when possible
+    pub fn center_endpoint_in_view(&mut self, visible_items: usize) {
+        if self.discovered_endpoints.is_empty() || visible_items == 0 {
+            return;
+        }
+
+        // Calculate the ideal scroll offset to center the selected item
+        let ideal_center_offset = if self.selected_endpoint_index >= visible_items / 2 {
+            self.selected_endpoint_index - visible_items / 2
+        } else {
+            0
+        };
+
+        // Ensure we don't scroll past the end
+        let max_scroll = if self.discovered_endpoints.len() > visible_items {
+            self.discovered_endpoints.len() - visible_items
+        } else {
+            0
+        };        // Set the scroll offset to center the item, or as close as possible
+        self.endpoint_scroll_offset = ideal_center_offset.min(max_scroll);
     }
 
     pub fn needs_security_configuration(&self) -> bool {

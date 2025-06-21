@@ -16,17 +16,25 @@ impl ConnectScreen {
             .block(Block::default().borders(Borders::ALL));
         f.render_widget(title, chunks[0]);
 
-        // Calculate visible items (subtract 2 for borders)
+        // Calculate actual visible items based on UI height
+        // Subtract 2 for borders, then limit to what can actually be displayed
         let list_height = chunks[1].height.saturating_sub(2) as usize;
-        let visible_items = list_height;
+        // Each endpoint takes 1 line, so visible items = available height
+        let max_visible_items = list_height;
+        // But we can't show more endpoints than we actually have
+        let actual_visible_items = max_visible_items.min(self.discovered_endpoints.len());
 
-        // Update scroll position to keep selected item visible
-        self.update_endpoint_scroll(visible_items);
+        // Update scroll position to keep selected item visible using actual visible items
+        self.update_endpoint_scroll(actual_visible_items);
 
-        // Get the visible slice of endpoints
+        // Get the visible slice of endpoints after updating scroll
         let start_idx = self.endpoint_scroll_offset;
-        let end_idx = (start_idx + visible_items).min(self.discovered_endpoints.len());
-        let visible_endpoints = &self.discovered_endpoints[start_idx..end_idx]; // Endpoint list with improved formatting and scrolling
+        let end_idx = (start_idx + actual_visible_items).min(self.discovered_endpoints.len());
+        let visible_endpoints = &self.discovered_endpoints[start_idx..end_idx];
+          // Store the actual visible count for use by mouse handler
+        self.current_visible_endpoints_count = visible_endpoints.len();
+
+        // Endpoint list with improved formatting and scrolling
         let items: Vec<ListItem> = visible_endpoints
             .iter()
             .enumerate()
@@ -54,24 +62,20 @@ impl ConnectScreen {
                 // Use default styling for all items - only the security circle provides color
                 ListItem::new(display_text)
             })
-            .collect();
-
-        // Create title with scroll indicators
+            .collect();        // Create title with scroll indicators
         let has_above = self.has_endpoints_above();
-        let has_below = self.has_endpoints_below(visible_items);
+        let has_below = self.has_endpoints_below(actual_visible_items);
         let scroll_indicators = match (has_above, has_below) {
             (true, true) => " ↑↓",
             (true, false) => " ↑",
             (false, true) => " ↓",
             (false, false) => "",
-        };
-
-        let title_text = format!(
+        };        let title_text = format!(
             "Available Endpoints ({}/{} shown){}",
-            visible_endpoints.len(),
+            actual_visible_items,
             self.discovered_endpoints.len(),
             scroll_indicators
-        );        let endpoint_list = List::new(items)
+        );let endpoint_list = List::new(items)
             .block(
                 Block::default()
                     .title(title_text)

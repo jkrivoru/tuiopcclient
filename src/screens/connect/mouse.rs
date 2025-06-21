@@ -37,9 +37,7 @@ impl ConnectScreen {
         }
         
         false
-    }
-
-    /// Handle mouse clicks in the endpoint selection step
+    }    /// Handle mouse clicks in the endpoint selection step
     fn handle_mouse_click_endpoint(&mut self, column: u16, row: u16, area: Rect) -> bool {
         let chunks = self.create_step_layout(area);
         
@@ -49,15 +47,15 @@ impl ConnectScreen {
             let list_area = chunks[1];
             let click_row = row.saturating_sub(list_area.y + 1); // Subtract border
             
-            // Calculate visible items
-            let list_height = list_area.height.saturating_sub(2) as usize;
-            let visible_items = list_height;
+            // Use the actual visible endpoints count from render function
+            let actual_visible_items = self.current_visible_endpoints_count;
             
-            if (click_row as usize) < visible_items && (click_row as usize) < self.discovered_endpoints.len() {
+            if (click_row as usize) < actual_visible_items {
                 let clicked_index = self.endpoint_scroll_offset + click_row as usize;
                 if clicked_index < self.discovered_endpoints.len() {
                     self.selected_endpoint_index = clicked_index;
-                    self.update_endpoint_scroll(visible_items);
+                    // Use actual visible items for smart scrolling
+                    self.center_endpoint_in_view(actual_visible_items);
                     return true;
                 }
             }

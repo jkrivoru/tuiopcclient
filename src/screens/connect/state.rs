@@ -4,8 +4,7 @@ use log::{debug, info, warn};
 use tui_input::Input;
 use tui_logger::TuiWidgetState;
 
-impl ConnectScreen {
-    pub fn new() -> Self {
+impl ConnectScreen {    pub fn new() -> Self {
         let mut screen = Self {
             step: ConnectDialogStep::ServerUrl,
             server_url_input: Input::default().with_value("opc.tcp://localhost:4840".to_string()),
@@ -13,6 +12,7 @@ impl ConnectScreen {
             discovered_endpoints: Vec::new(),
             selected_endpoint_index: usize::default(),
             endpoint_scroll_offset: 0,
+            current_visible_endpoints_count: 0,
 
             // Security configuration
             client_certificate_input: Input::default(),
