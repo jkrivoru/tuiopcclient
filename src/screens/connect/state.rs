@@ -25,12 +25,16 @@ impl ConnectScreen {    pub fn new() -> Self {
             username_input: Input::default(),
             password_input: Input::default(),
             user_certificate_input: Input::default(),
-            user_private_key_input: Input::default(),
-            connect_in_progress: false,
+            user_private_key_input: Input::default(),            connect_in_progress: false,
             pending_discovery: false,
             pending_connection: false,
             show_security_validation: false,
             show_auth_validation: false,
+
+            // OPC UA connection state
+            client: None,
+            session: None,
+
             input_mode: InputMode::Editing,
             logger_widget_state: TuiWidgetState::new(),
             button_manager: ButtonManager::new(),
@@ -59,14 +63,20 @@ impl ConnectScreen {    pub fn new() -> Self {
         self.client_private_key_input.reset();
         self.auto_trust_server_cert = true;
         self.trusted_server_store_input.reset();
-        self.active_security_field = SecurityField::ClientCertificate;
-
-        self.authentication_type = AuthenticationType::Anonymous;
+        self.active_security_field = SecurityField::ClientCertificate;        self.authentication_type = AuthenticationType::Anonymous;
         self.username_input.reset();
         self.password_input.reset();
         self.connect_in_progress = false;
         self.pending_discovery = false;
         self.pending_connection = false;
+
+        // Clean up OPC UA connection
+        if let Some(session) = &self.session {
+            session.write().disconnect();
+        }
+        self.client = None;
+        self.session = None;
+
         self.input_mode = InputMode::Editing;
         self.setup_buttons_for_current_step();
     }

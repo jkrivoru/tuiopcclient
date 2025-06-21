@@ -1,6 +1,10 @@
 use crate::components::ButtonManager;
 use tui_input::Input;
 use tui_logger::TuiWidgetState;
+use opcua::types::EndpointDescription;
+use opcua::client::prelude::*;
+use std::sync::Arc;
+use parking_lot::RwLock;
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum ConnectDialogStep {
@@ -47,6 +51,7 @@ pub struct EndpointInfo {
     pub security_policy: SecurityPolicy,
     pub security_mode: SecurityMode,
     pub display_name: String,
+    pub original_endpoint: EndpointDescription, // Store the original OPC UA endpoint
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -81,8 +86,7 @@ pub struct ConnectScreen {
     pub active_security_field: SecurityField,
     pub authentication_type: AuthenticationType,
     pub active_auth_field: AuthenticationField,
-    pub username_input: Input,
-    pub password_input: Input,
+    pub username_input: Input,    pub password_input: Input,
     pub user_certificate_input: Input,
     pub user_private_key_input: Input,
     pub connect_in_progress: bool,
@@ -90,6 +94,10 @@ pub struct ConnectScreen {
     pub pending_connection: bool, // New field to track if connection should happen
     pub show_security_validation: bool, // Track whether to show validation highlighting
     pub show_auth_validation: bool, // Track whether to show authentication validation highlighting
+
+    // OPC UA connection state
+    pub client: Option<Client>,
+    pub session: Option<Arc<RwLock<Session>>>,
 
     // Input handling
     pub input_mode: InputMode,
