@@ -1,8 +1,8 @@
+use anyhow::{anyhow, Result};
 use opcua::client::prelude::*;
 use opcua::types::*;
-use anyhow::{Result, anyhow};
-use std::sync::Arc;
 use parking_lot::RwLock;
+use std::sync::Arc;
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum ConnectionStatus {
@@ -58,45 +58,30 @@ impl OpcUaClientManager {
             .create_sample_keypair(true)
             .trust_server_certs(true)
             .session_retry_limit(3);
-            
-        let mut client = client_builder.client().ok_or_else(|| anyhow!("Failed to create client"))?;
-        
-        // Create an endpoint
-        let endpoint = EndpointDescription {
-            endpoint_url: UAString::from(endpoint_url),
-            security_mode: MessageSecurityMode::None,
-            security_policy_uri: SecurityPolicy::None.to_uri().into(),
-            server_certificate: ByteString::null(),
-            user_identity_tokens: None,
-            transport_profile_uri: UAString::null(),
-            security_level: 0,
-            server: ApplicationDescription::default(),
-        };
-        
+
+        let mut client = client_builder
+            .client()
+            .ok_or_else(|| anyhow!("Failed to create client"))?; // Create an endpoint
+        let endpoint = crate::endpoint_utils::EndpointUtils::create_default_endpoint(&endpoint_url);
+
         // Connect to the server
         let session = client.connect_to_endpoint(endpoint, IdentityToken::Anonymous)?;
-        
+
         self.client = Some(client);
         self.session = Some(session);
         self.connection_status = ConnectionStatus::Connected;
-        
+
         Ok(())
-    }    pub async fn disconnect(&mut self) -> Result<()> {
+    }
+    pub async fn disconnect(&mut self) -> Result<()> {
         if let Some(session) = self.session.take() {
-            // Use spawn_blocking to handle the synchronous disconnect call
-            let disconnect_result = tokio::task::spawn_blocking(move || {
-                session.write().disconnect();
-            }).await;
-            
-            if let Err(e) = disconnect_result {
-                log::warn!("Error during session disconnect: {}", e);
-            }
+            crate::session_utils::SessionUtils::disconnect_session(session).await?;
         }
-        
+
         self.client = None;
         self.connection_status = ConnectionStatus::Disconnected;
         self.server_url.clear();
-        
+
         Ok(())
     }
 
@@ -116,14 +101,14 @@ impl OpcUaClientManager {
         if let Some(session) = &self.session {
             // Use the session to browse the node
             let session_guard = session.read();
-            
+
             let browse_description = BrowseDescription {
                 node_id: node_id.clone(),
                 browse_direction: BrowseDirection::Forward,
                 reference_type_id: ReferenceTypeId::HierarchicalReferences.into(),
                 include_subtypes: true,
                 node_class_mask: 0, // Include all node classes
-                result_mask: 0x3F, // All browse result attributes
+                result_mask: 0x3F,  // All browse result attributes
             };
 
             match session_guard.browse(&[browse_description]) {
@@ -134,22 +119,34 @@ impl OpcUaClientManager {
                             if let Some(references) = &result.references {
                                 for reference in references {
                                     if let Some(node_id) = &reference.node_id.node_id {
-                                        let display_name = reference.display_name.text.as_ref()
-                                            .unwrap_or(&"<No Name>".to_string()).clone();
-                                        let browse_name = reference.browse_name.name.as_ref()
-                                            .unwrap_or(&"<No Name>".to_string()).clone();
-                                        
+                                        let display_name = reference
+                                            .display_name
+                                            .text
+                                            .as_ref()
+                                            .unwrap_or(&"<No Name>".to_string())
+                                            .clone();
+                                        let browse_name = reference
+                                            .browse_name
+                                            .name
+                                            .as_ref()
+                                            .unwrap_or(&"<No Name>".to_string())
+                                            .clone();
+
                                         // Determine if the node has children by checking if it's an object
                                         let has_children = matches!(
                                             reference.node_class,
-                                            Some(NodeClass::Object) | Some(NodeClass::Variable) | Some(NodeClass::ObjectType)
+                                            Some(NodeClass::Object)
+                                                | Some(NodeClass::Variable)
+                                                | Some(NodeClass::ObjectType)
                                         );
 
                                         nodes.push(OpcUaNode {
                                             node_id: node_id.clone(),
                                             browse_name,
                                             display_name,
-                                            node_class: reference.node_class.unwrap_or(NodeClass::Unspecified),
+                                            node_class: reference
+                                                .node_class
+                                                .unwrap_or(NodeClass::Unspecified),
                                             description: String::new(), // We'd need to read this separately
                                             has_children,
                                         });
@@ -174,7 +171,8 @@ impl OpcUaClientManager {
 
     fn get_demo_nodes(&self, node_id: &NodeId) -> Result<Vec<OpcUaNode>> {
         let demo_nodes = match node_id.to_string().as_str() {
-            "i=85" => vec![ // Objects folder
+            "i=85" => vec![
+                // Objects folder
                 OpcUaNode {
                     node_id: NodeId::new(0, 2253),
                     browse_name: "Server".to_string(),
@@ -194,7 +192,7 @@ impl OpcUaClientManager {
             ],
             _ => Vec::new(),
         };
-        
+
         Ok(demo_nodes)
     }
 
@@ -224,7 +222,7 @@ impl OpcUaClientManager {
                 status: "Good".to_string(),
             },
         ];
-        
+
         Ok(attributes)
     }
 

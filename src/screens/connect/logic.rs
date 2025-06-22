@@ -107,8 +107,10 @@ impl ConnectScreen {
         if self.discovered_endpoints.is_empty() {
             return None;
         }
-        
-        let index = self.selected_endpoint_index.min(self.discovered_endpoints.len() - 1);
+
+        let index = self
+            .selected_endpoint_index
+            .min(self.discovered_endpoints.len() - 1);
         self.discovered_endpoints.get(index)
     }
 }

@@ -25,7 +25,7 @@ impl ConnectScreen {
             ConnectDialogStep::EndpointSelection => self.render_endpoint_step(f, chunks[0]),
             ConnectDialogStep::SecurityConfiguration => self.render_security_step(f, chunks[0]),
             ConnectDialogStep::Authentication => self.render_auth_step(f, chunks[0]),
-        }        // Connection logs with scrolling support
+        } // Connection logs with scrolling support
         let logger_widget = TuiLoggerWidget::default()
             .block(
                 Block::default()
@@ -55,7 +55,8 @@ impl ConnectScreen {
                 self.render_connecting_popup(f, area, "Connecting to Server");
             }
         }
-    }    pub fn render_help_line(&self, f: &mut Frame, area: Rect) {
+    }
+    pub fn render_help_line(&self, f: &mut Frame, area: Rect) {
         let help_text = match self.step {
             ConnectDialogStep::ServerUrl => {
                 "Space - toggle URL override | Esc/Alt+C - Cancel | Enter/Alt+N - Next"

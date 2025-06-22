@@ -5,7 +5,10 @@ use log::error;
 pub struct ConnectStateMachine;
 
 impl ConnectStateMachine {
-    pub fn next_step(current: ConnectDialogStep, needs_security: bool) -> Option<ConnectDialogStep> {
+    pub fn next_step(
+        current: ConnectDialogStep,
+        needs_security: bool,
+    ) -> Option<ConnectDialogStep> {
         match current {
             ConnectDialogStep::ServerUrl => Some(ConnectDialogStep::EndpointSelection),
             ConnectDialogStep::EndpointSelection => {
@@ -19,8 +22,11 @@ impl ConnectStateMachine {
             ConnectDialogStep::Authentication => None, // Terminal state
         }
     }
-    
-    pub fn previous_step(current: ConnectDialogStep, needs_security: bool) -> Option<ConnectDialogStep> {
+
+    pub fn previous_step(
+        current: ConnectDialogStep,
+        needs_security: bool,
+    ) -> Option<ConnectDialogStep> {
         match current {
             ConnectDialogStep::ServerUrl => None,
             ConnectDialogStep::EndpointSelection => Some(ConnectDialogStep::ServerUrl),
@@ -52,7 +58,11 @@ impl ConnectScreen {
                 }
                 Ok(())
             }
-            ConnectDialogStep::EndpointSelection => {                if let Some(next_step) = ConnectStateMachine::next_step(self.step.clone(), self.needs_security_configuration()) {
+            ConnectDialogStep::EndpointSelection => {
+                if let Some(next_step) = ConnectStateMachine::next_step(
+                    self.step.clone(),
+                    self.needs_security_configuration(),
+                ) {
                     self.step = next_step.clone();
                     match next_step {
                         ConnectDialogStep::SecurityConfiguration => {
@@ -86,13 +96,15 @@ impl ConnectScreen {
                 self.setup_buttons_for_current_step();
                 Ok(())
             }
-            ConnectDialogStep::Authentication => {
-                Ok(())
-            }
+            ConnectDialogStep::Authentication => Ok(()),
         }
     }
 
-    pub fn navigate_back_from_auth(&mut self) {        if let Some(prev_step) = ConnectStateMachine::previous_step(self.step.clone(), self.needs_security_configuration()) {
+    pub fn navigate_back_from_auth(&mut self) {
+        if let Some(prev_step) = ConnectStateMachine::previous_step(
+            self.step.clone(),
+            self.needs_security_configuration(),
+        ) {
             self.step = prev_step.clone();
             match prev_step {
                 ConnectDialogStep::SecurityConfiguration => {

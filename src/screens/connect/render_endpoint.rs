@@ -2,18 +2,19 @@ use super::types::*;
 use ratatui::{
     layout::Rect,
     style::{Color, Style},
-    widgets::{Block, Borders, List, ListItem, Paragraph},
+    widgets::{Block, Borders, List, ListItem},
     Frame,
 };
 
 impl ConnectScreen {
     pub fn render_endpoint_step(&mut self, f: &mut Frame, area: Rect) {
-        let chunks = self.create_step_layout(area);        // Title
-        let title_text = format!("Connect to OPC UA Server - Step {}/{}: Select Endpoint", 
-                                 self.get_current_step_number(), self.get_total_steps());
-        let title = Paragraph::new(title_text)
-            .style(Style::default().fg(Color::White).bg(Color::Blue))
-            .block(Block::default().borders(Borders::ALL));
+        let chunks = self.create_step_layout(area); // Title
+        let title_text = format!(
+            "Connect to OPC UA Server - Step {}/{}: Select Endpoint",
+            self.get_current_step_number(),
+            self.get_total_steps()
+        );
+        let title = crate::ui_utils::LayoutUtils::create_title_paragraph(&title_text);
         f.render_widget(title, chunks[0]);
 
         // Calculate actual visible items based on UI height
@@ -31,7 +32,7 @@ impl ConnectScreen {
         let start_idx = self.endpoint_scroll_offset;
         let end_idx = (start_idx + actual_visible_items).min(self.discovered_endpoints.len());
         let visible_endpoints = &self.discovered_endpoints[start_idx..end_idx];
-          // Store the actual visible count for use by mouse handler
+        // Store the actual visible count for use by mouse handler
         self.current_visible_endpoints_count = visible_endpoints.len();
 
         // Endpoint list with improved formatting and scrolling
@@ -62,7 +63,7 @@ impl ConnectScreen {
                 // Use default styling for all items - only the security circle provides color
                 ListItem::new(display_text)
             })
-            .collect();        // Create title with scroll indicators
+            .collect(); // Create title with scroll indicators
         let has_above = self.has_endpoints_above();
         let has_below = self.has_endpoints_below(actual_visible_items);
         let scroll_indicators = match (has_above, has_below) {
@@ -70,12 +71,14 @@ impl ConnectScreen {
             (true, false) => " ↑",
             (false, true) => " ↓",
             (false, false) => "",
-        };        let title_text = format!(
+        };
+        let title_text = format!(
             "Available Endpoints ({}/{} shown){}",
             actual_visible_items,
             self.discovered_endpoints.len(),
             scroll_indicators
-        );let endpoint_list = List::new(items)
+        );
+        let endpoint_list = List::new(items)
             .block(
                 Block::default()
                     .title(title_text)

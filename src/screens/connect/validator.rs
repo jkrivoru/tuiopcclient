@@ -12,10 +12,13 @@ impl ConnectValidator {
         }
         Ok(())
     }
-    
-    pub fn validate_authentication(auth_type: &AuthenticationType, inputs: &AuthInputs) -> Vec<String> {
+
+    pub fn validate_authentication(
+        auth_type: &AuthenticationType,
+        inputs: &AuthInputs,
+    ) -> Vec<String> {
         let mut errors = Vec::new();
-        
+
         match auth_type {
             AuthenticationType::UserPassword => {
                 if inputs.username.trim().is_empty() {
@@ -32,17 +35,19 @@ impl ConnectValidator {
             }
             _ => {}
         }
-        
+
         errors
     }
 
     pub fn validate_security_fields(fields: &SecurityFields) -> Vec<String> {
         let mut errors = Vec::new();
-        
+
         if !fields.auto_trust && fields.trusted_store_path.trim().is_empty() {
-            errors.push("Trusted server store path is required when auto-trust is disabled".to_string());
+            errors.push(
+                "Trusted server store path is required when auto-trust is disabled".to_string(),
+            );
         }
-        
+
         errors
     }
 }

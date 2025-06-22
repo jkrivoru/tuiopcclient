@@ -59,7 +59,8 @@ impl ConnectScreen {
                         .transition(TuiWidgetEvent::PrevPageKey);
                 }
                 Ok(None)
-            }            KeyCode::End => {
+            }
+            KeyCode::End => {
                 // Go to the end (latest messages) - exit page mode
                 self.logger_widget_state
                     .transition(TuiWidgetEvent::EscapeKey);
@@ -90,7 +91,8 @@ impl ConnectScreen {
         key: KeyCode,
         _modifiers: KeyModifiers,
     ) -> Result<Option<ConnectionStatus>> {
-        match key {            KeyCode::Up => {
+        match key {
+            KeyCode::Up => {
                 if self.discovered_endpoints.is_empty() {
                     // No endpoints to navigate
                 } else if self.selected_endpoint_index > 0 {
@@ -157,7 +159,8 @@ impl ConnectScreen {
         &mut self,
         key: KeyCode,
         modifiers: KeyModifiers,
-    ) -> Result<Option<ConnectionStatus>> {        match key {
+    ) -> Result<Option<ConnectionStatus>> {
+        match key {
             KeyCode::Up => {
                 // Cycle through authentication types backward (up)
                 self.cycle_authentication_type_backward();
@@ -171,7 +174,8 @@ impl ConnectScreen {
             KeyCode::Tab => {
                 self.navigate_auth_fields_forward();
                 Ok(None)
-            }            KeyCode::Enter => {
+            }
+            KeyCode::Enter => {
                 // Connect with selected settings
                 self.connect_with_settings().await
             }

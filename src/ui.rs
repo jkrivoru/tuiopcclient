@@ -21,8 +21,8 @@ use std::{
 use tokio::sync::RwLock;
 
 use crate::client::{ConnectionStatus, OpcUaClientManager};
-use crate::screens::{BrowseScreen, ConnectScreen};
 use crate::screens::connect::ConnectDialogStep;
+use crate::screens::{BrowseScreen, ConnectScreen};
 
 pub struct App {
     client_manager: Arc<RwLock<OpcUaClientManager>>,
@@ -102,7 +102,8 @@ impl App {
                 .checked_sub(last_tick.elapsed())
                 .unwrap_or_else(|| Duration::from_secs(0));
 
-            if event::poll(timeout)? {                match event::read()? {
+            if event::poll(timeout)? {
+                match event::read()? {
                     Event::Key(key) => {
                         // Only process key press events, not key release
                         if key.kind == KeyEventKind::Press {
@@ -124,8 +125,10 @@ impl App {
             if self.should_quit {
                 break;
             }
-        }        Ok(())
-    }    async fn handle_key_input(&mut self, key: KeyCode, modifiers: KeyModifiers) -> Result<()> {
+        }
+        Ok(())
+    }
+    async fn handle_key_input(&mut self, key: KeyCode, modifiers: KeyModifiers) -> Result<()> {
         match &self.app_state {
             AppState::Connecting => {
                 // Handle connect screen input
@@ -149,12 +152,17 @@ impl App {
                             _ => {}
                         }
                     }
-                }            }
+                }
+            }
         }
         Ok(())
     }
 
-    async fn handle_mouse_input(&mut self, mouse: MouseEvent, terminal: &mut Terminal<CrosstermBackend<Stdout>>) -> Result<()> {
+    async fn handle_mouse_input(
+        &mut self,
+        mouse: MouseEvent,
+        terminal: &mut Terminal<CrosstermBackend<Stdout>>,
+    ) -> Result<()> {
         // Ignore mouse move events to prevent spam
         if let MouseEventKind::Moved = mouse.kind {
             return Ok(());
@@ -177,8 +185,9 @@ impl App {
                             if let Some(connection_result) =
                                 self.connect_screen.handle_button_action(&button_id).await?
                             {
-                            self.handle_connection_result(connection_result).await;
-                            }                        } else {
+                                self.handle_connection_result(connection_result).await;
+                            }
+                        } else {
                             // If not a button, handle other mouse clicks (endpoints, fields, etc.)
                             let size = terminal.size()?;
                             let rect = ratatui::layout::Rect {
@@ -187,12 +196,14 @@ impl App {
                                 width: size.width,
                                 height: size.height,
                             };
-                            self.connect_screen.handle_mouse_click(mouse.column, mouse.row, rect);
+                            self.connect_screen
+                                .handle_mouse_click(mouse.column, mouse.row, rect);
                         }
                     }
                     _ => {}
                 }
-            }            AppState::Connected(_) => {
+            }
+            AppState::Connected(_) => {
                 // Handle browse screen mouse events
                 if let Some(browse_screen) = &mut self.browse_screen {
                     let size = terminal.size()?;
@@ -202,7 +213,7 @@ impl App {
                         width: size.width,
                         height: size.height,
                     };
-                    
+
                     // Calculate the tree area (70% of the main content area)
                     let main_chunks = Layout::default()
                         .direction(Direction::Vertical)
@@ -219,17 +230,18 @@ impl App {
                             Constraint::Percentage(30), // Attributes panel
                         ])
                         .split(main_chunks[0]);
-                    
+
                     // Tree area with borders - inner area for actual content
                     let tree_area = Rect {
-                        x: content_chunks[0].x + 1,  // Account for left border
-                        y: content_chunks[0].y + 1,  // Account for top border  
+                        x: content_chunks[0].x + 1, // Account for left border
+                        y: content_chunks[0].y + 1, // Account for top border
                         width: content_chunks[0].width.saturating_sub(2), // Account for both borders
                         height: content_chunks[0].height.saturating_sub(2), // Account for both borders
                     };
-                    
-                    if let Some(connection_result) = 
-                        browse_screen.handle_mouse_input(mouse, tree_area).await? {
+
+                    if let Some(connection_result) =
+                        browse_screen.handle_mouse_input(mouse, tree_area).await?
+                    {
                         match connection_result {
                             ConnectionStatus::Disconnected => {
                                 self.should_quit = true;
@@ -260,11 +272,13 @@ impl App {
                         log::error!("Error handling connect screen operations: {}", e);
                     }
                 }
-            }            AppState::Connected(_) => {
+            }
+            AppState::Connected(_) => {
                 // Update connection status from client manager
                 if let Ok(client) = self.client_manager.try_read() {
                     let status = client.get_connection_status();
-                    if status == ConnectionStatus::Disconnected {                        // Connection was lost, go back to connect screen
+                    if status == ConnectionStatus::Disconnected {
+                        // Connection was lost, go back to connect screen
                         log::warn!("Lost connection to server, returning to connect screen");
                         self.app_state = AppState::Connecting;
                         self.browse_screen = None;
@@ -273,76 +287,89 @@ impl App {
                 }
             }
         }
-    }    /// Helper method to handle connection results consistently
+    }
+    /// Helper method to handle connection results consistently
     async fn handle_connection_result(&mut self, connection_result: ConnectionStatus) {
         match connection_result {
             ConnectionStatus::Connecting => {
                 // Get the server URL from the connect screen and attempt the actual connection
-                let server_url = self.connect_screen.get_server_url();                log::info!("Attempting real connection to: {}", server_url);
+                let server_url = self.connect_screen.get_server_url();
+                log::info!("Attempting real connection to: {}", server_url);
 
                 // Actually connect the client manager to the server
                 let connection_result = {
                     let mut client_guard = self.client_manager.write().await;
                     client_guard.connect(&server_url).await
                 };
-                
+
                 match connection_result {
                     Ok(()) => {
                         log::info!("Client manager successfully connected to: {}", server_url);
-                        
+
                         // Update client manager status (ensure write lock is released quickly)
                         {
                             if let Ok(mut client) = self.client_manager.try_write() {
                                 client.set_connection_status(ConnectionStatus::Connected);
                             }
-                        }                        // Transition to browse screen
+                        } // Transition to browse screen
                         self.app_state = AppState::Connected(server_url.clone());
-                        let mut browse_screen = BrowseScreen::new(server_url.clone(), self.client_manager.clone());
-                        
+                        let mut browse_screen =
+                            BrowseScreen::new(server_url.clone(), self.client_manager.clone());
+
                         // Load real tree data asynchronously
                         if let Err(e) = browse_screen.load_real_tree().await {
                             log::error!("Failed to load real tree data: {}. Using demo data.", e);
                         }
-                        
-                        self.browse_screen = Some(browse_screen);                    }                    Err(e) => {
+
+                        self.browse_screen = Some(browse_screen);
+                    }
+                    Err(e) => {
                         log::error!("Failed to connect client manager: {}", e);
                         self.connect_screen.clear_connection().await;
                         // Set client manager to error state
                         if let Ok(mut client) = self.client_manager.try_write() {
-                            client.set_connection_status(ConnectionStatus::Error(format!("Connection failed: {}", e)));
+                            client.set_connection_status(ConnectionStatus::Error(format!(
+                                "Connection failed: {}",
+                                e
+                            )));
                         }
                     }
                 }
-            }            ConnectionStatus::Connected => {
+            }
+            ConnectionStatus::Connected => {
                 // This shouldn't happen anymore since perform_connection returns Connecting
                 log::warn!("Received Connected status directly - this should not happen");
                 let server_url = self.connect_screen.get_server_url();
                 self.app_state = AppState::Connected(server_url.clone());
                 let mut browse_screen = BrowseScreen::new(server_url, self.client_manager.clone());
-                
+
                 // Load real tree data asynchronously
                 if let Err(e) = browse_screen.load_real_tree().await {
                     log::error!("Failed to load real tree data: {}. Using demo data.", e);
                 }
-                
+
                 self.browse_screen = Some(browse_screen);
             }
             ConnectionStatus::Disconnected => {
                 // User cancelled connection or wants to quit
                 self.should_quit = true;
-            }            ConnectionStatus::Error(error) => {
+            }
+            ConnectionStatus::Error(error) => {
                 // Connection failed, log error but stay on connect screen at current step
                 log::error!("Connection failed: {}", error);
                 self.connect_screen.clear_connection().await;
                 // Set client manager to error state
                 if let Ok(mut client) = self.client_manager.try_write() {
                     client.set_connection_status(ConnectionStatus::Error(error));
-                }}
+                }
+            }
         }
-    }    fn render_ui(&mut self, f: &mut Frame) {
-        let size = f.size();
+    }
+    fn render_ui(&mut self, f: &mut Frame) {
+        let size = f.area();
 
-        match &self.app_state {            AppState::Connecting => {
+        match &self.app_state {
+            AppState::Connecting => {
                 // Show connect screen with help line and status bar at bottom
                 let chunks = Layout::default()
                     .direction(Direction::Vertical)
@@ -362,7 +389,7 @@ impl App {
                 let chunks = Layout::default()
                     .direction(Direction::Vertical)
                     .constraints([
-                        Constraint::Min(0),    // Browse screen
+                        Constraint::Min(0), // Browse screen
                     ])
                     .split(size);
 
@@ -373,11 +400,13 @@ impl App {
         }
     }
 
-    fn render_connection_status_bar(&mut self, f: &mut Frame, area: Rect) {        let status_text = match self.connect_screen.step {
+    fn render_connection_status_bar(&mut self, f: &mut Frame, area: Rect) {
+        let status_text = match self.connect_screen.step {
             ConnectDialogStep::ServerUrl => {
                 // Show placeholder on first step
                 "Enter valid OPC UA server URL".to_string()
-            }ConnectDialogStep::EndpointSelection => {
+            }
+            ConnectDialogStep::EndpointSelection => {
                 // Show the server URL that will be used
                 let url = if self.connect_screen.use_original_url {
                     self.connect_screen.server_url_input.value()
@@ -390,7 +419,8 @@ impl App {
                     }
                 };
                 format!("Server: {}", url)
-            }            ConnectDialogStep::SecurityConfiguration => {
+            }
+            ConnectDialogStep::SecurityConfiguration => {
                 // Show server URL and selected endpoint info
                 let url = if self.connect_screen.use_original_url {
                     self.connect_screen.server_url_input.value()
@@ -401,25 +431,32 @@ impl App {
                         self.connect_screen.server_url_input.value()
                     }
                 };
-                
-                let endpoint_info = if let Some(endpoint) = self.connect_screen.get_selected_endpoint() {
-                    format!(" | Endpoint: [{}, {}]", 
-                        match &endpoint.security_policy {
-                            crate::screens::connect::SecurityPolicy::None => "None",
-                            crate::screens::connect::SecurityPolicy::Basic128Rsa15 => "Basic128Rsa15",
-                            crate::screens::connect::SecurityPolicy::Basic256 => "Basic256",
-                            crate::screens::connect::SecurityPolicy::Basic256Sha256 => "Basic256Sha256",
-                            crate::screens::connect::SecurityPolicy::Aes128Sha256RsaOaep => "Aes128Sha256RsaOaep",
-                            crate::screens::connect::SecurityPolicy::Aes256Sha256RsaPss => "Aes256Sha256RsaPss",
-                        },
-                        format!("{:?}", endpoint.security_mode)
-                    )
-                } else {
-                    " | Endpoint: [None, None]".to_string()
-                };
-                
+
+                let endpoint_info =
+                    if let Some(endpoint) = self.connect_screen.get_selected_endpoint() {
+                        format!(
+                            " | Endpoint: [{}, {}]",
+                            match &endpoint.security_policy {
+                                crate::screens::connect::SecurityPolicy::None => "None",
+                                crate::screens::connect::SecurityPolicy::Basic128Rsa15 =>
+                                    "Basic128Rsa15",
+                                crate::screens::connect::SecurityPolicy::Basic256 => "Basic256",
+                                crate::screens::connect::SecurityPolicy::Basic256Sha256 =>
+                                    "Basic256Sha256",
+                                crate::screens::connect::SecurityPolicy::Aes128Sha256RsaOaep =>
+                                    "Aes128Sha256RsaOaep",
+                                crate::screens::connect::SecurityPolicy::Aes256Sha256RsaPss =>
+                                    "Aes256Sha256RsaPss",
+                            },
+                            format!("{:?}", endpoint.security_mode)
+                        )
+                    } else {
+                        " | Endpoint: [None, None]".to_string()
+                    };
+
                 format!("Server: {}{}", url, endpoint_info)
-            }            ConnectDialogStep::Authentication => {
+            }
+            ConnectDialogStep::Authentication => {
                 // Show server URL and endpoint info
                 let url = if self.connect_screen.use_original_url {
                     self.connect_screen.server_url_input.value()
@@ -430,28 +467,34 @@ impl App {
                         self.connect_screen.server_url_input.value()
                     }
                 };
-                
-                let endpoint_info = if let Some(endpoint) = self.connect_screen.get_selected_endpoint() {
-                    format!(" | Endpoint: [{}, {}]", 
-                        match &endpoint.security_policy {
-                            crate::screens::connect::SecurityPolicy::None => "None",
-                            crate::screens::connect::SecurityPolicy::Basic128Rsa15 => "Basic128Rsa15",
-                            crate::screens::connect::SecurityPolicy::Basic256 => "Basic256",
-                            crate::screens::connect::SecurityPolicy::Basic256Sha256 => "Basic256Sha256",
-                            crate::screens::connect::SecurityPolicy::Aes128Sha256RsaOaep => "Aes128Sha256RsaOaep",
-                            crate::screens::connect::SecurityPolicy::Aes256Sha256RsaPss => "Aes256Sha256RsaPss",
-                        },
-                        format!("{:?}", endpoint.security_mode)
-                    )
-                } else {
-                    " | Endpoint: [None, None]".to_string()
-                };
-                
+
+                let endpoint_info =
+                    if let Some(endpoint) = self.connect_screen.get_selected_endpoint() {
+                        format!(
+                            " | Endpoint: [{}, {}]",
+                            match &endpoint.security_policy {
+                                crate::screens::connect::SecurityPolicy::None => "None",
+                                crate::screens::connect::SecurityPolicy::Basic128Rsa15 =>
+                                    "Basic128Rsa15",
+                                crate::screens::connect::SecurityPolicy::Basic256 => "Basic256",
+                                crate::screens::connect::SecurityPolicy::Basic256Sha256 =>
+                                    "Basic256Sha256",
+                                crate::screens::connect::SecurityPolicy::Aes128Sha256RsaOaep =>
+                                    "Aes128Sha256RsaOaep",
+                                crate::screens::connect::SecurityPolicy::Aes256Sha256RsaPss =>
+                                    "Aes256Sha256RsaPss",
+                            },
+                            format!("{:?}", endpoint.security_mode)
+                        )
+                    } else {
+                        " | Endpoint: [None, None]".to_string()
+                    };
+
                 format!("Server: {}{}", url, endpoint_info)
             }
-        };        // Always show the status bar
-        let status_bar = Paragraph::new(status_text)
-            .style(Style::default().fg(Color::White).bg(Color::Blue));
+        }; // Always show the status bar
+        let status_bar =
+            Paragraph::new(status_text).style(Style::default().fg(Color::White).bg(Color::Blue));
         f.render_widget(status_bar, area);
     }
 }

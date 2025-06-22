@@ -24,16 +24,17 @@ impl ConnectScreen {
                 self.handle_mouse_click_authentication(column, row, area)
             }
         }
-    }    /// Handle mouse clicks in the server URL step
+    }
+    /// Handle mouse clicks in the server URL step
     fn handle_mouse_click_server_url(&mut self, column: u16, row: u16, area: Rect) -> bool {
         let chunks = self.create_server_url_layout(area);
-        
+
         // Check if click is in the server URL input area (chunks[1])
         if self.is_point_in_rect(column, row, chunks[1]) {
             self.input_mode = InputMode::Editing;
             return true;
         }
-          // Check if click is in the "Use Original URL" checkbox area (chunks[2])
+        // Check if click is in the "Use Original URL" checkbox area (chunks[2])
         // Only respond to clicks on the first row of the checkbox area
         let checkbox_click_area = Rect {
             x: chunks[2].x,
@@ -46,21 +47,22 @@ impl ConnectScreen {
             self.use_original_url = !self.use_original_url;
             return true;
         }
-        
+
         false
-    }/// Handle mouse clicks in the endpoint selection step
+    }
+    /// Handle mouse clicks in the endpoint selection step
     fn handle_mouse_click_endpoint(&mut self, column: u16, row: u16, area: Rect) -> bool {
         let chunks = self.create_step_layout(area);
-        
+
         // Check if click is in the endpoint list area (chunks[1])
         if self.is_point_in_rect(column, row, chunks[1]) {
             // Calculate which endpoint was clicked
             let list_area = chunks[1];
             let click_row = row.saturating_sub(list_area.y + 1); // Subtract border
-            
+
             // Use the actual visible endpoints count from render function
             let actual_visible_items = self.current_visible_endpoints_count;
-            
+
             if (click_row as usize) < actual_visible_items {
                 let clicked_index = self.endpoint_scroll_offset + click_row as usize;
                 if clicked_index < self.discovered_endpoints.len() {
@@ -71,28 +73,28 @@ impl ConnectScreen {
                 }
             }
         }
-        
+
         false
     }
 
     /// Handle mouse clicks in the security configuration step
     fn handle_mouse_click_security(&mut self, column: u16, row: u16, area: Rect) -> bool {
         let chunks = self.create_security_layout(area);
-        
+
         // Client Certificate field (chunks[1])
         if self.is_point_in_rect(column, row, chunks[1]) {
             self.active_security_field = SecurityField::ClientCertificate;
             self.input_mode = InputMode::Editing;
             return true;
         }
-        
+
         // Client Private Key field (chunks[2])
         if self.is_point_in_rect(column, row, chunks[2]) {
             self.active_security_field = SecurityField::ClientPrivateKey;
             self.input_mode = InputMode::Editing;
             return true;
         }
-        
+
         // Auto-trust checkbox (chunks[3])
         if self.is_point_in_rect(column, row, chunks[3]) {
             self.active_security_field = SecurityField::AutoTrustCheckbox;
@@ -100,20 +102,25 @@ impl ConnectScreen {
             // Toggle the checkbox
             self.auto_trust_server_cert = !self.auto_trust_server_cert;
             // If we enabled auto-trust and we're currently on trusted store field, move away
-            if self.auto_trust_server_cert && self.active_security_field == SecurityField::TrustedServerStore {
+            if self.auto_trust_server_cert
+                && self.active_security_field == SecurityField::TrustedServerStore
+            {
                 self.active_security_field = SecurityField::ClientCertificate;
                 self.input_mode = InputMode::Editing;
             }
             return true;
         }
-        
+
         // Trusted Server Store field (chunks[4]) - only if auto-trust is disabled
-        if !self.auto_trust_server_cert && chunks.len() > 4 && self.is_point_in_rect(column, row, chunks[4]) {
+        if !self.auto_trust_server_cert
+            && chunks.len() > 4
+            && self.is_point_in_rect(column, row, chunks[4])
+        {
             self.active_security_field = SecurityField::TrustedServerStore;
             self.input_mode = InputMode::Editing;
             return true;
         }
-        
+
         false
     }
 
@@ -129,11 +136,11 @@ impl ConnectScreen {
                 Constraint::Length(3), // Buttons
             ])
             .split(area);
-        
+
         // Authentication method selection (chunks[1])
         if self.is_point_in_rect(column, row, chunks[1]) {
             let click_row = row.saturating_sub(chunks[1].y + 1); // Subtract border
-            
+
             match click_row {
                 0 => {
                     self.authentication_type = AuthenticationType::Anonymous;
@@ -155,7 +162,7 @@ impl ConnectScreen {
                 _ => {}
             }
         }
-        
+
         // User details fields (chunks[2]) - only if authentication type requires them
         if self.is_point_in_rect(column, row, chunks[2]) {
             match self.authentication_type {
@@ -167,7 +174,7 @@ impl ConnectScreen {
                             Constraint::Length(3), // Password
                         ])
                         .split(chunks[2]);
-                    
+
                     if self.is_point_in_rect(column, row, user_chunks[0]) {
                         self.active_auth_field = AuthenticationField::Username;
                         self.input_mode = InputMode::Editing;
@@ -186,7 +193,7 @@ impl ConnectScreen {
                             Constraint::Length(3), // User Private Key
                         ])
                         .split(chunks[2]);
-                    
+
                     if self.is_point_in_rect(column, row, cert_chunks[0]) {
                         self.active_auth_field = AuthenticationField::UserCertificate;
                         self.input_mode = InputMode::Editing;
@@ -202,7 +209,7 @@ impl ConnectScreen {
                 }
             }
         }
-        
+
         false
     }
 

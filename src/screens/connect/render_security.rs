@@ -9,13 +9,14 @@ use ratatui::{
 impl ConnectScreen {
     pub(super) fn render_security_step(&mut self, f: &mut Frame, area: Rect) {
         // Dynamic layout based on auto-trust setting
-        let chunks = self.create_security_layout(area);        // Title
-        let title_text = format!("Connect to OPC UA Server - Step {}/{}: Security Configuration", 
-                                 self.get_current_step_number(), self.get_total_steps());
-        let title = Paragraph::new(title_text)
-            .style(Style::default().fg(Color::White).bg(Color::Blue))
-            .block(Block::default().borders(Borders::ALL));
-        f.render_widget(title, chunks[0]);// Client Certificate input
+        let chunks = self.create_security_layout(area); // Title
+        let title_text = format!(
+            "Connect to OPC UA Server - Step {}/{}: Security Configuration",
+            self.get_current_step_number(),
+            self.get_total_steps()
+        );
+        let title = crate::ui_utils::LayoutUtils::create_title_paragraph(&title_text);
+        f.render_widget(title, chunks[0]); // Client Certificate input
         let cert_style =
             self.get_security_field_style(SecurityField::ClientCertificate, "certificate");
 
@@ -48,7 +49,7 @@ impl ConnectScreen {
                 .max(cert_scroll)
                 - cert_scroll
                 + 1;
-            f.set_cursor(chunks[1].x + cursor_x as u16, chunks[1].y + 1);
+            f.set_cursor_position((chunks[1].x + cursor_x as u16, chunks[1].y + 1));
         } // Client Private Key input
         let key_style = self.get_security_field_style(SecurityField::ClientPrivateKey, "key");
 
@@ -81,7 +82,7 @@ impl ConnectScreen {
                 .max(key_scroll)
                 - key_scroll
                 + 1;
-            f.set_cursor(chunks[2].x + cursor_x as u16, chunks[2].y + 1);
+            f.set_cursor_position((chunks[2].x + cursor_x as u16, chunks[2].y + 1));
         } // Auto-trust server certificate checkbox
         let checkbox_text = if self.auto_trust_server_cert {
             " ☑ Auto-trust server certificate (Space to toggle)"
@@ -131,7 +132,7 @@ impl ConnectScreen {
                     .max(store_scroll)
                     - store_scroll
                     + 1;
-                f.set_cursor(chunks[4].x + cursor_x as u16, chunks[4].y + 1);
+                f.set_cursor_position((chunks[4].x + cursor_x as u16, chunks[4].y + 1));
             }
         } // Buttons (3 buttons for security step) - left, center, right positioning with margins
         let button_chunk_index = if self.auto_trust_server_cert { 5 } else { 6 };

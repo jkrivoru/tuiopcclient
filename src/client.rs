@@ -1,7 +1,7 @@
+use anyhow::{anyhow, Result};
 use opcua::client::prelude::*;
-use anyhow::{Result, anyhow};
-use std::sync::Arc;
 use parking_lot::RwLock;
+use std::sync::Arc;
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum ConnectionStatus {
@@ -43,8 +43,9 @@ impl OpcUaClientManager {
             client: None,
             session: None,
             server_url: String::new(),
-        }    }
-    
+        }
+    }
+
     pub async fn connect(&mut self, endpoint_url: &str) -> Result<()> {
         self.connection_status = ConnectionStatus::Connecting;
         self.server_url = endpoint_url.to_string();
@@ -53,38 +54,42 @@ impl OpcUaClientManager {
         // in a blocking thread to avoid runtime conflicts
         let endpoint_url = endpoint_url.to_string();
         let connection_result = match tokio::time::timeout(
-            tokio::time::Duration::from_secs(10), // 10 second timeout
+            tokio::time::Duration::from_secs(
+                crate::screens::connect::constants::timeouts::CONNECTION_TIMEOUT_SECS,
+            ),
             tokio::task::spawn_blocking(move || -> Result<(Client, Arc<RwLock<Session>>)> {
                 // Create a simple client configuration with timeouts
                 let client_builder = ClientBuilder::new()
-                    .application_name("OPC UA TUI Client")
-                    .application_uri("urn:opcua-tui-client")
+                    .application_name(crate::screens::connect::constants::ui::CLIENT_NAME)
+                    .application_uri(crate::screens::connect::constants::ui::CLIENT_URI)
                     .create_sample_keypair(true)
                     .trust_server_certs(true)
                     .session_retry_limit(1) // Reduce retries to fail faster
-                    .session_timeout(5000) // 5 second session timeout
-                    .session_retry_interval(1000); // 1 second retry interval
-                    
-                let mut client = client_builder.client().ok_or_else(|| anyhow!("Failed to create client"))?;
-            
-                // Create an endpoint
-                let endpoint = EndpointDescription {
-                    endpoint_url: UAString::from(endpoint_url),
-                    security_mode: MessageSecurityMode::None,
-                    security_policy_uri: SecurityPolicy::None.to_uri().into(),
-                    server_certificate: ByteString::null(),
-                    user_identity_tokens: None,
-                    transport_profile_uri: UAString::null(),
-                    security_level: 0,
-                    server: ApplicationDescription::default(),
-                };
-                
+                    .session_timeout(
+                        crate::screens::connect::constants::timeouts::SESSION_TIMEOUT_MS,
+                    )
+                    .session_retry_interval(
+                        crate::screens::connect::constants::timeouts::SESSION_RETRY_INTERVAL_MS,
+                    );
+
+                let mut client = client_builder
+                    .client()
+                    .ok_or_else(|| anyhow!("Failed to create client"))?; // Create an endpoint
+                let endpoint = crate::endpoint_utils::EndpointUtils::create_endpoint(
+                    &endpoint_url,
+                    MessageSecurityMode::None,
+                    SecurityPolicy::None,
+                    0,
+                );
+
                 // Connect to the server
                 let session = client.connect_to_endpoint(endpoint, IdentityToken::Anonymous)?;
-                
+
                 Ok((client, session))
-            })
-        ).await {
+            }),
+        )
+        .await
+        {
             Ok(spawn_result) => match spawn_result {
                 Ok(result) => result,
                 Err(join_error) => {
@@ -93,65 +98,63 @@ impl OpcUaClientManager {
                 }
             },
             Err(_timeout) => {
-                self.connection_status = ConnectionStatus::Error("Connection timed out".to_string());
-                return Err(anyhow!("Connection timed out after 10 seconds"));
+                self.connection_status =
+                    ConnectionStatus::Error("Connection timed out".to_string());
+                return Err(anyhow!(
+                    "Connection timed out after {} seconds",
+                    crate::screens::connect::constants::timeouts::CONNECTION_TIMEOUT_SECS
+                ));
             }
         };
-        
+
         let (client, session) = connection_result?;
-        
+
         self.client = Some(client);
         self.session = Some(session);
         self.connection_status = ConnectionStatus::Connected;
-        
+
         Ok(())
-    }    pub async fn disconnect(&mut self) -> Result<()> {
+    }
+    pub async fn disconnect(&mut self) -> Result<()> {
         if let Some(session) = self.session.take() {
-            // Use spawn_blocking to handle the synchronous disconnect call
-            let disconnect_result = tokio::task::spawn_blocking(move || {
-                session.write().disconnect();
-            }).await;
-            
-            if let Err(e) = disconnect_result {
-                log::warn!("Error during session disconnect: {}", e);
-            }
+            crate::session_utils::SessionUtils::disconnect_session(session).await?;
         }
-        
+
         self.client = None;
         self.connection_status = ConnectionStatus::Disconnected;
         self.server_url.clear();
-        
+
         Ok(())
     }
 
     pub fn get_connection_status(&self) -> ConnectionStatus {
         self.connection_status.clone()
     }
-
     pub fn get_server_url(&self) -> &str {
         &self.server_url
     }
 
     pub fn set_connection_status(&mut self, status: ConnectionStatus) {
         self.connection_status = status;
-    }    pub async fn browse_node(&self, node_id: &NodeId) -> Result<Vec<OpcUaNode>> {
+    }
+    pub async fn browse_node(&self, node_id: &NodeId) -> Result<Vec<OpcUaNode>> {
         if let Some(session) = &self.session {
             // Add timeout to browse operation to prevent hanging
             let browse_future = async {
                 // Use the session to browse the node
                 let session_guard = session.read();
-                
+
                 let browse_description = BrowseDescription {
                     node_id: node_id.clone(),
                     browse_direction: BrowseDirection::Forward,
                     reference_type_id: ReferenceTypeId::HierarchicalReferences.into(),
                     include_subtypes: true,
                     node_class_mask: 0, // Include all node classes
-                    result_mask: 0x3F, // All browse result attributes
+                    result_mask: 0x3F,  // All browse result attributes
                 };
 
                 session_guard.browse(&[browse_description])
-            };            // Apply timeout to the browse operation
+            }; // Apply timeout to the browse operation
             match tokio::time::timeout(tokio::time::Duration::from_secs(5), browse_future).await {
                 Ok(Ok(results)) => {
                     let mut nodes = Vec::new();
@@ -160,19 +163,27 @@ impl OpcUaClientManager {
                             if let Some(references) = &result.references {
                                 for reference in references {
                                     let node_id = &reference.node_id.node_id;
-                                    let display_name = reference.display_name.text.value()
+                                    let display_name = reference
+                                        .display_name
+                                        .text
+                                        .value()
                                         .as_ref()
                                         .map(|s| s.as_str())
                                         .unwrap_or("<No Name>");
-                                    let browse_name = reference.browse_name.name.value()
+                                    let browse_name = reference
+                                        .browse_name
+                                        .name
+                                        .value()
                                         .as_ref()
                                         .map(|s| s.as_str())
                                         .unwrap_or("<No Name>");
-                                    
+
                                     // Determine if the node has children by checking if it's an object
                                     let has_children = matches!(
                                         reference.node_class,
-                                        NodeClass::Object | NodeClass::Variable | NodeClass::ObjectType
+                                        NodeClass::Object
+                                            | NodeClass::Variable
+                                            | NodeClass::ObjectType
                                     );
 
                                     nodes.push(OpcUaNode {
@@ -188,14 +199,18 @@ impl OpcUaClientManager {
                         }
                     }
                     Ok(nodes)
-                }                Ok(Err(e)) => {
+                }
+                Ok(Err(e)) => {
                     // Browse operation failed, fall back to demo data
                     log::warn!("Failed to browse node {}: {}. Using demo data.", node_id, e);
                     self.get_demo_nodes(node_id)
                 }
                 Err(_timeout) => {
                     // Browse operation timed out, fall back to demo data
-                    log::warn!("Browse operation timed out for node {}. Using demo data.", node_id);
+                    log::warn!(
+                        "Browse operation timed out for node {}. Using demo data.",
+                        node_id
+                    );
                     self.get_demo_nodes(node_id)
                 }
             }
@@ -203,9 +218,11 @@ impl OpcUaClientManager {
             // Not connected, return demo data
             self.get_demo_nodes(node_id)
         }
-    }    fn get_demo_nodes(&self, node_id: &NodeId) -> Result<Vec<OpcUaNode>> {
+    }
+    fn get_demo_nodes(&self, node_id: &NodeId) -> Result<Vec<OpcUaNode>> {
         let demo_nodes = match node_id.to_string().as_str() {
-            "i=85" => vec![ // Objects folder
+            "i=85" => vec![
+                // Objects folder
                 OpcUaNode {
                     node_id: NodeId::new(0, 2253),
                     browse_name: "Server".to_string(),
@@ -225,9 +242,10 @@ impl OpcUaClientManager {
             ],
             _ => Vec::new(),
         };
-        
+
         Ok(demo_nodes)
-    }pub async fn read_node_attributes(&self, node_id: &NodeId) -> Result<Vec<OpcUaAttribute>> {
+    }
+    pub async fn read_node_attributes(&self, node_id: &NodeId) -> Result<Vec<OpcUaAttribute>> {
         if let Some(session) = &self.session {
             let session_guard = session.read();
             let mut attributes = Vec::new();
@@ -254,105 +272,132 @@ impl OpcUaClientManager {
 
                 match session_guard.read(&[read_value_id], TimestampsToReturn::Both, 0.0) {
                     Ok(results) => {
-                        if let Some(result) = results.first() {                                let name = match attr_id {
-                                    AttributeId::NodeId => "NodeId",
-                                    AttributeId::DisplayName => "DisplayName", 
-                                    AttributeId::BrowseName => "BrowseName",
-                                    AttributeId::NodeClass => "NodeClass",
-                                    AttributeId::Description => "Description",
-                                    AttributeId::Value => "Value",
-                                    AttributeId::DataType => "DataType",
-                                    AttributeId::AccessLevel => "AccessLevel",
-                                    _ => "Unknown Attribute",
-                                }.to_string();
-                                  let (value, data_type) = match &result.value {
-                                    Some(val) => {
-                                        let (value_str, type_str) = match val {
-                                            Variant::Boolean(b) => (b.to_string(), "Boolean"),
-                                            Variant::SByte(n) => (n.to_string(), "SByte"),
-                                            Variant::Byte(n) => {
-                                                // Special handling for AccessLevel attribute
-                                                if attr_id == AttributeId::AccessLevel {
-                                                    (Self::format_access_level(*n), "AccessLevel")
-                                                } else {
-                                                    (n.to_string(), "Byte")
-                                                }
-                                            },
-                                            Variant::Int16(n) => (n.to_string(), "Int16"),
-                                            Variant::UInt16(n) => (n.to_string(), "UInt16"),
-                                            Variant::Int32(n) => {
-                                                // Special handling for NodeClass attribute
-                                                if attr_id == AttributeId::NodeClass {
-                                                    (Self::format_node_class(*n), "NodeClass")
-                                                } else {
-                                                    (n.to_string(), "Int32")
-                                                }
-                                            },
-                                            Variant::UInt32(n) => (n.to_string(), "UInt32"),
-                                            Variant::Int64(n) => (n.to_string(), "Int64"),
-                                            Variant::UInt64(n) => (n.to_string(), "UInt64"),
-                                            Variant::Float(f) => (f.to_string(), "Float"),
-                                            Variant::Double(f) => (f.to_string(), "Double"),
-                                            Variant::String(s) => (
-                                                s.value().as_ref().map(|s| s.as_str()).unwrap_or("(empty)").to_string(),
-                                                "String"
-                                            ),
-                                            Variant::DateTime(dt) => (dt.to_string(), "DateTime"),
-                                            Variant::Guid(g) => (g.to_string(), "Guid"),                                            Variant::ByteString(bs) => (
-                                                format!("ByteString[{}]", bs.as_ref().len()),
-                                                "ByteString"
-                                            ),
-                                            Variant::NodeId(id) => {
-                                                // Special handling for DataType attribute
-                                                if attr_id == AttributeId::DataType {
-                                                    (Self::format_data_type(id), "DataType")
-                                                } else {
-                                                    (id.to_string(), "NodeId")
-                                                }
-                                            },
-                                            Variant::QualifiedName(qn) => (
-                                                qn.name.value().as_ref().map(|s| s.as_str()).unwrap_or("(empty)").to_string(),
-                                                "QualifiedName"
-                                            ),
-                                            Variant::LocalizedText(lt) => (
-                                                lt.text.value().as_ref().map(|s| s.as_str()).unwrap_or("(empty)").to_string(),
-                                                "LocalizedText"
-                                            ),
-                                            Variant::StatusCode(sc) => (format!("{:?}", sc), "StatusCode"),
-                                            _ => (format!("{:?}", val), "Unknown"),
-                                        };
-                                        (value_str, type_str.to_string())
-                                    }
-                                    None => ("(null)".to_string(), "Unknown".to_string()),
-                                };
-
-                                let status = if let Some(status_code) = &result.status {
-                                    if status_code.is_good() {
-                                        "Good".to_string()
-                                    } else {
-                                        format!("Error: {:?}", status_code)
-                                    }
-                                } else {
-                                    "Unknown".to_string()
-                                };                                // Add all attributes, even if they have bad status or null values
-                                // This gives users more visibility into what's available
-                                attributes.push(OpcUaAttribute {
-                                    name,
-                                    value,
-                                    data_type,
-                                    status,
-                                });
+                        if let Some(result) = results.first() {
+                            let name = match attr_id {
+                                AttributeId::NodeId => "NodeId",
+                                AttributeId::DisplayName => "DisplayName",
+                                AttributeId::BrowseName => "BrowseName",
+                                AttributeId::NodeClass => "NodeClass",
+                                AttributeId::Description => "Description",
+                                AttributeId::Value => "Value",
+                                AttributeId::DataType => "DataType",
+                                AttributeId::AccessLevel => "AccessLevel",
+                                _ => "Unknown Attribute",
                             }
+                            .to_string();
+                            let (value, data_type) = match &result.value {
+                                Some(val) => {
+                                    let (value_str, type_str) = match val {
+                                        Variant::Boolean(b) => (b.to_string(), "Boolean"),
+                                        Variant::SByte(n) => (n.to_string(), "SByte"),
+                                        Variant::Byte(n) => {
+                                            // Special handling for AccessLevel attribute
+                                            if attr_id == AttributeId::AccessLevel {
+                                                (Self::format_access_level(*n), "AccessLevel")
+                                            } else {
+                                                (n.to_string(), "Byte")
+                                            }
+                                        }
+                                        Variant::Int16(n) => (n.to_string(), "Int16"),
+                                        Variant::UInt16(n) => (n.to_string(), "UInt16"),
+                                        Variant::Int32(n) => {
+                                            // Special handling for NodeClass attribute
+                                            if attr_id == AttributeId::NodeClass {
+                                                (Self::format_node_class(*n), "NodeClass")
+                                            } else {
+                                                (n.to_string(), "Int32")
+                                            }
+                                        }
+                                        Variant::UInt32(n) => (n.to_string(), "UInt32"),
+                                        Variant::Int64(n) => (n.to_string(), "Int64"),
+                                        Variant::UInt64(n) => (n.to_string(), "UInt64"),
+                                        Variant::Float(f) => (f.to_string(), "Float"),
+                                        Variant::Double(f) => (f.to_string(), "Double"),
+                                        Variant::String(s) => (
+                                            s.value()
+                                                .as_ref()
+                                                .map(|s| s.as_str())
+                                                .unwrap_or("(empty)")
+                                                .to_string(),
+                                            "String",
+                                        ),
+                                        Variant::DateTime(dt) => (dt.to_string(), "DateTime"),
+                                        Variant::Guid(g) => (g.to_string(), "Guid"),
+                                        Variant::ByteString(bs) => (
+                                            format!("ByteString[{}]", bs.as_ref().len()),
+                                            "ByteString",
+                                        ),
+                                        Variant::NodeId(id) => {
+                                            // Special handling for DataType attribute
+                                            if attr_id == AttributeId::DataType {
+                                                (Self::format_data_type(id), "DataType")
+                                            } else {
+                                                (id.to_string(), "NodeId")
+                                            }
+                                        }
+                                        Variant::QualifiedName(qn) => (
+                                            qn.name
+                                                .value()
+                                                .as_ref()
+                                                .map(|s| s.as_str())
+                                                .unwrap_or("(empty)")
+                                                .to_string(),
+                                            "QualifiedName",
+                                        ),
+                                        Variant::LocalizedText(lt) => (
+                                            lt.text
+                                                .value()
+                                                .as_ref()
+                                                .map(|s| s.as_str())
+                                                .unwrap_or("(empty)")
+                                                .to_string(),
+                                            "LocalizedText",
+                                        ),
+                                        Variant::StatusCode(sc) => {
+                                            (format!("{:?}", sc), "StatusCode")
+                                        }
+                                        _ => (format!("{:?}", val), "Unknown"),
+                                    };
+                                    (value_str, type_str.to_string())
+                                }
+                                None => ("(null)".to_string(), "Unknown".to_string()),
+                            };
+
+                            let status = if let Some(status_code) = &result.status {
+                                if status_code.is_good() {
+                                    "Good".to_string()
+                                } else {
+                                    format!("Error: {:?}", status_code)
+                                }
+                            } else {
+                                "Unknown".to_string()
+                            }; // Add all attributes, even if they have bad status or null values
+                               // This gives users more visibility into what's available
+                            attributes.push(OpcUaAttribute {
+                                name,
+                                value,
+                                data_type,
+                                status,
+                            });
+                        }
                     }
                     Err(e) => {
-                        log::warn!("Failed to read attribute {:?} for node {}: {}", attr_id, node_id, e);
+                        log::warn!(
+                            "Failed to read attribute {:?} for node {}: {}",
+                            attr_id,
+                            node_id,
+                            e
+                        );
                     }
                 }
             }
 
             // If we couldn't read any real attributes, fall back to demo data
             if attributes.is_empty() {
-                log::warn!("No real attributes found for node {}, using demo data", node_id);
+                log::warn!(
+                    "No real attributes found for node {}, using demo data",
+                    node_id
+                );
                 self.get_demo_attributes(node_id)
             } else {
                 Ok(attributes)
@@ -361,7 +406,8 @@ impl OpcUaClientManager {
             // Not connected, return demo data
             self.get_demo_attributes(node_id)
         }
-    }    fn get_demo_attributes(&self, node_id: &NodeId) -> Result<Vec<OpcUaAttribute>> {
+    }
+    fn get_demo_attributes(&self, node_id: &NodeId) -> Result<Vec<OpcUaAttribute>> {
         let attributes = vec![
             OpcUaAttribute {
                 name: "NodeId".to_string(),
@@ -412,9 +458,10 @@ impl OpcUaClientManager {
                 status: "Good".to_string(),
             },
         ];
-        
+
         Ok(attributes)
-    }pub async fn get_root_node(&self) -> Result<NodeId> {
+    }
+    pub async fn get_root_node(&self) -> Result<NodeId> {
         // Return the Objects folder as the root
         Ok(ObjectId::ObjectsFolder.into())
     }
@@ -437,11 +484,11 @@ impl OpcUaClientManager {
             _ => format!("Unknown NodeClass ({})", node_class_value),
         }
     }
-    
+
     // Helper function to format AccessLevel values into human-readable text
     fn format_access_level(access_level: u8) -> String {
         let mut permissions = Vec::new();
-        
+
         if access_level & 0x01 != 0 {
             permissions.push("CurrentRead");
         }
@@ -463,14 +510,14 @@ impl OpcUaClientManager {
         if access_level & 0x40 != 0 {
             permissions.push("TimestampWrite");
         }
-        
+
         if permissions.is_empty() {
             format!("None ({})", access_level)
         } else {
             format!("{} ({})", permissions.join(" | "), access_level)
         }
     }
-    
+
     // Helper function to format DataType NodeIds into human-readable text
     fn format_data_type(data_type_id: &NodeId) -> String {
         // Common OPC UA data type NodeIds

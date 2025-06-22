@@ -1,12 +1,12 @@
 use super::types::*;
 use super::validator::AuthInputs;
 use crate::client::ConnectionStatus;
-use anyhow::{Result, anyhow};
+use anyhow::{anyhow, Result};
 use log::{error, info, warn};
 use opcua::client::prelude::*;
 use opcua::types::{EndpointDescription, MessageSecurityMode};
-use std::sync::Arc;
 use parking_lot::RwLock;
+use std::sync::Arc;
 
 pub struct SecurityConfig {
     pub auto_trust: bool,
@@ -29,7 +29,11 @@ impl ConnectionBuilder {
         }
     }
 
-    pub fn with_identity(mut self, auth_type: &AuthenticationType, inputs: &AuthInputs) -> Result<Self> {
+    pub fn with_identity(
+        mut self,
+        auth_type: &AuthenticationType,
+        inputs: &AuthInputs,
+    ) -> Result<Self> {
         self.identity_token = Some(match auth_type {
             AuthenticationType::Anonymous => IdentityToken::Anonymous,
             AuthenticationType::UserPassword => {
@@ -46,8 +50,10 @@ impl ConnectionBuilder {
     pub fn with_security(mut self, config: SecurityConfig) -> Self {
         self.security_config = Some(config);
         self
-    }    pub async fn connect(self) -> Result<(Client, Arc<RwLock<Session>>)> {
-        let identity_token = self.identity_token
+    }
+    pub async fn connect(self) -> Result<(Client, Arc<RwLock<Session>>)> {
+        let identity_token = self
+            .identity_token
             .clone()
             .ok_or_else(|| anyhow!("Identity token not set"))?;
         let endpoint = self.endpoint.clone();
@@ -56,12 +62,15 @@ impl ConnectionBuilder {
             let mut client = self.build_client()?;
             let session = client.connect_to_endpoint(endpoint, identity_token)?;
             Ok((client, session))
-        }).await?
+        })
+        .await?
     }
 
     fn validate_user_password(&self, inputs: &AuthInputs) -> Result<()> {
         if inputs.username.trim().is_empty() {
-            return Err(anyhow!("Username is required for user/password authentication"));
+            return Err(anyhow!(
+                "Username is required for user/password authentication"
+            ));
         }
         Ok(())
     }
@@ -79,7 +88,7 @@ impl ConnectionBuilder {
                 if config.auto_trust {
                     client_builder = client_builder.trust_server_certs(true);
                 }
-                
+
                 if !config.client_cert_path.is_empty() && !config.client_key_path.is_empty() {
                     info!("Using client certificate: {}", config.client_cert_path);
                     client_builder = client_builder.create_sample_keypair(true);
@@ -91,7 +100,8 @@ impl ConnectionBuilder {
             }
         }
 
-        client_builder.client()
+        client_builder
+            .client()
             .ok_or_else(|| anyhow!("Failed to create client"))
     }
 }
@@ -118,19 +128,26 @@ impl ConnectScreen {
 
         if self.discovered_endpoints.is_empty() {
             error!("No endpoints available for connection");
-            return Ok(Some(ConnectionStatus::Error("No endpoints available".to_string())));
+            return Ok(Some(ConnectionStatus::Error(
+                "No endpoints available".to_string(),
+            )));
         }
 
         if self.selected_endpoint_index >= self.discovered_endpoints.len() {
             error!("Invalid endpoint selection");
-            return Ok(Some(ConnectionStatus::Error("Invalid endpoint selection".to_string())));
+            return Ok(Some(ConnectionStatus::Error(
+                "Invalid endpoint selection".to_string(),
+            )));
         }
 
         let selected_endpoint = &self.discovered_endpoints[self.selected_endpoint_index];
         let endpoint = selected_endpoint.original_endpoint.clone();
 
         let auth_desc = self.get_auth_description();
-        info!("Connecting to endpoint: {} with {}", selected_endpoint.display_name, auth_desc);
+        info!(
+            "Connecting to endpoint: {} with {}",
+            selected_endpoint.display_name, auth_desc
+        );
 
         let auth_inputs = self.collect_auth_inputs();
         let security_config = self.collect_security_config();
@@ -140,25 +157,33 @@ impl ConnectScreen {
             ConnectionBuilder::new(endpoint)
                 .with_identity(&self.authentication_type, &auth_inputs)?
                 .with_security(security_config)
-                .connect()
-        ).await {
+                .connect(),
+        )
+        .await
+        {
             Ok(spawn_result) => match spawn_result {
                 Ok(result) => result,
                 Err(e) => {
                     error!("Connection failed: {}", e);
-                    return Ok(Some(ConnectionStatus::Error(format!("Connection failed: {}", e))));
+                    return Ok(Some(ConnectionStatus::Error(format!(
+                        "Connection failed: {}",
+                        e
+                    ))));
                 }
             },
             Err(_timeout) => {
                 error!("Connection timed out after 15 seconds");
-                return Ok(Some(ConnectionStatus::Error("Connection timed out".to_string())));
-            }        };
-        
+                return Ok(Some(ConnectionStatus::Error(
+                    "Connection timed out".to_string(),
+                )));
+            }
+        };
+
         let (client, session) = connection_result;
 
         self.client = Some(client);
         self.session = Some(session);
-        
+
         info!("OPC UA connection established successfully");
         Ok(Some(ConnectionStatus::Connecting))
     }
@@ -167,13 +192,14 @@ impl ConnectScreen {
         if let Some(session) = self.session.take() {
             let disconnect_result = tokio::task::spawn_blocking(move || {
                 session.write().disconnect();
-            }).await;
-            
+            })
+            .await;
+
             if let Err(e) = disconnect_result {
                 warn!("Error during session disconnect: {}", e);
             }
         }
-        
+
         self.client = None;
         info!("Disconnected from OPC UA server");
         Ok(())
@@ -191,7 +217,8 @@ impl ConnectScreen {
                     .unwrap_or("Unknown")
             ),
         }
-    }    fn collect_security_config(&self) -> SecurityConfig {
+    }
+    fn collect_security_config(&self) -> SecurityConfig {
         SecurityConfig {
             auto_trust: self.auto_trust_server_cert,
             client_cert_path: self.client_certificate_input.value().trim().to_string(),

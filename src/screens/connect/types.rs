@@ -1,10 +1,10 @@
 use crate::components::ButtonManager;
+use opcua::client::prelude::*;
+use opcua::types::EndpointDescription;
+use parking_lot::RwLock;
+use std::sync::Arc;
 use tui_input::Input;
 use tui_logger::TuiWidgetState;
-use opcua::types::EndpointDescription;
-use opcua::client::prelude::*;
-use std::sync::Arc;
-use parking_lot::RwLock;
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum ConnectDialogStep {
@@ -87,7 +87,8 @@ pub struct ConnectScreen {
     pub active_security_field: SecurityField,
     pub authentication_type: AuthenticationType,
     pub active_auth_field: AuthenticationField,
-    pub username_input: Input,    pub password_input: Input,
+    pub username_input: Input,
+    pub password_input: Input,
     pub user_certificate_input: Input,
     pub user_private_key_input: Input,
     pub connect_in_progress: bool,
@@ -139,7 +140,8 @@ impl ConnectScreen {
 
     pub fn get_server_url(&self) -> String {
         self.server_url_input.value().to_string()
-    }    pub fn update_endpoint_scroll(&mut self, visible_items: usize) {
+    }
+    pub fn update_endpoint_scroll(&mut self, visible_items: usize) {
         if self.discovered_endpoints.is_empty() {
             return;
         }
@@ -171,7 +173,8 @@ impl ConnectScreen {
 
     pub fn has_endpoints_below(&self, visible_items: usize) -> bool {
         self.endpoint_scroll_offset + visible_items < self.discovered_endpoints.len()
-    }    /// Center the selected endpoint in the visible area when possible
+    }
+    /// Center the selected endpoint in the visible area when possible
     pub fn center_endpoint_in_view(&mut self, visible_items: usize) {
         if self.discovered_endpoints.is_empty() || visible_items == 0 {
             return;
@@ -189,7 +192,7 @@ impl ConnectScreen {
             self.discovered_endpoints.len() - visible_items
         } else {
             0
-        };        // Set the scroll offset to center the item, or as close as possible
+        }; // Set the scroll offset to center the item, or as close as possible
         self.endpoint_scroll_offset = ideal_center_offset.min(max_scroll);
     }
 
@@ -427,7 +430,8 @@ impl ConnectScreen {
             AuthenticationType::Anonymous => {
                 // No validation needed for anonymous
             }
-        }        errors
+        }
+        errors
     }
 
     /// Get total number of steps in the connect flow

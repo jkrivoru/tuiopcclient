@@ -17,92 +17,50 @@ impl ConnectScreen {
         let configs = self.get_button_configs();
         for config in configs {
             let enabled = self.is_button_enabled(config.id);
-            
+
             self.button_manager.add_button(
                 Button::new(config.id, config.label)
                     .with_hotkey(config.hotkey)
                     .with_color(config.color)
-                    .with_enabled(enabled)
+                    .with_enabled(enabled),
             );
         }
     }
 
     fn get_button_configs(&self) -> Vec<ButtonConfig> {
+        let cancel_btn = ButtonConfig {
+            id: "cancel",
+            label: "Cancel",
+            hotkey: 'c',
+            color: ButtonColor::Red,
+        };
+
+        let back_btn = ButtonConfig {
+            id: "back",
+            label: "Back",
+            hotkey: 'b',
+            color: ButtonColor::Blue,
+        };
+
+        let next_btn = ButtonConfig {
+            id: "next",
+            label: "Next",
+            hotkey: 'n',
+            color: ButtonColor::Green,
+        };
+
+        let connect_btn = ButtonConfig {
+            id: "connect",
+            label: "Connect",
+            hotkey: 'n',
+            color: ButtonColor::Green,
+        };
+
         match self.step {
-            ConnectDialogStep::ServerUrl => vec![
-                ButtonConfig {
-                    id: "cancel",
-                    label: "Cancel",
-                    hotkey: 'c',
-                    color: ButtonColor::Red,
-                },
-                ButtonConfig {
-                    id: "next",
-                    label: "Next",
-                    hotkey: 'n',
-                    color: ButtonColor::Green,
-                },
-            ],
-            ConnectDialogStep::EndpointSelection => vec![
-                ButtonConfig {
-                    id: "cancel",
-                    label: "Cancel",
-                    hotkey: 'c',
-                    color: ButtonColor::Red,
-                },
-                ButtonConfig {
-                    id: "back",
-                    label: "Back",
-                    hotkey: 'b',
-                    color: ButtonColor::Blue,
-                },
-                ButtonConfig {
-                    id: "next",
-                    label: "Next",
-                    hotkey: 'n',
-                    color: ButtonColor::Green,
-                },
-            ],
-            ConnectDialogStep::SecurityConfiguration => vec![
-                ButtonConfig {
-                    id: "cancel",
-                    label: "Cancel",
-                    hotkey: 'c',
-                    color: ButtonColor::Red,
-                },
-                ButtonConfig {
-                    id: "back",
-                    label: "Back",
-                    hotkey: 'b',
-                    color: ButtonColor::Blue,
-                },
-                ButtonConfig {
-                    id: "next",
-                    label: "Next",
-                    hotkey: 'n',
-                    color: ButtonColor::Green,
-                },
-            ],
-            ConnectDialogStep::Authentication => vec![
-                ButtonConfig {
-                    id: "cancel",
-                    label: "Cancel",
-                    hotkey: 'c',
-                    color: ButtonColor::Red,
-                },
-                ButtonConfig {
-                    id: "back",
-                    label: "Back",
-                    hotkey: 'b',
-                    color: ButtonColor::Blue,
-                },
-                ButtonConfig {
-                    id: "connect",
-                    label: "Connect",
-                    hotkey: 'n',
-                    color: ButtonColor::Green,
-                },
-            ],
+            ConnectDialogStep::ServerUrl => vec![cancel_btn, next_btn],
+            ConnectDialogStep::EndpointSelection => vec![cancel_btn, back_btn, next_btn],
+            ConnectDialogStep::SecurityConfiguration => vec![cancel_btn, back_btn, next_btn],
+            ConnectDialogStep::Authentication => vec![cancel_btn, back_btn, connect_btn],
         }
     }
 
@@ -113,20 +71,21 @@ impl ConnectScreen {
         }
     }
 
-    pub async fn handle_button_action(&mut self, button_id: &str) -> Result<Option<ConnectionStatus>> {
+    pub async fn handle_button_action(
+        &mut self,
+        button_id: &str,
+    ) -> Result<Option<ConnectionStatus>> {
         match button_id {
             "cancel" => Ok(Some(ConnectionStatus::Disconnected)),
-            "next" => {
-                match self.step {
-                    ConnectDialogStep::ServerUrl |
-                    ConnectDialogStep::EndpointSelection |
-                    ConnectDialogStep::SecurityConfiguration => {
-                        self.advance_to_next_step()?;
-                        Ok(None)
-                    }
-                    _ => Ok(None),
+            "next" => match self.step {
+                ConnectDialogStep::ServerUrl
+                | ConnectDialogStep::EndpointSelection
+                | ConnectDialogStep::SecurityConfiguration => {
+                    self.advance_to_next_step()?;
+                    Ok(None)
                 }
-            }
+                _ => Ok(None),
+            },
             "back" => {
                 self.handle_back_navigation();
                 Ok(None)

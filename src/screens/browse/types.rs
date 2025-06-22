@@ -40,7 +40,7 @@ pub struct BrowseScreen {
     pub selected_node_index: usize,
     pub expanded_nodes: std::collections::HashSet<String>,
     pub scroll_offset: usize,
-    
+
     // Attributes panel state
     pub selected_attributes: Vec<NodeAttribute>,
     pub attribute_scroll_offset: usize,
@@ -48,22 +48,23 @@ pub struct BrowseScreen {
     // Connection info
     pub server_url: String,
     pub connection_status: ConnectionStatus,
-    
+
     // Selection state for subscription
     pub selected_items: std::collections::HashSet<String>, // Store node IDs of selected items
-    
+
     // Mouse state for double-click detection
     pub last_click_time: Option<std::time::Instant>,
     pub last_click_position: Option<(u16, u16)>,
-    
+
     // OPC UA client
     pub client: Arc<RwLock<OpcUaClientManager>>,
-    
+
     // Loading state
     pub is_loading: bool,
 }
 
-impl BrowseScreen {    pub fn new(server_url: String, client: Arc<RwLock<OpcUaClientManager>>) -> Self {
+impl BrowseScreen {
+    pub fn new(server_url: String, client: Arc<RwLock<OpcUaClientManager>>) -> Self {
         let browse_screen = Self {
             current_path: vec!["Root".to_string()],
             tree_nodes: Vec::new(),
@@ -79,52 +80,8 @@ impl BrowseScreen {    pub fn new(server_url: String, client: Arc<RwLock<OpcUaCl
             last_click_position: None,
             client,
             is_loading: true, // Start in loading state
-        };
-
-        // Real data will be loaded asynchronously via load_real_tree() from real_data.rs
+        }; // Real data will be loaded asynchronously via load_real_tree() from real_data.rs
         browse_screen
-    }fn load_demo_tree(&mut self) {
-        // Create a hierarchical OPC UA server structure
-        self.tree_nodes = vec![
-            TreeNode {
-                name: "Objects".to_string(),
-                node_id: "i=85".to_string(),
-                opcua_node_id: None, // Demo data doesn't have real NodeIds
-                node_type: NodeType::Object,
-                level: 0,
-                has_children: true,
-                is_expanded: false,
-                parent_path: "".to_string(),
-            },            TreeNode {
-                name: "Types".to_string(),
-                node_id: "i=86".to_string(),
-                opcua_node_id: None,
-                node_type: NodeType::Object,
-                level: 0,
-                has_children: true,
-                is_expanded: false,
-                parent_path: "".to_string(),
-            },
-            TreeNode {
-                name: "Views".to_string(),
-                node_id: "i=87".to_string(),
-                opcua_node_id: None,
-                node_type: NodeType::Object,
-                level: 0,
-                has_children: true,
-                is_expanded: false,
-                parent_path: "".to_string(),
-            },            TreeNode {
-                name: "Server".to_string(),
-                node_id: "i=2253".to_string(),
-                opcua_node_id: None,
-                node_type: NodeType::Object,
-                level: 0,
-                has_children: true,
-                is_expanded: false,
-                parent_path: "".to_string(),
-            },
-        ];
     }
 
     pub fn update_selected_attributes(&mut self) {
@@ -141,8 +98,13 @@ impl BrowseScreen {    pub fn new(server_url: String, client: Arc<RwLock<OpcUaCl
                 },
                 NodeAttribute {
                     name: "BrowseName".to_string(),
-                    value: format!("{}:{}", 
-                        if node.node_id.starts_with("ns=") { "2" } else { "0" },
+                    value: format!(
+                        "{}:{}",
+                        if node.node_id.starts_with("ns=") {
+                            "2"
+                        } else {
+                            "0"
+                        },
                         node.name
                     ),
                 },
@@ -151,10 +113,7 @@ impl BrowseScreen {    pub fn new(server_url: String, client: Arc<RwLock<OpcUaCl
                     value: format!("{:?}", node.node_type),
                 },
             ];
-        }    }
-
-    pub fn get_selected_items(&self) -> Vec<String> {
-        self.selected_items.iter().cloned().collect()
+        }
     }
 
     pub fn clear_selections(&mut self) {

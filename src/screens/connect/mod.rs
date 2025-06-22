@@ -4,7 +4,7 @@ pub use types::*;
 // Module declarations
 mod button_management;
 mod connection;
-mod constants;
+pub mod constants;
 mod discovery;
 mod input;
 mod logic;

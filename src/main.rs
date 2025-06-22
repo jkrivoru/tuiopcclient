@@ -5,8 +5,12 @@ use tokio::sync::RwLock;
 mod client;
 mod components;
 mod config;
+mod endpoint_utils;
+mod node_utils;
 mod screens;
+mod session_utils;
 mod ui;
+mod ui_utils;
 
 use client::OpcUaClientManager;
 use ui::App;
@@ -18,11 +22,11 @@ async fn main() -> Result<()> {
     tui_logger::set_default_level(log::LevelFilter::Info);
 
     let client_manager = Arc::new(RwLock::new(OpcUaClientManager::new()));
-    
+
     // Check for test mode argument
     let args: Vec<String> = std::env::args().collect();
     let test_browse_screen = args.contains(&"--test-browse".to_string());
-    
+
     let mut app = if test_browse_screen {
         App::new_with_browse_test(client_manager)
     } else {
