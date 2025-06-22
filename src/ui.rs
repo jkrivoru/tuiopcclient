@@ -52,18 +52,16 @@ impl App {
             app_state: AppState::Connecting,
             connect_screen: ConnectScreen::new(),
             browse_screen: None,
-        }
-    }
+        }    }
 
-    pub fn new_with_browse_test(client_manager: Arc<RwLock<OpcUaClientManager>>) -> Self {
-        let test_server_url = "opc.tcp://test-server:4840".to_string();
+    pub fn new_with_browse_direct(client_manager: Arc<RwLock<OpcUaClientManager>>, server_url: String) -> Self {
         Self {
             client_manager: client_manager.clone(),
             should_quit: false,
-            test_mode: true,
-            app_state: AppState::Connected(test_server_url.clone()),
+            test_mode: false,
+            app_state: AppState::Connected(server_url.clone()),
             connect_screen: ConnectScreen::new(),
-            browse_screen: Some(BrowseScreen::new(test_server_url, client_manager)),
+            browse_screen: Some(BrowseScreen::new(server_url, client_manager)),
         }
     }
 
@@ -496,5 +494,15 @@ impl App {
         let status_bar =
             Paragraph::new(status_text).style(Style::default().fg(Color::White).bg(Color::Blue));
         f.render_widget(status_bar, area);
+    }
+
+    pub async fn initialize_browse_screen(&mut self) -> Result<()> {
+        if let Some(browse_screen) = &mut self.browse_screen {
+            // Load the tree data automatically for CLI connections
+            if let Err(e) = browse_screen.load_real_tree().await {
+                log::error!("Failed to load real tree data: {}. Using empty tree.", e);
+            }
+        }
+        Ok(())
     }
 }

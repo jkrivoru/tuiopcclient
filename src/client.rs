@@ -12,10 +12,10 @@ pub enum ConnectionStatus {
 }
 
 pub struct OpcUaClientManager {
-    connection_status: ConnectionStatus,
-    client: Option<Client>,
-    session: Option<Arc<RwLock<Session>>>,
-    server_url: String,
+    pub connection_status: ConnectionStatus,
+    pub client: Option<Client>,
+    pub session: Option<Arc<RwLock<Session>>>,
+    pub server_url: String,
 }
 
 #[derive(Clone, Debug)]

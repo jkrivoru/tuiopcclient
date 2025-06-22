@@ -16,7 +16,7 @@ mod render_endpoint;
 mod render_security;
 mod render_server_url;
 mod state;
-mod types;
+pub mod types;
 mod validator;
 
 // Just make the implementations available, don't re-export everything

@@ -36,22 +36,21 @@ impl EndpointConverter {
         })
     }
     fn parse_security_policy(&self, uri: &UAString) -> Option<LocalSecurityPolicy> {
-        let uri_str = uri.as_ref();
-        match uri_str {
-            "http://opcfoundation.org/UA/SecurityPolicy#None" => Some(LocalSecurityPolicy::None),
-            "http://opcfoundation.org/UA/SecurityPolicy#Basic128Rsa15" => {
+        let uri_str = uri.as_ref();        match uri_str {
+            crate::screens::connect::constants::security_policies::NONE => Some(LocalSecurityPolicy::None),
+            crate::screens::connect::constants::security_policies::BASIC128_RSA15 => {
                 Some(LocalSecurityPolicy::Basic128Rsa15)
             }
-            "http://opcfoundation.org/UA/SecurityPolicy#Basic256" => {
+            crate::screens::connect::constants::security_policies::BASIC256 => {
                 Some(LocalSecurityPolicy::Basic256)
             }
-            "http://opcfoundation.org/UA/SecurityPolicy#Basic256Sha256" => {
+            crate::screens::connect::constants::security_policies::BASIC256_SHA256 => {
                 Some(LocalSecurityPolicy::Basic256Sha256)
             }
-            "http://opcfoundation.org/UA/SecurityPolicy#Aes128_Sha256_RsaOaep" => {
+            crate::screens::connect::constants::security_policies::AES128_SHA256_RSA_OAEP => {
                 Some(LocalSecurityPolicy::Aes128Sha256RsaOaep)
             }
-            "http://opcfoundation.org/UA/SecurityPolicy#Aes256_Sha256_RsaPss" => {
+            crate::screens::connect::constants::security_policies::AES256_SHA256_RSA_PSS => {
                 Some(LocalSecurityPolicy::Aes256Sha256RsaPss)
             }
             _ => {
@@ -131,12 +130,10 @@ impl ConnectScreen {
     }
 
     async fn discover_from_server(&self, url: &str) -> Result<Vec<EndpointDescription>> {
-        let url_clone = url.to_string();
-
-        tokio::task::spawn_blocking(move || -> Result<Vec<EndpointDescription>> {
+        let url_clone = url.to_string();        tokio::task::spawn_blocking(move || -> Result<Vec<EndpointDescription>> {
             let client_builder = ClientBuilder::new()
-                .application_name("OPC UA TUI Client - Discovery")
-                .application_uri("urn:opcua-tui-client-discovery")
+                .application_name(crate::screens::connect::constants::ui::DISCOVERY_CLIENT_NAME)
+                .application_uri(crate::screens::connect::constants::ui::DISCOVERY_CLIENT_URI)
                 .create_sample_keypair(true)
                 .trust_server_certs(true)
                 .session_retry_limit(1)
