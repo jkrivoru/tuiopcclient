@@ -92,46 +92,44 @@ impl super::BrowseScreen {
         }
 
         Ok(tree_nodes)
-    }
+    }    // Improved expand method for real OPC UA data
     pub async fn expand_real_node(&mut self, index: usize) -> Result<()> {
-        if index >= self.tree_nodes.len() || !self.tree_nodes[index].has_children {
+        if !self.can_expand(index) {
             return Ok(());
         }
-        let node_path = crate::node_utils::NodeUtils::generate_node_path(&self.tree_nodes[index]);
 
-        // Get node info before modifying the vector
-        let (opcua_node_id, level, parent_path) = {
+        let node_info = {
             let node = &self.tree_nodes[index];
-            (node.opcua_node_id.clone(), node.level, node_path.clone())
+            (
+                node.opcua_node_id.clone(),
+                node.level,
+                self.get_node_path(node),
+            )
         };
 
-        self.tree_nodes[index].is_expanded = true;
+        let opcua_node_id = node_info.0.ok_or_else(|| {
+            anyhow::anyhow!("No OPC UA node ID for expansion")
+        })?;
+
+        // Update expansion state
+        self.update_expansion_state(index, true);
 
         // Load child nodes from OPC UA server
-        if let Some(opcua_node_id) = opcua_node_id {
-            match self
-                .get_real_children(&opcua_node_id, level + 1, &parent_path)
-                .await
-            {
-                Ok(mut child_nodes) => {
-                    // Restore expanded state for child nodes that were previously expanded
-                    for child in &mut child_nodes {
-                        let child_path = crate::node_utils::NodeUtils::generate_path(
-                            &child.parent_path,
-                            &child.name,
-                        );
+        match self
+            .get_real_children(&opcua_node_id, node_info.1 + 1, &node_info.2)
+            .await
+        {
+            Ok(mut child_nodes) => {
+                // Restore expansion state for children
+                self.restore_child_expansion_states(&mut child_nodes);                // Insert children after the current node
+                self.tree_nodes.splice(index + 1..index + 1, child_nodes);
 
-                        if self.expanded_nodes.contains(&child_path) {
-                            child.is_expanded = true;
-                        }
-                    }
-
-                    // Insert child nodes after the parent
-                    self.tree_nodes.splice(index + 1..index + 1, child_nodes);
-                }
-                Err(e) => {
-                    log::error!("Failed to load children for node: {}", e);
-                }
+                // TODO: Implement recursive expansion restoration in a separate non-recursive method
+            }
+            Err(e) => {
+                log::error!("Failed to load children for node: {}", e);
+                // Revert expansion state on error
+                self.update_expansion_state(index, false);
             }
         }
 

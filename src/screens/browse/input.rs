@@ -34,12 +34,11 @@ impl super::BrowseScreen {
                     }
                 }
                 Ok(None)
-            }
-            KeyCode::Right | KeyCode::Enter => {
-                // Expand node if it has children
+            }            KeyCode::Right | KeyCode::Enter => {
+                // Expand node if it supports expansion (based on node type) and has children
                 if self.selected_node_index < self.tree_nodes.len() {
                     let node = &self.tree_nodes[self.selected_node_index];
-                    if node.has_children && !node.is_expanded {
+                    if node.should_show_expand_indicator() && node.has_children && !node.is_expanded {
                         if let Err(e) = self.expand_node_async(self.selected_node_index).await {
                             log::error!("Failed to expand node: {}", e);
                         }
@@ -216,17 +215,15 @@ impl super::BrowseScreen {
             log::error!("Failed to update attributes: {}", e);
         }
         Ok(None)
-    }
-
-    async fn handle_double_click(&mut self, index: usize) -> Result<Option<ConnectionStatus>> {
+    }    async fn handle_double_click(&mut self, index: usize) -> Result<Option<ConnectionStatus>> {
         // First, navigate to the node
         self.selected_node_index = index;
         self.update_scroll();
 
-        // Then expand/collapse if it has children
+        // Then expand/collapse if it supports expansion and has children
         if index < self.tree_nodes.len() {
             let node = &self.tree_nodes[index];
-            if node.has_children {
+            if node.should_show_expand_indicator() && node.has_children {
                 if node.is_expanded {
                     self.collapse_node(index);
                 } else {

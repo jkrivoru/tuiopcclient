@@ -100,20 +100,21 @@ impl super::BrowseScreen {
                     NodeType::VariableType => "🔧",
                     NodeType::DataType => "📝",
                     NodeType::ReferenceType => "🔗",
-                };
-
-                // Create indentation based on level
+                };                // Create indentation based on level
                 let indent = "  ".repeat(node.level);
 
                 // Use consistent width for expand icons
-                let expand_icon = if node.has_children {
-                    if node.is_expanded {
+                // Only show expand icons for node types that can actually have children
+                let expand_icon = if node.should_show_expand_indicator() {
+                    if node.has_children && node.is_expanded {
                         "▼"
-                    } else {
+                    } else if node.has_children {
                         "▶"
+                    } else {
+                        " " // Node type can have children but this instance doesn't
                     }
                 } else {
-                    " "
+                    " " // Node type never has children (e.g., Variables, Methods)
                 };
 
                 // Format: [indent][expand_icon] [type_icon] [name]

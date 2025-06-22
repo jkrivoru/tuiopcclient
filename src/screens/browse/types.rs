@@ -120,3 +120,23 @@ impl BrowseScreen {
         self.selected_items.clear();
     }
 }
+
+impl TreeNode {
+    /// Determines if this node should show an expand indicator based on its type
+    /// following OPC UA best practices
+    pub fn should_show_expand_indicator(&self) -> bool {
+        match self.node_type {
+            // Containers - always show expand
+            NodeType::Object => true,
+            NodeType::View => true,
+            NodeType::ObjectType => true,
+            NodeType::VariableType => true,
+            NodeType::DataType => true,
+            NodeType::ReferenceType => true,
+
+            // Leaves - don't show expand
+            NodeType::Method => false,
+            NodeType::Variable => false, // Usually a leaf, may have properties but not interesting for browsing
+        }
+    }
+}
