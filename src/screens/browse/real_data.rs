@@ -57,9 +57,7 @@ impl super::BrowseScreen {
         }
 
         let opcua_nodes = client_guard.browse_node(parent_node_id).await?;
-        drop(client_guard);
-
-        let mut tree_nodes = Vec::new();
+        drop(client_guard);        let mut tree_nodes = Vec::new();
         for opcua_node in opcua_nodes {
             let node_type = match opcua_node.node_class {
                 NodeClass::Object => NodeType::Object,
@@ -89,10 +87,22 @@ impl super::BrowseScreen {
                 is_expanded: false,
                 parent_path: parent_path.to_string(),
             });
-        }
+        }        // Sort nodes by type priority, then by name
+        tree_nodes.sort_by(|a, b| {
+            let type_order_a = a.node_type.get_sort_priority();
+            let type_order_b = b.node_type.get_sort_priority();
+            
+            match type_order_a.cmp(&type_order_b) {
+                std::cmp::Ordering::Equal => {
+                    // If same type, sort by name (case-insensitive)
+                    a.name.to_lowercase().cmp(&b.name.to_lowercase())
+                }
+                other => other,
+            }
+        });        Ok(tree_nodes)
+    }
 
-        Ok(tree_nodes)
-    }    // Improved expand method for real OPC UA data
+    // Improved expand method for real OPC UA data
     pub async fn expand_real_node(&mut self, index: usize) -> Result<()> {
         if !self.can_expand(index) {
             return Ok(());

@@ -1,4 +1,4 @@
-use anyhow::{anyhow, Result};
+use anyhow::Result;
 use opcua::client::prelude::*;
 use parking_lot::RwLock;
 use std::sync::Arc;
@@ -44,76 +44,25 @@ impl OpcUaClientManager {
             session: None,
             server_url: String::new(),
         }
-    }
-
-    pub async fn connect(&mut self, endpoint_url: &str) -> Result<()> {
+    }    pub async fn connect(&mut self, endpoint_url: &str) -> Result<()> {
+        use crate::connection_manager::{ConnectionManager, ConnectionConfig};
+        
         self.connection_status = ConnectionStatus::Connecting;
-        self.server_url = endpoint_url.to_string();
+        self.server_url = endpoint_url.to_string();        // Create unified connection configuration
+        let config = ConnectionConfig::ui_connection();
 
-        // Use tokio::task::spawn_blocking to run the synchronous OPC UA connection
-        // in a blocking thread to avoid runtime conflicts
-        let endpoint_url = endpoint_url.to_string();
-        let connection_result = match tokio::time::timeout(
-            tokio::time::Duration::from_secs(
-                crate::screens::connect::constants::timeouts::CONNECTION_TIMEOUT_SECS,
-            ),
-            tokio::task::spawn_blocking(move || -> Result<(Client, Arc<RwLock<Session>>)> {
-                // Create a simple client configuration with timeouts
-                let client_builder = ClientBuilder::new()
-                    .application_name(crate::screens::connect::constants::ui::CLIENT_NAME)
-                    .application_uri(crate::screens::connect::constants::ui::CLIENT_URI)
-                    .create_sample_keypair(true)
-                    .trust_server_certs(true)
-                    .session_retry_limit(1) // Reduce retries to fail faster
-                    .session_timeout(
-                        crate::screens::connect::constants::timeouts::SESSION_TIMEOUT_MS,
-                    )
-                    .session_retry_interval(
-                        crate::screens::connect::constants::timeouts::SESSION_RETRY_INTERVAL_MS,
-                    );
-
-                let mut client = client_builder
-                    .client()
-                    .ok_or_else(|| anyhow!("Failed to create client"))?; // Create an endpoint
-                let endpoint = crate::endpoint_utils::EndpointUtils::create_endpoint(
-                    &endpoint_url,
-                    MessageSecurityMode::None,
-                    SecurityPolicy::None,
-                    0,
-                );
-
-                // Connect to the server
-                let session = client.connect_to_endpoint(endpoint, IdentityToken::Anonymous)?;
-
-                Ok((client, session))
-            }),
-        )
-        .await
-        {
-            Ok(spawn_result) => match spawn_result {
-                Ok(result) => result,
-                Err(join_error) => {
-                    self.connection_status = ConnectionStatus::Error("Task failed".to_string());
-                    return Err(anyhow!("Spawn task failed: {}", join_error));
-                }
-            },
-            Err(_timeout) => {
-                self.connection_status =
-                    ConnectionStatus::Error("Connection timed out".to_string());
-                return Err(anyhow!(
-                    "Connection timed out after {} seconds",
-                    crate::screens::connect::constants::timeouts::CONNECTION_TIMEOUT_SECS
-                ));
+        match ConnectionManager::connect_to_server(endpoint_url, &config).await {
+            Ok((client, session)) => {
+                self.client = Some(client);
+                self.session = Some(session);
+                self.connection_status = ConnectionStatus::Connected;
+                Ok(())
             }
-        };
-
-        let (client, session) = connection_result?;
-
-        self.client = Some(client);
-        self.session = Some(session);
-        self.connection_status = ConnectionStatus::Connected;
-
-        Ok(())
+            Err(e) => {
+                self.connection_status = ConnectionStatus::Error(format!("Connection failed: {}", e));
+                Err(e)
+            }
+        }
     }
     pub async fn disconnect(&mut self) -> Result<()> {
         if let Some(session) = self.session.take() {

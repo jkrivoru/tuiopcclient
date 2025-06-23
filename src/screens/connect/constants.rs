@@ -1,10 +1,3 @@
-pub mod timeouts {
-    pub const DISCOVERY_TIMEOUT_SECS: u64 = 5;
-    pub const CONNECTION_TIMEOUT_SECS: u64 = 15;
-    pub const SESSION_TIMEOUT_MS: u32 = 10000;
-    pub const SESSION_RETRY_INTERVAL_MS: u32 = 1000;
-}
-
 pub mod security_policies {
     pub const NONE: &str = "http://opcfoundation.org/UA/SecurityPolicy#None";
     pub const BASIC128_RSA15: &str = "http://opcfoundation.org/UA/SecurityPolicy#Basic128Rsa15";

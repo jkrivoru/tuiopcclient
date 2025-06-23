@@ -6,6 +6,7 @@ use tokio::sync::RwLock;
 mod client;
 mod components;
 mod config;
+mod connection_manager;
 mod endpoint_utils;
 mod node_utils;
 mod screens;
@@ -170,8 +171,8 @@ async fn connect_with_cli_params(
     args: &Args, 
     server_url: &str, 
     client_manager: &mut OpcUaClientManager
-) -> Result<()> {    use opcua::client::prelude::*;
-    use opcua::types::MessageSecurityMode;
+) -> Result<()> {
+    use crate::connection_manager::{ConnectionManager, ConnectionConfig};
     
     client_manager.connection_status = crate::client::ConnectionStatus::Connecting;
     client_manager.server_url = server_url.to_string();
@@ -179,229 +180,37 @@ async fn connect_with_cli_params(
     // Convert our local enums to opcua crate enums
     let opcua_security_policy = convert_security_policy(&args.security_policy)?;
     let opcua_security_mode = convert_security_mode(&args.security_mode)?;
-      // Create identity token based on authentication parameters
+    
+    // Create identity token based on authentication parameters
     let identity_token = create_identity_token(args)?;
     
     println!("Building client with security policy: {} and mode: {}", 
              args.security_policy, args.security_mode);
 
-    // First, discover endpoints from the server
-    println!("Discovering endpoints from server...");
-    let discovered_endpoints = discover_endpoints_for_cli(server_url).await?;
-    
-    if discovered_endpoints.is_empty() {
-        return Err(anyhow::anyhow!("Server returned no endpoints"));
-    }
-    
-    println!("Found {} endpoints from server", discovered_endpoints.len());
-    
-    // Find the matching endpoint
-    let selected_endpoint = find_matching_endpoint(
-        &discovered_endpoints, 
-        opcua_security_policy, 
-        opcua_security_mode,
-        args.use_original_url,
-        server_url
-    )?;
-    
-    println!("Selected endpoint: {} (Security: {} - {})", 
-             selected_endpoint.endpoint_url.as_ref(),
-             args.security_policy,
-             args.security_mode);
+    // Create unified connection configuration
+    let config = ConnectionConfig::cli_connection()
+        .with_security(
+            opcua_security_policy,
+            opcua_security_mode,
+            args.auto_trust,
+            args.client_certificate.clone(),
+            args.client_private_key.clone(),
+        )        .with_authentication(identity_token)
+        .with_url_override(args.use_original_url);
 
-    let _server_url_clone = server_url.to_string();
-    let auto_trust = args.auto_trust;
-    let client_cert = args.client_certificate.clone();
-    let client_key = args.client_private_key.clone();
-    let endpoint_for_connection = selected_endpoint.clone();let connection_result = tokio::time::timeout(
-        tokio::time::Duration::from_secs(15),
-        tokio::task::spawn_blocking(move || -> Result<(Client, Arc<parking_lot::RwLock<Session>>)> {
-            // Create client builder
-            let mut client_builder = ClientBuilder::new()
-                .application_name("OPC UA TUI Client - CLI")
-                .application_uri("urn:opcua-tui-client-cli")
-                .session_retry_limit(1)
-                .session_timeout(10000)
-                .session_retry_interval(1000);            // Configure security
-            if opcua_security_mode != MessageSecurityMode::None {
-                if auto_trust {
-                    println!("Auto-trusting server certificates");
-                    client_builder = client_builder.trust_server_certs(true);
-                }
-                
-                if let (Some(cert_path), Some(_key_path)) = (&client_cert, &client_key) {
-                    println!("Using client certificate: {}", cert_path);
-                    // For now, use sample keypair - in production you'd load actual files
-                    client_builder = client_builder.create_sample_keypair(true);
-                } else {
-                    client_builder = client_builder.create_sample_keypair(true);
-                }
-            } else {
-                client_builder = client_builder.trust_server_certs(true);
-            }            let mut client = client_builder
-                .client()
-                .ok_or_else(|| anyhow::anyhow!("Failed to create client"))?;
-
-            println!("Connecting to endpoint: {}", endpoint_for_connection.endpoint_url.as_ref());
-            
-            // Use the discovered endpoint instead of creating a new one
-            let session = client.connect_to_endpoint(endpoint_for_connection, identity_token)?;
-
-            Ok((client, session))        })
-    ).await;    // Handle errors and unwrap the result
-    match connection_result {
-        Ok(spawn_result) => {
-            match spawn_result {
-                Ok(connection_result) => {
-                    match connection_result {
-                        Ok((client, session)) => {
-                            // Store the connection in the client manager
-                            client_manager.client = Some(client);
-                            client_manager.session = Some(session);
-                            client_manager.connection_status = crate::client::ConnectionStatus::Connected;
-                            Ok(())
-                        }
-                        Err(e) => {
-                            client_manager.connection_status = crate::client::ConnectionStatus::Error("Connection failed".to_string());
-                            Err(anyhow::anyhow!("Connection failed: {}", e))
-                        }
-                    }
-                }
-                Err(e) => {
-                    client_manager.connection_status = crate::client::ConnectionStatus::Error("Connection task failed".to_string());
-                    Err(anyhow::anyhow!("Connection task failed: {}", e))
-                }
-            }
+    // Use unified connection manager
+    match ConnectionManager::connect_to_server(server_url, &config).await {
+        Ok((client, session)) => {
+            // Store the connection in the client manager
+            client_manager.client = Some(client);
+            client_manager.session = Some(session);
+            client_manager.connection_status = crate::client::ConnectionStatus::Connected;
+            Ok(())
         }
-        Err(_timeout) => {
-            client_manager.connection_status = crate::client::ConnectionStatus::Error("Connection timed out".to_string());
-            Err(anyhow::anyhow!("Connection timed out after 15 seconds"))
+        Err(e) => {
+            client_manager.connection_status = crate::client::ConnectionStatus::Error("Connection failed".to_string());
+            Err(anyhow::anyhow!("Connection failed: {}", e))
         }
-    }
-}
-
-async fn discover_endpoints_for_cli(server_url: &str) -> Result<Vec<opcua::types::EndpointDescription>> {
-    use opcua::client::prelude::*;
-    
-    let url = server_url.to_string();
-    
-    tokio::task::spawn_blocking(move || -> Result<Vec<opcua::types::EndpointDescription>> {
-        let client_builder = ClientBuilder::new()
-            .application_name("OPC UA TUI Client - Discovery")
-            .application_uri("urn:opcua-tui-client-discovery")
-            .create_sample_keypair(true)
-            .trust_server_certs(true)
-            .session_retry_limit(1)
-            .session_timeout(5000);
-
-        let client = client_builder
-            .client()
-            .ok_or_else(|| anyhow::anyhow!("Failed to create discovery client"))?;
-
-        match client.get_server_endpoints_from_url(&url) {
-            Ok(endpoints) => {
-                println!("Successfully discovered {} endpoints from server", endpoints.len());
-                
-                // Log discovered endpoints for debugging
-                for (i, endpoint) in endpoints.iter().enumerate() {
-                    println!("  Endpoint {}: {} (Security: {:?} - {:?})", 
-                             i + 1,
-                             endpoint.endpoint_url.as_ref(),
-                             endpoint.security_policy_uri.as_ref(),
-                             endpoint.security_mode);
-                }
-                
-                Ok(endpoints)
-            }
-            Err(e) => {
-                Err(anyhow::anyhow!("Failed to discover endpoints: {}", e))
-            }
-        }
-    })
-    .await?
-}
-
-fn find_matching_endpoint(
-    endpoints: &[opcua::types::EndpointDescription],
-    requested_policy: opcua::crypto::SecurityPolicy,
-    requested_mode: opcua::types::MessageSecurityMode,
-    use_original_url: bool,
-    original_url: &str,
-) -> Result<opcua::types::EndpointDescription> {
-    use opcua::types::UAString;
-      // Convert security policy to URI string for comparison
-    let requested_policy_uri = match requested_policy {
-        opcua::crypto::SecurityPolicy::None => "http://opcfoundation.org/UA/SecurityPolicy#None",
-        opcua::crypto::SecurityPolicy::Basic128Rsa15 => "http://opcfoundation.org/UA/SecurityPolicy#Basic128Rsa15",
-        opcua::crypto::SecurityPolicy::Basic256 => "http://opcfoundation.org/UA/SecurityPolicy#Basic256",
-        opcua::crypto::SecurityPolicy::Basic256Sha256 => "http://opcfoundation.org/UA/SecurityPolicy#Basic256Sha256",
-        opcua::crypto::SecurityPolicy::Aes128Sha256RsaOaep => "http://opcfoundation.org/UA/SecurityPolicy#Aes128_Sha256_RsaOaep",
-        opcua::crypto::SecurityPolicy::Aes256Sha256RsaPss => "http://opcfoundation.org/UA/SecurityPolicy#Aes256_Sha256_RsaPss",
-        opcua::crypto::SecurityPolicy::Unknown => {
-            return Err(anyhow::anyhow!("Unknown security policy not supported"));
-        }
-    };
-    
-    // Find matching endpoint
-    let matching_endpoint = endpoints.iter().find(|endpoint| {
-        endpoint.security_policy_uri.as_ref() == requested_policy_uri &&
-        endpoint.security_mode == requested_mode
-    });
-    
-    match matching_endpoint {
-        Some(endpoint) => {
-            let mut selected_endpoint = endpoint.clone();
-            
-            // If use_original_url is enabled, override the endpoint URL
-            if use_original_url {
-                println!("Using original URL override: {} -> {}", 
-                         endpoint.endpoint_url.as_ref(), 
-                         original_url);
-                selected_endpoint.endpoint_url = UAString::from(original_url);
-            }
-            
-            Ok(selected_endpoint)
-        }
-        None => {
-            // No matching endpoint found, provide helpful error message
-            let available_endpoints: Vec<String> = endpoints.iter().map(|ep| {
-                format!("  - {} (Security: {} - {:?})", 
-                        ep.endpoint_url.as_ref(),
-                        policy_uri_to_name(ep.security_policy_uri.as_ref()),
-                        ep.security_mode)
-            }).collect();
-            
-            Err(anyhow::anyhow!(
-                "No endpoint found matching security policy '{}' and mode '{:?}'.\n\nAvailable endpoints:\n{}",
-                policy_name_from_enum(requested_policy),
-                requested_mode,
-                available_endpoints.join("\n")
-            ))
-        }
-    }
-}
-
-fn policy_uri_to_name(uri: &str) -> &str {
-    match uri {
-        "http://opcfoundation.org/UA/SecurityPolicy#None" => "None",
-        "http://opcfoundation.org/UA/SecurityPolicy#Basic128Rsa15" => "Basic128Rsa15",
-        "http://opcfoundation.org/UA/SecurityPolicy#Basic256" => "Basic256",
-        "http://opcfoundation.org/UA/SecurityPolicy#Basic256Sha256" => "Basic256Sha256",
-        "http://opcfoundation.org/UA/SecurityPolicy#Aes128_Sha256_RsaOaep" => "Aes128Sha256RsaOaep",
-        "http://opcfoundation.org/UA/SecurityPolicy#Aes256_Sha256_RsaPss" => "Aes256Sha256RsaPss",
-        _ => "Unknown"
-    }
-}
-
-fn policy_name_from_enum(policy: opcua::crypto::SecurityPolicy) -> &'static str {
-    match policy {
-        opcua::crypto::SecurityPolicy::None => "None",
-        opcua::crypto::SecurityPolicy::Basic128Rsa15 => "Basic128Rsa15",
-        opcua::crypto::SecurityPolicy::Basic256 => "Basic256",
-        opcua::crypto::SecurityPolicy::Basic256Sha256 => "Basic256Sha256",
-        opcua::crypto::SecurityPolicy::Aes128Sha256RsaOaep => "Aes128Sha256RsaOaep",
-        opcua::crypto::SecurityPolicy::Aes256Sha256RsaPss => "Aes256Sha256RsaPss",
-        opcua::crypto::SecurityPolicy::Unknown => "Unknown",
     }
 }
 

@@ -4,7 +4,7 @@ use crate::client::ConnectionStatus;
 use anyhow::{anyhow, Result};
 use log::{error, info, warn};
 use opcua::client::prelude::*;
-use opcua::types::{EndpointDescription, MessageSecurityMode};
+use opcua::types::EndpointDescription;
 use parking_lot::RwLock;
 use std::sync::Arc;
 
@@ -50,20 +50,40 @@ impl ConnectionBuilder {
     pub fn with_security(mut self, config: SecurityConfig) -> Self {
         self.security_config = Some(config);
         self
-    }
-    pub async fn connect(self) -> Result<(Client, Arc<RwLock<Session>>)> {
+    }    pub async fn connect(self) -> Result<(Client, Arc<RwLock<Session>>)> {
+        use crate::connection_manager::{ConnectionManager, ConnectionConfig};
+        
         let identity_token = self
             .identity_token
             .clone()
             .ok_or_else(|| anyhow!("Identity token not set"))?;
-        let endpoint = self.endpoint.clone();
 
-        tokio::task::spawn_blocking(move || {
-            let mut client = self.build_client()?;
-            let session = client.connect_to_endpoint(endpoint, identity_token)?;
-            Ok((client, session))
-        })
-        .await?
+        // Parse security policy from endpoint
+        let security_policy = Self::parse_security_policy(&self.endpoint.security_policy_uri);
+
+        // Create unified connection configuration
+        let config = ConnectionConfig::ui_connection()
+            .with_security(
+                security_policy,
+                self.endpoint.security_mode,
+                self.security_config.as_ref().map(|c| c.auto_trust).unwrap_or(true),
+                self.security_config.as_ref().and_then(|c| if c.client_cert_path.is_empty() { None } else { Some(c.client_cert_path.clone()) }),
+                self.security_config.as_ref().and_then(|c| if c.client_key_path.is_empty() { None } else { Some(c.client_key_path.clone()) }),
+            )            .with_authentication(identity_token);
+
+        ConnectionManager::connect_to_endpoint(self.endpoint, &config).await
+    }
+
+    fn parse_security_policy(uri: &opcua::types::UAString) -> opcua::crypto::SecurityPolicy {
+        match uri.as_ref() {
+            "http://opcfoundation.org/UA/SecurityPolicy#None" => opcua::crypto::SecurityPolicy::None,
+            "http://opcfoundation.org/UA/SecurityPolicy#Basic128Rsa15" => opcua::crypto::SecurityPolicy::Basic128Rsa15,
+            "http://opcfoundation.org/UA/SecurityPolicy#Basic256" => opcua::crypto::SecurityPolicy::Basic256,
+            "http://opcfoundation.org/UA/SecurityPolicy#Basic256Sha256" => opcua::crypto::SecurityPolicy::Basic256Sha256,
+            "http://opcfoundation.org/UA/SecurityPolicy#Aes128_Sha256_RsaOaep" => opcua::crypto::SecurityPolicy::Aes128Sha256RsaOaep,
+            "http://opcfoundation.org/UA/SecurityPolicy#Aes256_Sha256_RsaPss" => opcua::crypto::SecurityPolicy::Aes256Sha256RsaPss,
+            _ => opcua::crypto::SecurityPolicy::None,
+        }
     }
 
     fn validate_user_password(&self, inputs: &AuthInputs) -> Result<()> {
@@ -71,38 +91,7 @@ impl ConnectionBuilder {
             return Err(anyhow!(
                 "Username is required for user/password authentication"
             ));
-        }
-        Ok(())
-    }
-
-    fn build_client(&self) -> Result<Client> {
-        let mut client_builder = ClientBuilder::new()
-            .application_name("OPC UA TUI Client")
-            .application_uri("urn:opcua-tui-client")
-            .session_retry_limit(1)
-            .session_timeout(10000)
-            .session_retry_interval(1000);
-
-        if let Some(config) = &self.security_config {
-            if self.endpoint.security_mode != MessageSecurityMode::None {
-                if config.auto_trust {
-                    client_builder = client_builder.trust_server_certs(true);
-                }
-
-                if !config.client_cert_path.is_empty() && !config.client_key_path.is_empty() {
-                    info!("Using client certificate: {}", config.client_cert_path);
-                    client_builder = client_builder.create_sample_keypair(true);
-                } else {
-                    client_builder = client_builder.create_sample_keypair(true);
-                }
-            } else {
-                client_builder = client_builder.trust_server_certs(true);
-            }
-        }
-
-        client_builder
-            .client()
-            .ok_or_else(|| anyhow!("Failed to create client"))
+        }        Ok(())
     }
 }
 
@@ -150,32 +139,19 @@ impl ConnectScreen {
         );
 
         let auth_inputs = self.collect_auth_inputs();
-        let security_config = self.collect_security_config();
-
-        let connection_result = match tokio::time::timeout(
-            tokio::time::Duration::from_secs(15),
-            ConnectionBuilder::new(endpoint)
-                .with_identity(&self.authentication_type, &auth_inputs)?
-                .with_security(security_config)
-                .connect(),
-        )
-        .await
+        let security_config = self.collect_security_config();        let connection_result = match ConnectionBuilder::new(endpoint)
+            .with_identity(&self.authentication_type, &auth_inputs)?
+            .with_security(security_config)
+            .connect()
+            .await
         {
-            Ok(spawn_result) => match spawn_result {
-                Ok(result) => result,
-                Err(e) => {
-                    error!("Connection failed: {}", e);
-                    return Ok(Some(ConnectionStatus::Error(format!(
-                        "Connection failed: {}",
-                        e
-                    ))));
-                }
-            },
-            Err(_timeout) => {
-                error!("Connection timed out after 15 seconds");
-                return Ok(Some(ConnectionStatus::Error(
-                    "Connection timed out".to_string(),
-                )));
+            Ok(result) => result,
+            Err(e) => {
+                error!("Connection failed: {}", e);
+                return Ok(Some(ConnectionStatus::Error(format!(
+                    "Connection failed: {}",
+                    e
+                ))));
             }
         };
 

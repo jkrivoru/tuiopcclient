@@ -3,7 +3,6 @@ use super::types::{
 };
 use anyhow::{anyhow, Result};
 use log::{error, info, warn};
-use opcua::client::prelude::*;
 use opcua::types::{EndpointDescription, MessageSecurityMode, UAString};
 
 pub struct EndpointConverter {
@@ -127,36 +126,10 @@ impl ConnectScreen {
         }
 
         Ok(())
-    }
-
-    async fn discover_from_server(&self, url: &str) -> Result<Vec<EndpointDescription>> {
-        let url_clone = url.to_string();        tokio::task::spawn_blocking(move || -> Result<Vec<EndpointDescription>> {
-            let client_builder = ClientBuilder::new()
-                .application_name(crate::screens::connect::constants::ui::DISCOVERY_CLIENT_NAME)
-                .application_uri(crate::screens::connect::constants::ui::DISCOVERY_CLIENT_URI)
-                .create_sample_keypair(true)
-                .trust_server_certs(true)
-                .session_retry_limit(1)
-                .session_timeout(5000);
-
-            let client = client_builder
-                .client()
-                .ok_or_else(|| anyhow!("Failed to create discovery client"))?;
-
-            match client.get_server_endpoints_from_url(&url_clone) {
-                Ok(endpoints) => {
-                    info!(
-                        "Successfully discovered {} endpoints from server",
-                        endpoints.len()
-                    );
-                    Ok(endpoints)
-                }
-                Err(e) => {
-                    error!("Failed to discover endpoints from server: {}", e);
-                    Err(anyhow!("Failed to discover endpoints: {}", e))
-                }
-            }
-        })
-        .await?
+    }    async fn discover_from_server(&self, url: &str) -> Result<Vec<EndpointDescription>> {
+        use crate::connection_manager::{ConnectionManager, ConnectionConfig};
+        
+        let config = ConnectionConfig::ui_discovery();
+        ConnectionManager::discover_endpoints(url, &config).await
     }
 }
