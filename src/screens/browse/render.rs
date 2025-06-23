@@ -15,14 +15,12 @@ impl super::BrowseScreen {
                 Constraint::Min(0),    // Main content area
                 Constraint::Length(1), // Status bar
             ])
-            .split(area);
-
-        // Main content area: Tree view on left, attributes on right
+            .split(area);        // Main content area: Tree view on left, attributes on right
         let content_chunks = Layout::default()
             .direction(Direction::Horizontal)
             .constraints([
-                Constraint::Percentage(70), // Tree view
-                Constraint::Percentage(30), // Attributes panel
+                Constraint::Percentage(50), // Tree view
+                Constraint::Percentage(50), // Attributes panel
             ])
             .split(main_chunks[0]);
 

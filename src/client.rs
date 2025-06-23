@@ -456,7 +456,7 @@ impl OpcUaClientManager {
                                 data_type,
                                 status,
                                 is_value_good,
-                            });                            // Add custom ValueStatus attribute for debugging
+                            });                            // Add custom debug attributes with indentation
                             let value_status_text = if let Some(status_code) = &data_value.status {
                                 format!("{:?}", status_code)
                             } else {
@@ -464,8 +464,38 @@ impl OpcUaClientManager {
                             };
 
                             attributes.push(OpcUaAttribute {
-                                name: "ValueStatus".to_string(),
+                                name: "   ValueStatus".to_string(),
                                 value: value_status_text,
+                                data_type: "Debug".to_string(),
+                                status: "Good".to_string(),
+                                is_value_good: false,
+                            });
+
+                            // Add SourceTimestamp attribute
+                            let source_timestamp_text = if let Some(timestamp) = &data_value.source_timestamp {
+                                timestamp.to_string()
+                            } else {
+                                "None".to_string()
+                            };
+
+                            attributes.push(OpcUaAttribute {
+                                name: "   SourceTimestamp".to_string(),
+                                value: source_timestamp_text,
+                                data_type: "Debug".to_string(),
+                                status: "Good".to_string(),
+                                is_value_good: false,
+                            });
+
+                            // Add ServerTimestamp attribute
+                            let server_timestamp_text = if let Some(timestamp) = &data_value.server_timestamp {
+                                timestamp.to_string()
+                            } else {
+                                "None".to_string()
+                            };
+
+                            attributes.push(OpcUaAttribute {
+                                name: "   ServerTimestamp".to_string(),
+                                value: server_timestamp_text,
                                 data_type: "Debug".to_string(),
                                 status: "Good".to_string(),
                                 is_value_good: false,
