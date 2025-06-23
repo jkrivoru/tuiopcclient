@@ -166,17 +166,34 @@ impl OpcUaClientManager {
     }    pub async fn read_node_attributes(&self, node_id: &NodeId) -> Result<Vec<OpcUaAttribute>> {
         if let Some(session) = &self.session {
             let session_guard = session.read();
-            let mut attributes = Vec::new();
-
-            // Define the attributes we want to read (excluding Value for special handling)
+            let mut attributes = Vec::new();            // Define all the standard OPC UA attributes we want to read (excluding Value for special handling)
             let attribute_ids = vec![
                 AttributeId::NodeId,
-                AttributeId::DisplayName,
-                AttributeId::BrowseName,
                 AttributeId::NodeClass,
+                AttributeId::BrowseName,
+                AttributeId::DisplayName,
                 AttributeId::Description,
+                AttributeId::WriteMask,
+                AttributeId::UserWriteMask,
+                AttributeId::IsAbstract,
+                AttributeId::Symmetric,
+                AttributeId::InverseName,
+                AttributeId::ContainsNoLoops,
+                AttributeId::EventNotifier,
                 AttributeId::DataType,
+                AttributeId::ValueRank,
+                AttributeId::ArrayDimensions,
                 AttributeId::AccessLevel,
+                AttributeId::UserAccessLevel,
+                AttributeId::MinimumSamplingInterval,
+                AttributeId::Historizing,
+                AttributeId::Executable,
+                AttributeId::UserExecutable,
+                AttributeId::DataTypeDefinition,
+                AttributeId::RolePermissions,
+                AttributeId::UserRolePermissions,
+                AttributeId::AccessRestrictions,
+                AttributeId::AccessLevelEx,
             ];
 
             // Read standard attributes
@@ -190,15 +207,33 @@ impl OpcUaClientManager {
 
                 match session_guard.read(&[read_value_id], TimestampsToReturn::Both, 0.0) {
                     Ok(results) => {
-                        if let Some(result) = results.first() {
-                            let name = match attr_id {
+                        if let Some(result) = results.first() {                            let name = match attr_id {
                                 AttributeId::NodeId => "NodeId",
-                                AttributeId::DisplayName => "DisplayName",
-                                AttributeId::BrowseName => "BrowseName",
                                 AttributeId::NodeClass => "NodeClass",
+                                AttributeId::BrowseName => "BrowseName",
+                                AttributeId::DisplayName => "DisplayName",
                                 AttributeId::Description => "Description",
+                                AttributeId::WriteMask => "WriteMask",
+                                AttributeId::UserWriteMask => "UserWriteMask",
+                                AttributeId::IsAbstract => "IsAbstract",
+                                AttributeId::Symmetric => "Symmetric",
+                                AttributeId::InverseName => "InverseName",
+                                AttributeId::ContainsNoLoops => "ContainsNoLoops",
+                                AttributeId::EventNotifier => "EventNotifier",
                                 AttributeId::DataType => "DataType",
+                                AttributeId::ValueRank => "ValueRank",
+                                AttributeId::ArrayDimensions => "ArrayDimensions",
                                 AttributeId::AccessLevel => "AccessLevel",
+                                AttributeId::UserAccessLevel => "UserAccessLevel",
+                                AttributeId::MinimumSamplingInterval => "MinimumSamplingInterval",
+                                AttributeId::Historizing => "Historizing",
+                                AttributeId::Executable => "Executable",
+                                AttributeId::UserExecutable => "UserExecutable",
+                                AttributeId::DataTypeDefinition => "DataTypeDefinition",
+                                AttributeId::RolePermissions => "RolePermissions",
+                                AttributeId::UserRolePermissions => "UserRolePermissions",
+                                AttributeId::AccessRestrictions => "AccessRestrictions",
+                                AttributeId::AccessLevelEx => "AccessLevelEx",
                                 _ => "Unknown Attribute",
                             }
                             .to_string();
@@ -278,9 +313,7 @@ impl OpcUaClientManager {
                                     (value_str, type_str.to_string())
                                 }
                                 None => ("(null)".to_string(), "Unknown".to_string()),
-                            };
-
-                            let status = if let Some(status_code) = &result.status {
+                            };                            let status = if let Some(status_code) = &result.status {
                                 if status_code.is_good() {
                                     "Good".to_string()
                                 } else {
@@ -290,14 +323,34 @@ impl OpcUaClientManager {
                                 "Unknown".to_string()
                             };
 
-                            // Standard attributes are never marked as value_good
-                            attributes.push(OpcUaAttribute {
-                                name,
-                                value,
-                                data_type,
-                                status,
-                                is_value_good: false,
-                            });
+                            // Filter out null/empty attributes (except for Value which is handled separately)
+                            let should_include = match &result.value {
+                                Some(val) => match val {
+                                    Variant::String(s) => {
+                                        s.value().as_ref().map(|s| !s.is_empty()).unwrap_or(false)
+                                    },
+                                    Variant::LocalizedText(lt) => {
+                                        lt.text.value().as_ref().map(|s| !s.is_empty()).unwrap_or(false)
+                                    },
+                                    Variant::QualifiedName(qn) => {
+                                        qn.name.value().as_ref().map(|s| !s.is_empty()).unwrap_or(false)
+                                    },
+                                    Variant::ByteString(bs) => !bs.as_ref().is_empty(),
+                                    _ => true, // Include all other non-null variants
+                                },
+                                None => false, // Exclude null values
+                            };
+
+                            // Only add non-null/non-empty attributes
+                            if should_include {
+                                attributes.push(OpcUaAttribute {
+                                    name,
+                                    value,
+                                    data_type,
+                                    status,
+                                    is_value_good: false,
+                                });
+                            }
                         }
                     }
                     Err(e) => {
