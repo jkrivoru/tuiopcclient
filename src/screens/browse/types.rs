@@ -19,6 +19,7 @@ pub struct TreeNode {
 pub struct NodeAttribute {
     pub name: String,
     pub value: String,
+    pub is_value_good: bool, // True if this is a Value attribute with Good status
 }
 
 #[derive(Clone, Debug)]
@@ -108,19 +109,19 @@ impl BrowseScreen {
             is_loading: true, // Start in loading state
         }; // Real data will be loaded asynchronously via load_real_tree() from real_data.rs
         browse_screen
-    }
-
-    pub fn update_selected_attributes(&mut self) {
+    }    pub fn update_selected_attributes(&mut self) {
         if self.selected_node_index < self.tree_nodes.len() {
             let node = &self.tree_nodes[self.selected_node_index];
             self.selected_attributes = vec![
                 NodeAttribute {
                     name: "DisplayName".to_string(),
                     value: node.name.clone(),
+                    is_value_good: false,
                 },
                 NodeAttribute {
                     name: "NodeId".to_string(),
                     value: node.node_id.clone(),
+                    is_value_good: false,
                 },
                 NodeAttribute {
                     name: "BrowseName".to_string(),
@@ -133,10 +134,12 @@ impl BrowseScreen {
                         },
                         node.name
                     ),
+                    is_value_good: false,
                 },
                 NodeAttribute {
                     name: "NodeClass".to_string(),
                     value: format!("{:?}", node.node_type),
+                    is_value_good: false,
                 },
             ];
         }

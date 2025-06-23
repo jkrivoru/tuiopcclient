@@ -209,9 +209,7 @@ impl super::BrowseScreen {
                 }
             }
         }
-    }
-
-    fn render_attributes_panel(&mut self, f: &mut Frame, area: Rect) {
+    }    fn render_attributes_panel(&mut self, f: &mut Frame, area: Rect) {
         let visible_height = area.height.saturating_sub(4) as usize; // Subtract borders and header
 
         let start_idx = self.attribute_scroll_offset;
@@ -225,9 +223,21 @@ impl super::BrowseScreen {
         let rows: Vec<Row> = visible_attributes
             .iter()
             .map(|attr| {
+                let value_cell = if attr.name == "Value" {
+                    // Color code the Value attribute based on is_value_good
+                    if attr.is_value_good {
+                        Cell::from(attr.value.as_str()).style(Style::default().fg(Color::Green))
+                    } else {
+                        Cell::from(attr.value.as_str()).style(Style::default().fg(Color::Red))
+                    }
+                } else {
+                    // Regular styling for other attributes
+                    Cell::from(attr.value.as_str())
+                };
+
                 Row::new(vec![
                     Cell::from(attr.name.as_str()),
-                    Cell::from(attr.value.as_str()),
+                    value_cell,
                 ])
             })
             .collect();

@@ -34,6 +34,7 @@ pub struct OpcUaAttribute {
     pub value: String,
     pub data_type: String,
     pub status: String,
+    pub is_value_good: bool, // True if this is a Value attribute with Good status
 }
 
 impl OpcUaClientManager {
@@ -162,25 +163,23 @@ impl OpcUaClientManager {
         } else {
             // Not connected
             Err(anyhow::anyhow!("Not connected to OPC UA server"))        }
-    }
-
-    pub async fn read_node_attributes(&self, node_id: &NodeId) -> Result<Vec<OpcUaAttribute>> {
+    }    pub async fn read_node_attributes(&self, node_id: &NodeId) -> Result<Vec<OpcUaAttribute>> {
         if let Some(session) = &self.session {
             let session_guard = session.read();
             let mut attributes = Vec::new();
 
-            // Define the attributes we want to read
+            // Define the attributes we want to read (excluding Value for special handling)
             let attribute_ids = vec![
                 AttributeId::NodeId,
                 AttributeId::DisplayName,
                 AttributeId::BrowseName,
                 AttributeId::NodeClass,
                 AttributeId::Description,
-                AttributeId::Value,
                 AttributeId::DataType,
                 AttributeId::AccessLevel,
             ];
 
+            // Read standard attributes
             for attr_id in attribute_ids {
                 let read_value_id = ReadValueId {
                     node_id: node_id.clone(),
@@ -198,7 +197,6 @@ impl OpcUaClientManager {
                                 AttributeId::BrowseName => "BrowseName",
                                 AttributeId::NodeClass => "NodeClass",
                                 AttributeId::Description => "Description",
-                                AttributeId::Value => "Value",
                                 AttributeId::DataType => "DataType",
                                 AttributeId::AccessLevel => "AccessLevel",
                                 _ => "Unknown Attribute",
@@ -290,13 +288,15 @@ impl OpcUaClientManager {
                                 }
                             } else {
                                 "Unknown".to_string()
-                            }; // Add all attributes, even if they have bad status or null values
-                               // This gives users more visibility into what's available
+                            };
+
+                            // Standard attributes are never marked as value_good
                             attributes.push(OpcUaAttribute {
                                 name,
                                 value,
                                 data_type,
                                 status,
+                                is_value_good: false,
                             });
                         }
                     }
@@ -309,7 +309,137 @@ impl OpcUaClientManager {
                         );
                     }
                 }
-            }            // If we couldn't read any real attributes, return error
+            }            // Check if this node can have a Value attribute by examining its NodeClass
+            let node_class_from_attributes = attributes.iter()
+                .find(|attr| attr.name == "NodeClass")
+                .map(|attr| attr.value.as_str());
+
+            let can_have_value = match node_class_from_attributes {
+                Some("Variable") | Some("VariableType") => true,
+                _ => false,
+            };            // Only read Value attribute for Variable and VariableType nodes
+            if can_have_value {
+                let read_value_id = ReadValueId {
+                    node_id: node_id.clone(),
+                    attribute_id: AttributeId::Value as u32,
+                    index_range: UAString::null(),
+                    data_encoding: QualifiedName::null(),
+                };
+
+                match session_guard.read(&[read_value_id], TimestampsToReturn::Both, 0.0) {
+                    Ok(results) => {
+                        if let Some(data_value) = results.first() {
+                            let (value, data_type) = match &data_value.value {
+                                Some(val) => {
+                                    let (value_str, type_str) = match val {
+                                        Variant::Boolean(b) => (b.to_string(), "Boolean"),
+                                        Variant::SByte(n) => (n.to_string(), "SByte"),
+                                        Variant::Byte(n) => (n.to_string(), "Byte"),
+                                        Variant::Int16(n) => (n.to_string(), "Int16"),
+                                        Variant::UInt16(n) => (n.to_string(), "UInt16"),
+                                        Variant::Int32(n) => (n.to_string(), "Int32"),
+                                        Variant::UInt32(n) => (n.to_string(), "UInt32"),
+                                        Variant::Int64(n) => (n.to_string(), "Int64"),
+                                        Variant::UInt64(n) => (n.to_string(), "UInt64"),
+                                        Variant::Float(f) => (f.to_string(), "Float"),
+                                        Variant::Double(f) => (f.to_string(), "Double"),
+                                        Variant::String(s) => (
+                                            s.value()
+                                                .as_ref()
+                                                .map(|s| s.as_str())
+                                                .unwrap_or("(empty)")
+                                                .to_string(),
+                                            "String",
+                                        ),
+                                        Variant::DateTime(dt) => (dt.to_string(), "DateTime"),
+                                        Variant::Guid(g) => (g.to_string(), "Guid"),
+                                        Variant::ByteString(bs) => (
+                                            format!("ByteString[{}]", bs.as_ref().len()),
+                                            "ByteString",
+                                        ),
+                                        Variant::NodeId(id) => (id.to_string(), "NodeId"),
+                                        Variant::QualifiedName(qn) => (
+                                            qn.name
+                                                .value()
+                                                .as_ref()
+                                                .map(|s| s.as_str())
+                                                .unwrap_or("(empty)")
+                                                .to_string(),
+                                            "QualifiedName",
+                                        ),
+                                        Variant::LocalizedText(lt) => (
+                                            lt.text
+                                                .value()
+                                                .as_ref()
+                                                .map(|s| s.as_str())
+                                                .unwrap_or("(empty)")
+                                                .to_string(),
+                                            "LocalizedText",
+                                        ),
+                                        Variant::StatusCode(sc) => {
+                                            (format!("{:?}", sc), "StatusCode")
+                                        }
+                                        _ => (format!("{:?}", val), "Unknown"),
+                                    };
+                                    (value_str, type_str.to_string())
+                                }
+                                None => ("(null)".to_string(), "Unknown".to_string()),
+                            };
+
+                            let status = if let Some(status_code) = &data_value.status {
+                                if status_code.is_good() {
+                                    "Good".to_string()
+                                } else {
+                                    format!("Error: {:?}", status_code)
+                                }
+                            } else {
+                                "Unknown".to_string()
+                            };                            // Use DataValue.is_valid() to determine if value should be colored green
+                            let is_value_good = data_value.is_valid();
+
+                            attributes.push(OpcUaAttribute {
+                                name: "Value".to_string(),
+                                value,
+                                data_type,
+                                status,
+                                is_value_good,
+                            });                            // Add custom ValueStatus attribute for debugging
+                            let value_status_text = if let Some(status_code) = &data_value.status {
+                                format!("{:?}", status_code)
+                            } else {
+                                "Good".to_string()
+                            };
+
+                            attributes.push(OpcUaAttribute {
+                                name: "ValueStatus".to_string(),
+                                value: value_status_text,
+                                data_type: "Debug".to_string(),
+                                status: "Good".to_string(),
+                                is_value_good: false,
+                            });
+                        }
+                    }
+                    Err(e) => {
+                        log::warn!(
+                            "Failed to read Value attribute for node {}: {}",
+                            node_id,
+                            e
+                        );
+                        // Add a placeholder Value attribute with error status
+                        attributes.push(OpcUaAttribute {
+                            name: "Value".to_string(),
+                            value: format!("Read Error: {}", e),
+                            data_type: "Error".to_string(),
+                            status: "Error".to_string(),
+                            is_value_good: false,
+                        });
+                    }
+                }
+            }
+            // Note: For nodes that cannot have values (Objects, Methods, etc.), 
+            // we simply don't add a Value attribute at all
+
+            // If we couldn't read any real attributes, return error
             if attributes.is_empty() {
                 log::warn!("No attributes found for node {}", node_id);
                 Err(anyhow::anyhow!("No attributes found for node"))
@@ -318,7 +448,8 @@ impl OpcUaClientManager {
             }
         } else {
             // Not connected
-            Err(anyhow::anyhow!("Not connected to OPC UA server"))        }
+            Err(anyhow::anyhow!("Not connected to OPC UA server"))
+        }
     }
 
     pub async fn get_root_node(&self) -> Result<NodeId> {

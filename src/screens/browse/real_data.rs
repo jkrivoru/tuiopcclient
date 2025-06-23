@@ -161,12 +161,12 @@ impl super::BrowseScreen {
             }
 
             match client_guard.read_node_attributes(&opcua_node_id).await {
-                Ok(opcua_attributes) => {
-                    self.selected_attributes = opcua_attributes
+                Ok(opcua_attributes) => {                    self.selected_attributes = opcua_attributes
                         .into_iter()
                         .map(|attr| NodeAttribute {
                             name: attr.name,
                             value: attr.value,
+                            is_value_good: attr.is_value_good,
                         })
                         .collect();
                 }
