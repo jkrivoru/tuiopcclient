@@ -33,6 +33,32 @@ pub enum NodeType {
     ReferenceType,
 }
 
+impl NodeType {
+    /// Get sorting priority for nodes in the browse tree
+    /// Lower numbers = higher priority (sorted first)
+    pub fn get_sort_priority(&self) -> u8 {
+        match self {
+            // Functions (Methods) - highest priority
+            NodeType::Method => 1,
+
+            // Objects - second priority
+            NodeType::Object => 2,
+
+            // Variables - third priority
+            NodeType::Variable => 3,
+
+            // Views - fourth priority
+            NodeType::View => 4,
+
+            // Others - sorted by type hierarchy
+            NodeType::ObjectType => 5,
+            NodeType::VariableType => 6,
+            NodeType::DataType => 7,
+            NodeType::ReferenceType => 8,
+        }
+    }
+}
+
 pub struct BrowseScreen {
     // Tree navigation state
     pub current_path: Vec<String>,

@@ -148,52 +148,22 @@ impl OpcUaClientManager {
                         }
                     }
                     Ok(nodes)
-                }
-                Ok(Err(e)) => {
-                    // Browse operation failed, fall back to demo data
-                    log::warn!("Failed to browse node {}: {}. Using demo data.", node_id, e);
-                    self.get_demo_nodes(node_id)
+                }                Ok(Err(e)) => {
+                    // Browse operation failed
+                    log::warn!("Failed to browse node {}: {}", node_id, e);
+                    Err(anyhow::anyhow!("Browse operation failed: {}", e))
                 }
                 Err(_timeout) => {
-                    // Browse operation timed out, fall back to demo data
-                    log::warn!(
-                        "Browse operation timed out for node {}. Using demo data.",
-                        node_id
-                    );
-                    self.get_demo_nodes(node_id)
+                    // Browse operation timed out
+                    log::warn!("Browse operation timed out for node {}", node_id);
+                    Err(anyhow::anyhow!("Browse operation timed out"))
                 }
             }
         } else {
-            // Not connected, return demo data
-            self.get_demo_nodes(node_id)
-        }
+            // Not connected
+            Err(anyhow::anyhow!("Not connected to OPC UA server"))        }
     }
-    fn get_demo_nodes(&self, node_id: &NodeId) -> Result<Vec<OpcUaNode>> {
-        let demo_nodes = match node_id.to_string().as_str() {
-            "i=85" => vec![
-                // Objects folder
-                OpcUaNode {
-                    node_id: NodeId::new(0, 2253),
-                    browse_name: "Server".to_string(),
-                    display_name: "Server".to_string(),
-                    node_class: NodeClass::Object,
-                    description: "Server object".to_string(),
-                    has_children: true,
-                },
-                OpcUaNode {
-                    node_id: NodeId::new(2, "Devices"),
-                    browse_name: "Devices".to_string(),
-                    display_name: "Devices".to_string(),
-                    node_class: NodeClass::Object,
-                    description: "Device objects".to_string(),
-                    has_children: true,
-                },
-            ],
-            _ => Vec::new(),
-        };
 
-        Ok(demo_nodes)
-    }
     pub async fn read_node_attributes(&self, node_id: &NodeId) -> Result<Vec<OpcUaAttribute>> {
         if let Some(session) = &self.session {
             let session_guard = session.read();
@@ -339,77 +309,18 @@ impl OpcUaClientManager {
                         );
                     }
                 }
-            }
-
-            // If we couldn't read any real attributes, fall back to demo data
+            }            // If we couldn't read any real attributes, return error
             if attributes.is_empty() {
-                log::warn!(
-                    "No real attributes found for node {}, using demo data",
-                    node_id
-                );
-                self.get_demo_attributes(node_id)
+                log::warn!("No attributes found for node {}", node_id);
+                Err(anyhow::anyhow!("No attributes found for node"))
             } else {
                 Ok(attributes)
             }
         } else {
-            // Not connected, return demo data
-            self.get_demo_attributes(node_id)
-        }
+            // Not connected
+            Err(anyhow::anyhow!("Not connected to OPC UA server"))        }
     }
-    fn get_demo_attributes(&self, node_id: &NodeId) -> Result<Vec<OpcUaAttribute>> {
-        let attributes = vec![
-            OpcUaAttribute {
-                name: "NodeId".to_string(),
-                value: node_id.to_string(),
-                data_type: "NodeId".to_string(),
-                status: "Good".to_string(),
-            },
-            OpcUaAttribute {
-                name: "DisplayName".to_string(),
-                value: "Demo Sample Node".to_string(),
-                data_type: "LocalizedText".to_string(),
-                status: "Good".to_string(),
-            },
-            OpcUaAttribute {
-                name: "BrowseName".to_string(),
-                value: "DemoSampleNode".to_string(),
-                data_type: "QualifiedName".to_string(),
-                status: "Good".to_string(),
-            },
-            OpcUaAttribute {
-                name: "NodeClass".to_string(),
-                value: "Object".to_string(),
-                data_type: "NodeClass".to_string(),
-                status: "Good".to_string(),
-            },
-            OpcUaAttribute {
-                name: "Description".to_string(),
-                value: "This is a demo node for testing".to_string(),
-                data_type: "LocalizedText".to_string(),
-                status: "Good".to_string(),
-            },
-            OpcUaAttribute {
-                name: "Value".to_string(),
-                value: "42".to_string(),
-                data_type: "Int32".to_string(),
-                status: "Good".to_string(),
-            },
-            OpcUaAttribute {
-                name: "DataType".to_string(),
-                value: "Int32".to_string(),
-                data_type: "DataType".to_string(),
-                status: "Good".to_string(),
-            },
-            OpcUaAttribute {
-                name: "AccessLevel".to_string(),
-                value: "CurrentRead | CurrentWrite (3)".to_string(),
-                data_type: "AccessLevel".to_string(),
-                status: "Good".to_string(),
-            },
-        ];
 
-        Ok(attributes)
-    }
     pub async fn get_root_node(&self) -> Result<NodeId> {
         // Return the Objects folder as the root
         Ok(ObjectId::ObjectsFolder.into())

@@ -51,7 +51,7 @@ impl NodeUtils {
             level,
             has_children,
             is_expanded: false,
-            opcua_node_id: None,         // Default to None for demo nodes
+            opcua_node_id: None,         // Default to None
             node_type: NodeType::Object, // Default to Object type
         }
     }

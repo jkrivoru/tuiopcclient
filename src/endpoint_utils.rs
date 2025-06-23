@@ -7,7 +7,7 @@ use opcua::types::{
 pub struct EndpointUtils;
 
 impl EndpointUtils {
-    /// Create a default endpoint with None security for testing/demo purposes
+    /// Create a default endpoint with None security for testing purposes
     pub fn create_default_endpoint(endpoint_url: &str) -> EndpointDescription {
         EndpointDescription {
             endpoint_url: UAString::from(endpoint_url),

@@ -28,16 +28,12 @@ impl super::BrowseScreen {
         match tokio::time::timeout(tokio::time::Duration::from_secs(10), load_future).await {
             Ok(Ok(children)) => {
                 self.tree_nodes = children;
-            }
-            Ok(Err(e)) => {
-                log::warn!(
-                    "Failed to load real tree data: {}. Will use demo data on expand.",
-                    e
-                );
+            }            Ok(Err(e)) => {
+                log::warn!("Failed to load real tree data: {}", e);
                 // Don't fail completely, just leave tree_nodes empty
             }
             Err(_timeout) => {
-                log::warn!("Tree loading timed out. Will use demo data on expand.");
+                log::warn!("Tree loading timed out");
                 // Don't fail completely, just leave tree_nodes empty
             }
         }
@@ -184,9 +180,7 @@ impl super::BrowseScreen {
         }
 
         Ok(())
-    }
-
-    // Async wrapper that chooses between real and demo attribute updates
+    }    // Async wrapper that chooses real attribute updates
     pub async fn update_selected_attributes_async(&mut self) -> Result<()> {
         if self.selected_node_index >= self.tree_nodes.len() {
             self.selected_attributes.clear();
@@ -197,12 +191,11 @@ impl super::BrowseScreen {
             .opcua_node_id
             .is_some();
 
-        if has_real_node_id {
-            // Use real OPC UA data
+        if has_real_node_id {            // Use real OPC UA data
             self.update_real_attributes().await?;
         } else {
-            // Use demo data (existing sync method)
-            self.update_selected_attributes();
+            // No real NodeId available
+            log::warn!("No real NodeId available for selected node");
         }
 
         Ok(())

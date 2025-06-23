@@ -309,14 +309,14 @@ impl App {
                             if let Ok(mut client) = self.client_manager.try_write() {
                                 client.set_connection_status(ConnectionStatus::Connected);
                             }
-                        } // Transition to browse screen
+                        }                        // Transition to browse screen
                         self.app_state = AppState::Connected(server_url.clone());
                         let mut browse_screen =
                             BrowseScreen::new(server_url.clone(), self.client_manager.clone());
 
                         // Load real tree data asynchronously
                         if let Err(e) = browse_screen.load_real_tree().await {
-                            log::error!("Failed to load real tree data: {}. Using demo data.", e);
+                            log::error!("Failed to load real tree data: {}", e);
                         }
 
                         self.browse_screen = Some(browse_screen);
@@ -338,12 +338,11 @@ impl App {
                 // This shouldn't happen anymore since perform_connection returns Connecting
                 log::warn!("Received Connected status directly - this should not happen");
                 let server_url = self.connect_screen.get_server_url();
-                self.app_state = AppState::Connected(server_url.clone());
-                let mut browse_screen = BrowseScreen::new(server_url, self.client_manager.clone());
+                self.app_state = AppState::Connected(server_url.clone());                let mut browse_screen = BrowseScreen::new(server_url, self.client_manager.clone());
 
                 // Load real tree data asynchronously
                 if let Err(e) = browse_screen.load_real_tree().await {
-                    log::error!("Failed to load real tree data: {}. Using demo data.", e);
+                    log::error!("Failed to load real tree data: {}", e);
                 }
 
                 self.browse_screen = Some(browse_screen);
@@ -497,10 +496,9 @@ impl App {
     }
 
     pub async fn initialize_browse_screen(&mut self) -> Result<()> {
-        if let Some(browse_screen) = &mut self.browse_screen {
-            // Load the tree data automatically for CLI connections
+        if let Some(browse_screen) = &mut self.browse_screen {            // Load the tree data automatically for CLI connections
             if let Err(e) = browse_screen.load_real_tree().await {
-                log::error!("Failed to load real tree data: {}. Using empty tree.", e);
+                log::error!("Failed to load real tree data: {}", e);
             }
         }
         Ok(())

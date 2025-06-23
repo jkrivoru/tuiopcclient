@@ -44,45 +44,9 @@ impl super::BrowseScreen {
             if self.expanded_nodes.contains(&child_path) {
                 child.is_expanded = true;
             }
-        }
-    }
+        }    }
 
-    // Improved expand method for demo data
-    pub fn expand_node_demo(&mut self, index: usize) {
-        if !self.can_expand(index) {
-            return;
-        }
-
-        // Update expansion state
-        self.update_expansion_state(index, true);
-
-        // Get node info before modifying the vector
-        let (node_id, level, parent_path) = {
-            let node = &self.tree_nodes[index];
-            (node.node_id.clone(), node.level, self.get_node_path(node))
-        };
-
-        // Get child nodes
-        let mut child_nodes = self.get_demo_children(&node_id, level + 1, &parent_path);
-        
-        // Restore expansion state for children
-        self.restore_child_expansion_states(&mut child_nodes);
-
-        // Insert children after the current node
-        self.tree_nodes.splice(index + 1..index + 1, child_nodes);
-
-        // Recursively expand previously expanded children
-        let mut i = index + 1;
-        let parent_level = level;
-        while i < self.tree_nodes.len() && self.tree_nodes[i].level > parent_level {
-            if self.tree_nodes[i].is_expanded && self.tree_nodes[i].level == parent_level + 1 {
-                // Temporarily set to false to allow expansion
-                self.tree_nodes[i].is_expanded = false;
-                self.expand_node_demo(i);
-            }
-            i += 1;
-        }
-    }    // Improved collapse method
+    // Improved collapse method
     pub fn collapse_node(&mut self, index: usize) {
         if !self.can_collapse(index) {
             return;
@@ -213,22 +177,25 @@ impl super::BrowseScreen {
                 self.update_scroll();
                 break;
             }
-        }
-    }    // New async method that handles both demo and real data
+        }    }
+
+    // Async method that handles real OPC UA data
     pub async fn expand_node_async(&mut self, index: usize) -> Result<()> {
         if !self.can_expand(index) {
             return Ok(());
         }
 
-        // Check if this is real OPC UA data or demo data
+        // Check if this has real OPC UA data
         let has_real_node_id = self.tree_nodes[index].opcua_node_id.is_some();
 
         if has_real_node_id {
             // Use real OPC UA data
             self.expand_real_node(index).await?;
         } else {
-            // Use demo data
-            self.expand_node_demo(index);
-        }        Ok(())
+            // No real data available
+            log::warn!("Cannot expand node without real OPC UA NodeId");
+        }
+
+        Ok(())
     }
 }

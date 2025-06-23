@@ -117,12 +117,10 @@ impl super::BrowseScreen {
                     log::error!("Failed to update attributes: {}", e);
                 }
                 Ok(None)
-            }
-            KeyCode::Char('r') => {
+            }            KeyCode::Char('r') => {
                 // Refresh/reload real OPC UA data
                 if let Err(e) = self.load_real_tree().await {
                     log::error!("Failed to load real OPC UA data: {}", e);
-                    // If real data fails, keep using demo data
                 }
                 if let Err(e) = self.update_selected_attributes_async().await {
                     log::error!("Failed to update attributes: {}", e);
