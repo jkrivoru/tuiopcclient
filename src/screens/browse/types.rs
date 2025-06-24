@@ -96,14 +96,12 @@ pub struct BrowseScreen {
 
     // Loading state
     pub is_loading: bool,    // Search functionality
-    pub search_dialog_open: bool,
-    pub search_input: Input,
+    pub search_dialog_open: bool,    pub search_input: Input,
     pub search_include_values: bool,
     pub search_dialog_focus: SearchDialogFocus,
     pub last_search_query: String,
     pub search_results: Vec<String>, // Store node IDs instead of indices
     pub current_search_index: usize,
-    pub search_highlight: Option<(String, usize, usize)>, // (attribute_name, start_pos, length)
 }
 
 impl BrowseScreen {
@@ -121,8 +119,7 @@ impl BrowseScreen {
             selected_items: std::collections::HashSet::new(),
             last_click_time: None,
             last_click_position: None,
-            client,
-            is_loading: true, // Start in loading state
+            client,            is_loading: true, // Start in loading state
             search_dialog_open: false,
             search_input: Input::default(),
             search_include_values: false,
@@ -130,8 +127,7 @@ impl BrowseScreen {
             last_search_query: "".to_string(),
             search_results: Vec::new(),
             current_search_index: 0,
-            search_highlight: None,
-        }; // Real data will be loaded asynchronously via load_real_tree() from real_data.rs
+        };// Real data will be loaded asynchronously via load_real_tree() from real_data.rs
         browse_screen
     }    pub fn update_selected_attributes(&mut self) {
         if self.selected_node_index < self.tree_nodes.len() {

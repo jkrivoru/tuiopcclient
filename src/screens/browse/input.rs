@@ -301,19 +301,16 @@ impl super::BrowseScreen {    pub async fn handle_input(
         self.search_dialog_open = true;
         self.search_input = tui_input::Input::default();
         self.search_dialog_focus = super::types::SearchDialogFocus::Input;
-    }
-
-    fn close_search_dialog(&mut self) {
+    }    fn close_search_dialog(&mut self) {
         self.search_dialog_open = false;
-        self.search_input = tui_input::Input::default();
+        // Keep search_input intact so highlighting persists
         self.search_dialog_focus = super::types::SearchDialogFocus::Input;
-    }    async fn handle_search_input(
+    }async fn handle_search_input(
         &mut self,
         key: KeyCode,
         modifiers: crossterm::event::KeyModifiers,
     ) -> Result<Option<ConnectionStatus>> {
-        match key {
-            KeyCode::Esc => {
+        match key {            KeyCode::Esc => {
                 self.close_search_dialog();
                 Ok(None)
             }
@@ -446,11 +443,11 @@ impl super::BrowseScreen {    pub async fn handle_input(
         }
         Ok(None)
     }    async fn perform_search(&mut self) -> Result<()> {
-        let query = self.search_input.value().trim().to_lowercase();
-        self.last_search_query = query.clone();
+        let query = self.search_input.value().trim().to_lowercase();        self.last_search_query = query.clone();
         self.search_results.clear();
         self.current_search_index = 0;
-        self.search_highlight = None;        // First, search through currently visible nodes
+
+        // First, search through currently visible nodes
         for (_index, node) in self.tree_nodes.iter().enumerate() {
             if self.node_matches_query(node, &query).await? {
                 self.search_results.push(node.node_id.clone());
@@ -581,11 +578,7 @@ impl super::BrowseScreen {    pub async fn handle_input(
                     
                     // Update attributes and set up highlighting
                     if let Err(e) = self.update_selected_attributes_async().await {
-                        log::error!("Failed to update attributes: {}", e);
-                    }
-                    
-                    // Set up search highlighting in attributes
-                    self.setup_search_highlighting(updated_node_index);
+                        log::error!("Failed to update attributes: {}", e);                    }
                 }
             } else {
                 // Node not currently visible, need to search and expand to find it
@@ -635,52 +628,6 @@ impl super::BrowseScreen {    pub async fn handle_input(
             if let Err(e) = self.expand_node_async(parent_index).await {
                 log::error!("Failed to expand parent node during search navigation: {}", e);
             }
-        }
-
-        Ok(())
-    }    fn setup_search_highlighting(&mut self, node_index: usize) {
-        if node_index >= self.tree_nodes.len() {
-            return;
-        }
-
-        let node = &self.tree_nodes[node_index];
-        let query = &self.last_search_query;
-        
-        // Helper function to find case-insensitive match and return position in original string
-        let find_case_insensitive = |text: &str, query: &str| -> Option<usize> {
-            let text_lower = text.to_lowercase();
-            text_lower.find(&query.to_lowercase())
-        };
-        
-        // Check NodeId for highlighting
-        if let Some(start) = find_case_insensitive(&node.node_id, query) {
-            self.search_highlight = Some(("NodeId".to_string(), start, query.len()));
-            return;
-        }
-        
-        // Check DisplayName for highlighting
-        if let Some(start) = find_case_insensitive(&node.name, query) {
-            self.search_highlight = Some(("DisplayName".to_string(), start, query.len()));
-            return;
-        }
-        
-        // Check BrowseName for highlighting
-        let browse_name = format!(
-            "{}:{}",
-            if node.node_id.starts_with("ns=") { "2" } else { "0" },
-            node.name
-        );
-        if let Some(start) = find_case_insensitive(&browse_name, query) {
-            self.search_highlight = Some(("BrowseName".to_string(), start, query.len()));
-            return;
-        }
-        
-        // If "Also look at values" was checked and we found a match through attribute values,
-        // we need to check the actual attribute values for highlighting
-        if self.search_include_values {
-            // For now, we'll just indicate that there was a match but not highlight specific text
-            // since we don't store the attribute values here. We could enhance this later.
-            self.search_highlight = None;
-        }
+        }        Ok(())
     }
 }

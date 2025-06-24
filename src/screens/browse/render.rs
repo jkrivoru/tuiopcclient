@@ -249,29 +249,44 @@ impl super::BrowseScreen {    pub fn render(&mut self, f: &mut Frame, area: Rect
                         Cell::from(attr.value.as_str()).style(Style::default().fg(Color::Green))
                     } else {
                         Cell::from(attr.value.as_str()).style(Style::default().fg(Color::Red))
-                    }
-                } else {
-                    // Check for search highlighting
-                    if let Some((highlight_attr, start_pos, length)) = &self.search_highlight {
-                        if highlight_attr == &attr.name {
-                            // Create highlighted text using Spans for partial highlighting
+                    }                } else {
+                    // Dynamic search highlighting - check if search text exists in current attribute
+                    if !self.search_input.value().trim().is_empty() {
+                        let search_text = self.search_input.value().trim().to_lowercase();
+                        
+                        // Check if this attribute should be searched based on name and checkbox state
+                        let should_search = match attr.name.as_str() {
+                            "NodeId" | "BrowseName" | "DisplayName" => true,
+                            _ => self.search_include_values, // Only search other attributes if checkbox is checked
+                        };
+                        
+                        if should_search {
                             let value_str = &attr.value;
-                            if *start_pos < value_str.len() && *start_pos + *length <= value_str.len() {
-                                let before = &value_str[..*start_pos];
-                                let highlighted = &value_str[*start_pos..*start_pos + *length];
-                                let after = &value_str[*start_pos + *length..];
+                            let value_lower = value_str.to_lowercase();
+                            
+                            if let Some(start_pos) = value_lower.find(&search_text) {
+                                let length = search_text.len();
                                 
-                                // Create spans with different styling - only highlight the matched part
-                                let mut spans = Vec::new();
-                                if !before.is_empty() {
-                                    spans.push(Span::styled(before, Style::default().fg(Color::White)));
+                                // Create highlighted text using Spans for partial highlighting
+                                if start_pos < value_str.len() && start_pos + length <= value_str.len() {
+                                    let before = &value_str[..start_pos];
+                                    let highlighted = &value_str[start_pos..start_pos + length];
+                                    let after = &value_str[start_pos + length..];
+                                    
+                                    // Create spans with different styling - only highlight the matched part
+                                    let mut spans = Vec::new();
+                                    if !before.is_empty() {
+                                        spans.push(Span::styled(before, Style::default().fg(Color::White)));
+                                    }
+                                    spans.push(Span::styled(highlighted, Style::default().bg(Color::Yellow).fg(Color::Black)));
+                                    if !after.is_empty() {
+                                        spans.push(Span::styled(after, Style::default().fg(Color::White)));
+                                    }
+                                    
+                                    Cell::from(Line::from(spans))
+                                } else {
+                                    Cell::from(attr.value.as_str())
                                 }
-                                spans.push(Span::styled(highlighted, Style::default().bg(Color::Yellow).fg(Color::Black)));
-                                if !after.is_empty() {
-                                    spans.push(Span::styled(after, Style::default().fg(Color::White)));
-                                }
-                                
-                                Cell::from(Line::from(spans))
                             } else {
                                 Cell::from(attr.value.as_str())
                             }
@@ -279,7 +294,7 @@ impl super::BrowseScreen {    pub fn render(&mut self, f: &mut Frame, area: Rect
                             Cell::from(attr.value.as_str())
                         }
                     } else {
-                        // Regular styling for other attributes
+                        // Regular styling for other attributes when no search is active
                         Cell::from(attr.value.as_str())
                     }
                 };
