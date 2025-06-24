@@ -342,23 +342,26 @@ impl super::BrowseScreen {    pub fn render(&mut self, f: &mut Frame, area: Rect
                 Constraint::Percentage(29), // Button (29% of width)
             ])
             .split(dialog_chunks[0]);        // Input field styled like connect screen
-        let (input_text, input_style) = if self.search_input.is_empty() {
+        let (input_text, input_style) = if self.search_input.value().is_empty() {
             // Show placeholder
             ("Enter NodeId, BrowseName, or DisplayName...".to_string(), Style::default().fg(Color::DarkGray))
         } else {
             // Show actual input
-            (self.search_input.clone(), Style::default().fg(Color::White))
-        };
-
-        // Set border color based on focus
+            (self.search_input.value().to_string(), Style::default().fg(Color::White))
+        };        // Set border color based on focus
         let input_border_color = if matches!(self.search_dialog_focus, super::types::SearchDialogFocus::Input) {
             Color::Yellow
         } else {
             Color::White
         };
 
+        // Use tui-input's built-in scrolling and rendering
+        let width = input_button_chunks[0].width.max(3) - 3; // Account for borders
+        let scroll = self.search_input.visual_scroll(width as usize);
+
         let input_paragraph = Paragraph::new(input_text)
             .style(input_style)
+            .scroll((0, scroll as u16))
             .block(
                 Block::default()
                     .title("Search text")
@@ -366,12 +369,14 @@ impl super::BrowseScreen {    pub fn render(&mut self, f: &mut Frame, area: Rect
                     .border_style(Style::default().fg(input_border_color))
                     .title_style(Style::default().fg(Color::Yellow)),
             );
-        f.render_widget(input_paragraph, input_button_chunks[0]);        // Position cursor if input is focused and not showing placeholder
-        if matches!(self.search_dialog_focus, super::types::SearchDialogFocus::Input) && !self.search_input.is_empty() {
-            let cursor_x = input_button_chunks[0].x + 1 + self.search_input.len() as u16;
-            f.set_cursor_position((cursor_x, input_button_chunks[0].y + 1));
-        }// Text-only button: [ Find Next ]
-        let button_enabled = !self.search_input.trim().is_empty();
+        f.render_widget(input_paragraph, input_button_chunks[0]);
+
+        // Position cursor if input is focused and not showing placeholder
+        if matches!(self.search_dialog_focus, super::types::SearchDialogFocus::Input) && !self.search_input.value().is_empty() {
+            let cursor_x = self.search_input.visual_cursor().max(scroll) - scroll + 1;
+            f.set_cursor_position((input_button_chunks[0].x + cursor_x as u16, input_button_chunks[0].y + 1));
+        }        // Text-only button: [ Find Next ]
+        let button_enabled = !self.search_input.value().trim().is_empty();
         
         // Text-only button area - positioned in the middle of the button area
         let button_text_area = Rect {

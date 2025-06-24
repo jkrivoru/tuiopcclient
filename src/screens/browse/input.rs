@@ -3,6 +3,7 @@ use anyhow::Result;
 use crossterm::event::{KeyCode, MouseButton, MouseEvent, MouseEventKind};
 use ratatui::layout::Rect;
 use std::time::{Duration, Instant};
+use tui_input::backend::crossterm::EventHandler;
 
 impl super::BrowseScreen {    pub async fn handle_input(
         &mut self,
@@ -289,31 +290,27 @@ impl super::BrowseScreen {    pub async fn handle_input(
                 self.last_click_position = None;
                 return true;
             }
-        }
-
-        // Update last click info for next time
+        }        // Update last click info for next time
         self.last_click_time = Some(now);
         self.last_click_position = Some((x, y));
         false
     }
 
-// Search functionality methods
+    // Search functionality methods
     fn open_search_dialog(&mut self) {
         self.search_dialog_open = true;
-        self.search_input.clear();
+        self.search_input = tui_input::Input::default();
         self.search_dialog_focus = super::types::SearchDialogFocus::Input;
     }
 
     fn close_search_dialog(&mut self) {
         self.search_dialog_open = false;
-        self.search_input.clear();
+        self.search_input = tui_input::Input::default();
         self.search_dialog_focus = super::types::SearchDialogFocus::Input;
-    }
-
-    async fn handle_search_input(
+    }    async fn handle_search_input(
         &mut self,
         key: KeyCode,
-        _modifiers: crossterm::event::KeyModifiers,
+        modifiers: crossterm::event::KeyModifiers,
     ) -> Result<Option<ConnectionStatus>> {
         match key {
             KeyCode::Esc => {
@@ -335,14 +332,14 @@ impl super::BrowseScreen {    pub async fn handle_input(
                 match self.search_dialog_focus {
                     SearchDialogFocus::Button => {
                         // Find Next button selected
-                        if !self.search_input.trim().is_empty() {
+                        if !self.search_input.value().trim().is_empty() {
                             self.perform_search().await?;
                         }
                         self.close_search_dialog();
                     }
                     SearchDialogFocus::Input => {
                         // Enter pressed in input field - perform search if not empty
-                        if !self.search_input.trim().is_empty() {
+                        if !self.search_input.value().trim().is_empty() {
                             self.perform_search().await?;
                             self.close_search_dialog();
                         }
@@ -362,8 +359,11 @@ impl super::BrowseScreen {    pub async fn handle_input(
                         self.search_include_values = !self.search_include_values;
                     }
                     SearchDialogFocus::Input => {
-                        // Space in input field adds a space
-                        self.search_input.push(' ');
+                        // Space in input field - let tui-input handle it
+                        self.search_input
+                            .handle_event(&crossterm::event::Event::Key(
+                                crossterm::event::KeyEvent::new(key, modifiers),
+                            ));
                     }
                     _ => {
                         // Space on buttons - ignore
@@ -371,36 +371,17 @@ impl super::BrowseScreen {    pub async fn handle_input(
                 }
                 Ok(None)
             }
-            KeyCode::Backspace => {
+            // Let tui-input handle all other keys when input is focused
+            _ => {
                 use super::types::SearchDialogFocus;
                 if self.search_dialog_focus == SearchDialogFocus::Input {
-                    self.search_input.pop();
+                    self.search_input
+                        .handle_event(&crossterm::event::Event::Key(
+                            crossterm::event::KeyEvent::new(key, modifiers),
+                        ));
                 }
                 Ok(None)
             }
-            KeyCode::Char(c) => {
-                use super::types::SearchDialogFocus;
-                if self.search_dialog_focus == SearchDialogFocus::Input {
-                    self.search_input.push(c);
-                }
-                Ok(None)
-            }
-            KeyCode::Left | KeyCode::Right => {
-                // Allow left/right arrow keys in input field for cursor movement
-                // Note: Since we're using a simple String for input, we don't track cursor position
-                // These keys are just ignored for now, but they won't interfere with typing
-                Ok(None)
-            }
-            KeyCode::Home | KeyCode::End => {
-                // Allow Home/End keys in input field
-                // For now, just ignore them (cursor will stay at end)
-                Ok(None)
-            }
-            KeyCode::Char('a') if _modifiers.contains(crossterm::event::KeyModifiers::CONTROL) => {
-                // Ctrl+A in input field - for now, just ignore (no select all functionality)
-                Ok(None)
-            }
-            _ => Ok(None),
         }
     }
 
@@ -440,7 +421,7 @@ impl super::BrowseScreen {    pub async fn handle_input(
                             } else if relative_x >= input_width + 1 && relative_y == 1 {
                                 // Clicked in button area (after spacing) and on the middle line
                                 // Always perform search if input is not empty, regardless of current focus
-                                if !self.search_input.trim().is_empty() {
+                                if !self.search_input.value().trim().is_empty() {
                                     // Perform search on button click
                                     self.perform_search().await?;
                                     self.close_search_dialog();
@@ -467,7 +448,7 @@ impl super::BrowseScreen {    pub async fn handle_input(
     }
 
     async fn perform_search(&mut self) -> Result<()> {
-        let query = self.search_input.trim().to_lowercase();
+        let query = self.search_input.value().trim().to_lowercase();
         self.last_search_query = query.clone();
         self.search_results.clear();
         self.current_search_index = 0;

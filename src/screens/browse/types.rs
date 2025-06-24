@@ -2,6 +2,7 @@ use crate::client::{ConnectionStatus, OpcUaClientManager};
 use opcua::types::NodeId;
 use std::sync::Arc;
 use tokio::sync::RwLock;
+use tui_input::Input;
 
 #[derive(Clone)]
 pub struct TreeNode {
@@ -98,7 +99,7 @@ pub struct BrowseScreen {
 
     // Search functionality
     pub search_dialog_open: bool,
-    pub search_input: String,
+    pub search_input: Input,
     pub search_include_values: bool,
     pub search_dialog_focus: SearchDialogFocus,
     pub last_search_query: String,
@@ -125,7 +126,7 @@ impl BrowseScreen {
             client,
             is_loading: true, // Start in loading state
             search_dialog_open: false,
-            search_input: "".to_string(),
+            search_input: Input::default(),
             search_include_values: false,
             search_dialog_focus: SearchDialogFocus::Input,
             last_search_query: "".to_string(),
