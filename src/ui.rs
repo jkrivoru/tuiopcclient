@@ -35,6 +35,9 @@ pub struct App {
     // Screens
     connect_screen: ConnectScreen,
     browse_screen: Option<BrowseScreen>,
+    
+    // Mouse handling
+    dialog_area: Option<Rect>,
 }
 
 #[derive(Debug, Clone)]
@@ -43,8 +46,7 @@ enum AppState {
     Connected(String), // Store server URL
 }
 
-impl App {
-    pub fn new(client_manager: Arc<RwLock<OpcUaClientManager>>) -> Self {
+impl App {    pub fn new(client_manager: Arc<RwLock<OpcUaClientManager>>) -> Self {
         Self {
             client_manager,
             should_quit: false,
@@ -52,9 +54,8 @@ impl App {
             app_state: AppState::Connecting,
             connect_screen: ConnectScreen::new(),
             browse_screen: None,
-        }    }
-
-    pub fn new_with_browse_direct(client_manager: Arc<RwLock<OpcUaClientManager>>, server_url: String) -> Self {
+            dialog_area: None,
+        }}    pub fn new_with_browse_direct(client_manager: Arc<RwLock<OpcUaClientManager>>, server_url: String) -> Self {
         Self {
             client_manager: client_manager.clone(),
             should_quit: false,
@@ -62,6 +63,7 @@ impl App {
             app_state: AppState::Connected(server_url.clone()),
             connect_screen: ConnectScreen::new(),
             browse_screen: Some(BrowseScreen::new(server_url, client_manager)),
+            dialog_area: None,
         }
     }
 
@@ -235,10 +237,8 @@ impl App {
                         y: content_chunks[0].y + 1, // Account for top border
                         width: content_chunks[0].width.saturating_sub(2), // Account for both borders
                         height: content_chunks[0].height.saturating_sub(2), // Account for both borders
-                    };
-
-                    if let Some(connection_result) =
-                        browse_screen.handle_mouse_input(mouse, tree_area).await?
+                    };                    if let Some(connection_result) =
+                        browse_screen.handle_mouse_input(mouse, tree_area, self.dialog_area).await?
                     {
                         match connection_result {
                             ConnectionStatus::Disconnected => {
@@ -388,10 +388,10 @@ impl App {
                     .constraints([
                         Constraint::Min(0), // Browse screen
                     ])
-                    .split(size);
-
-                if let Some(browse_screen) = &mut self.browse_screen {
-                    browse_screen.render(f, chunks[0]);
+                    .split(size);                if let Some(browse_screen) = &mut self.browse_screen {
+                    let dialog_area = browse_screen.render(f, chunks[0]);
+                    // Store dialog area for mouse handling
+                    self.dialog_area = dialog_area;
                 }
             }
         }

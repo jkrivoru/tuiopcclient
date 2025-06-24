@@ -4,16 +4,45 @@ use crossterm::event::{KeyCode, MouseButton, MouseEvent, MouseEventKind};
 use ratatui::layout::Rect;
 use std::time::{Duration, Instant};
 
-impl super::BrowseScreen {
-    pub async fn handle_input(
+impl super::BrowseScreen {    pub async fn handle_input(
         &mut self,
         key: KeyCode,
-        _modifiers: crossterm::event::KeyModifiers,
+        modifiers: crossterm::event::KeyModifiers,
     ) -> Result<Option<ConnectionStatus>> {
+        // Handle search dialog input first
+        if self.search_dialog_open {
+            return self.handle_search_input(key, modifiers).await;
+        }
+
         match key {
+            KeyCode::F(3) => {
+                // F3: Open search dialog or go to next result
+                if !self.last_search_query.is_empty() && !self.search_results.is_empty() {
+                    self.next_search_result().await?;
+                } else {
+                    self.open_search_dialog();
+                }
+                Ok(None)
+            }
+            KeyCode::Char('f') if modifiers.contains(crossterm::event::KeyModifiers::CONTROL) => {
+                // Ctrl+F: Open search dialog
+                self.open_search_dialog();
+                Ok(None)
+            }
             KeyCode::Esc | KeyCode::Char('q') => {
-                // Disconnect and return to connect screen
-                Ok(Some(ConnectionStatus::Disconnected))
+                // Disconnect and return to connect screen (or close search dialog)
+                if self.search_dialog_open {
+                    // Close search dialog first
+                    self.close_search_dialog();
+                    Ok(None)
+                } else {
+                    // Disconnect and return to connect screen
+                    Ok(Some(ConnectionStatus::Disconnected))
+                }
+            }
+            // Disable navigation keys when search dialog is open (except F3, Ctrl+F, Esc, q)
+            _ if self.search_dialog_open => {
+                Ok(None)
             }
             KeyCode::Up => {
                 if self.selected_node_index > 0 {
@@ -129,13 +158,17 @@ impl super::BrowseScreen {
             }
             _ => Ok(None),
         }
-    }
-
-    pub async fn handle_mouse_input(
+    }    pub async fn handle_mouse_input(
         &mut self,
         mouse: MouseEvent,
         tree_area: Rect,
+        dialog_area: Option<Rect>,
     ) -> Result<Option<ConnectionStatus>> {
+        // Handle search dialog mouse input first
+        if self.search_dialog_open {
+            return self.handle_search_mouse_input(mouse, dialog_area).await;
+        }
+
         match mouse.kind {
             MouseEventKind::Down(MouseButton::Left) => {
                 self.handle_left_click(mouse.column, mouse.row, tree_area)
@@ -262,5 +295,319 @@ impl super::BrowseScreen {
         self.last_click_time = Some(now);
         self.last_click_position = Some((x, y));
         false
+    }
+
+// Search functionality methods
+    fn open_search_dialog(&mut self) {
+        self.search_dialog_open = true;
+        self.search_input.clear();
+        self.search_dialog_focus = super::types::SearchDialogFocus::Input;
+    }
+
+    fn close_search_dialog(&mut self) {
+        self.search_dialog_open = false;
+        self.search_input.clear();
+        self.search_dialog_focus = super::types::SearchDialogFocus::Input;
+    }
+
+    async fn handle_search_input(
+        &mut self,
+        key: KeyCode,
+        _modifiers: crossterm::event::KeyModifiers,
+    ) -> Result<Option<ConnectionStatus>> {
+        match key {
+            KeyCode::Esc => {
+                self.close_search_dialog();
+                Ok(None)
+            }
+            KeyCode::Tab => {
+                // Cycle through Input -> Checkbox -> Input (button removed from navigation)
+                use super::types::SearchDialogFocus;
+                self.search_dialog_focus = match self.search_dialog_focus {
+                    SearchDialogFocus::Input => SearchDialogFocus::Checkbox,
+                    SearchDialogFocus::Checkbox => SearchDialogFocus::Input,
+                    SearchDialogFocus::Button => SearchDialogFocus::Input, // If somehow on button, go to input
+                };
+                Ok(None)
+            }
+            KeyCode::Enter => {
+                use super::types::SearchDialogFocus;
+                match self.search_dialog_focus {
+                    SearchDialogFocus::Button => {
+                        // Find Next button selected
+                        if !self.search_input.trim().is_empty() {
+                            self.perform_search().await?;
+                        }
+                        self.close_search_dialog();
+                    }
+                    SearchDialogFocus::Input => {
+                        // Enter pressed in input field - perform search if not empty
+                        if !self.search_input.trim().is_empty() {
+                            self.perform_search().await?;
+                            self.close_search_dialog();
+                        }
+                    }
+                    SearchDialogFocus::Checkbox => {
+                        // Enter on checkbox toggles it
+                        self.search_include_values = !self.search_include_values;
+                    }
+                }
+                Ok(None)
+            }
+            KeyCode::Char(' ') => {
+                use super::types::SearchDialogFocus;
+                match self.search_dialog_focus {
+                    SearchDialogFocus::Checkbox => {
+                        // Space on checkbox toggles it
+                        self.search_include_values = !self.search_include_values;
+                    }
+                    SearchDialogFocus::Input => {
+                        // Space in input field adds a space
+                        self.search_input.push(' ');
+                    }
+                    _ => {
+                        // Space on buttons - ignore
+                    }
+                }
+                Ok(None)
+            }
+            KeyCode::Backspace => {
+                use super::types::SearchDialogFocus;
+                if self.search_dialog_focus == SearchDialogFocus::Input {
+                    self.search_input.pop();
+                }
+                Ok(None)
+            }
+            KeyCode::Char(c) => {
+                use super::types::SearchDialogFocus;
+                if self.search_dialog_focus == SearchDialogFocus::Input {
+                    self.search_input.push(c);
+                }
+                Ok(None)
+            }
+            KeyCode::Left | KeyCode::Right => {
+                // Allow left/right arrow keys in input field for cursor movement
+                // Note: Since we're using a simple String for input, we don't track cursor position
+                // These keys are just ignored for now, but they won't interfere with typing
+                Ok(None)
+            }
+            KeyCode::Home | KeyCode::End => {
+                // Allow Home/End keys in input field
+                // For now, just ignore them (cursor will stay at end)
+                Ok(None)
+            }
+            KeyCode::Char('a') if _modifiers.contains(crossterm::event::KeyModifiers::CONTROL) => {
+                // Ctrl+A in input field - for now, just ignore (no select all functionality)
+                Ok(None)
+            }
+            _ => Ok(None),
+        }
+    }
+
+    async fn handle_search_mouse_input(
+        &mut self,
+        mouse: MouseEvent,
+        dialog_area: Option<Rect>,
+    ) -> Result<Option<ConnectionStatus>> {
+        if let MouseEventKind::Down(MouseButton::Left) = mouse.kind {
+            if let Some(dialog_area) = dialog_area {
+                let inner_area = Rect::new(
+                    dialog_area.x + 1,
+                    dialog_area.y + 1,
+                    dialog_area.width - 2,
+                    dialog_area.height - 2,
+                );
+
+                // Check if click is within dialog
+                if mouse.column >= dialog_area.x && mouse.column < dialog_area.x + dialog_area.width &&
+                   mouse.row >= dialog_area.y && mouse.row < dialog_area.y + dialog_area.height {
+                    
+                    // Calculate relative position within inner area
+                    let relative_y = mouse.row.saturating_sub(inner_area.y);
+                    let relative_x = mouse.column.saturating_sub(inner_area.x);
+
+                    use super::types::SearchDialogFocus;
+                    match relative_y {
+                        0..=2 => {
+                            // Input field area and button area (same row)
+                            let input_width = (inner_area.width * 70) / 100; // 70% for input
+
+                            if relative_x < input_width {
+                                // Clicked in input area - focus the input if not already focused
+                                if self.search_dialog_focus != SearchDialogFocus::Input {
+                                    self.search_dialog_focus = SearchDialogFocus::Input;
+                                }
+                            } else if relative_x >= input_width + 1 && relative_y == 1 {
+                                // Clicked in button area (after spacing) and on the middle line
+                                // Always perform search if input is not empty, regardless of current focus
+                                if !self.search_input.trim().is_empty() {
+                                    // Perform search on button click
+                                    self.perform_search().await?;
+                                    self.close_search_dialog();
+                                }
+                            }
+                        }
+                        3 => {
+                            // Checkbox area - toggle checkbox on click
+                            self.search_include_values = !self.search_include_values;
+                            // Also set focus to checkbox
+                            self.search_dialog_focus = SearchDialogFocus::Checkbox;
+                        }
+                        _ => {
+                            // Clicked elsewhere in dialog - keep current focus
+                        }
+                    }
+                } else {
+                    // Clicked outside dialog - close it
+                    self.close_search_dialog();
+                }
+            }
+        }
+        Ok(None)
+    }
+
+    async fn perform_search(&mut self) -> Result<()> {
+        let query = self.search_input.trim().to_lowercase();
+        self.last_search_query = query.clone();
+        self.search_results.clear();
+        self.current_search_index = 0;
+        self.search_highlight = None;
+
+        // Search through all nodes
+        for (index, node) in self.tree_nodes.iter().enumerate() {
+            let node_id_lower = node.node_id.to_lowercase();
+            let name_lower = node.name.to_lowercase();
+            
+            let mut matches = false;
+            
+            // Check if query matches NodeId, BrowseName (name), or DisplayName
+            if node_id_lower.contains(&query) || name_lower.contains(&query) {
+                matches = true;
+            }
+            
+            // If "Also look at values" is checked, search in node attributes
+            if !matches && self.search_include_values {
+                if let Some(opcua_node_id) = &node.opcua_node_id {
+                    // Try to read attributes for this node and search in values
+                    let client_guard = self.client.read().await;
+                    if let Ok(attributes) = client_guard.read_node_attributes(opcua_node_id).await {
+                        for attr in &attributes {
+                            if attr.value.to_lowercase().contains(&query) {
+                                matches = true;
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
+            
+            if matches {
+                self.search_results.push(index);
+            }
+        }
+
+        if !self.search_results.is_empty() {
+            // Navigate to first result
+            self.navigate_to_search_result(0).await?;
+        }
+
+        Ok(())
+    }
+
+    async fn next_search_result(&mut self) -> Result<()> {
+        if !self.search_results.is_empty() {
+            self.current_search_index = (self.current_search_index + 1) % self.search_results.len();
+            self.navigate_to_search_result(self.current_search_index).await?;
+        }
+        Ok(())
+    }
+
+    async fn navigate_to_search_result(&mut self, result_index: usize) -> Result<()> {
+        if result_index < self.search_results.len() {
+            let node_index = self.search_results[result_index];
+            
+            // Expand parent nodes if necessary
+            self.ensure_node_visible(node_index).await?;
+            
+            // Select the node
+            self.selected_node_index = node_index;
+            self.update_scroll();
+            
+            // Update attributes and set up highlighting
+            if let Err(e) = self.update_selected_attributes_async().await {
+                log::error!("Failed to update attributes: {}", e);
+            }
+            
+            // Set up search highlighting in attributes
+            self.setup_search_highlighting(node_index);
+        }
+        Ok(())
+    }
+
+    async fn ensure_node_visible(&mut self, target_index: usize) -> Result<()> {
+        if target_index >= self.tree_nodes.len() {
+            return Ok(());
+        }
+
+        let target_node = &self.tree_nodes[target_index];
+        let target_level = target_node.level;
+
+        // Find all parent nodes that need to be expanded
+        let mut parents_to_expand = Vec::new();
+        
+        for (index, node) in self.tree_nodes.iter().enumerate() {
+            if index < target_index && node.level < target_level {
+                // Check if this node is a parent of our target
+                let target_path_prefix = &target_node.parent_path;
+                if target_path_prefix.starts_with(&node.parent_path) && 
+                   target_path_prefix.len() > node.parent_path.len() {
+                    if !node.is_expanded && node.has_children {
+                        parents_to_expand.push(index);
+                    }
+                }
+            }
+        }
+
+        // Expand parent nodes
+        for parent_index in parents_to_expand {
+            if let Err(e) = self.expand_node_async(parent_index).await {
+                log::error!("Failed to expand parent node during search navigation: {}", e);
+            }
+        }
+
+        Ok(())
+    }
+
+    fn setup_search_highlighting(&mut self, node_index: usize) {
+        if node_index >= self.tree_nodes.len() {
+            return;
+        }
+
+        let node = &self.tree_nodes[node_index];
+        let query = &self.last_search_query;
+        
+        // Check NodeId for highlighting
+        let node_id_lower = node.node_id.to_lowercase();
+        if let Some(start) = node_id_lower.find(query) {
+            self.search_highlight = Some(("NodeId".to_string(), start, query.len()));
+            return;
+        }
+        
+        // Check DisplayName for highlighting
+        let name_lower = node.name.to_lowercase();
+        if let Some(start) = name_lower.find(query) {
+            self.search_highlight = Some(("DisplayName".to_string(), start, query.len()));
+            return;
+        }
+        
+        // Check BrowseName for highlighting
+        let browse_name = format!(
+            "{}:{}",
+            if node.node_id.starts_with("ns=") { "2" } else { "0" },
+            node.name
+        ).to_lowercase();
+        if let Some(start) = browse_name.find(query) {
+            self.search_highlight = Some(("BrowseName".to_string(), start, query.len()));
+        }
     }
 }

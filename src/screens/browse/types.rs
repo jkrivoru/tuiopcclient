@@ -60,6 +60,13 @@ impl NodeType {
     }
 }
 
+#[derive(Clone, Debug, PartialEq)]
+pub enum SearchDialogFocus {
+    Input,
+    Checkbox,
+    Button,
+}
+
 pub struct BrowseScreen {
     // Tree navigation state
     pub current_path: Vec<String>,
@@ -88,6 +95,16 @@ pub struct BrowseScreen {
 
     // Loading state
     pub is_loading: bool,
+
+    // Search functionality
+    pub search_dialog_open: bool,
+    pub search_input: String,
+    pub search_include_values: bool,
+    pub search_dialog_focus: SearchDialogFocus,
+    pub last_search_query: String,
+    pub search_results: Vec<usize>,
+    pub current_search_index: usize,
+    pub search_highlight: Option<(String, usize, usize)>, // (attribute_name, start_pos, length)
 }
 
 impl BrowseScreen {
@@ -107,6 +124,14 @@ impl BrowseScreen {
             last_click_position: None,
             client,
             is_loading: true, // Start in loading state
+            search_dialog_open: false,
+            search_input: "".to_string(),
+            search_include_values: false,
+            search_dialog_focus: SearchDialogFocus::Input,
+            last_search_query: "".to_string(),
+            search_results: Vec::new(),
+            current_search_index: 0,
+            search_highlight: None,
         }; // Real data will be loaded asynchronously via load_real_tree() from real_data.rs
         browse_screen
     }    pub fn update_selected_attributes(&mut self) {

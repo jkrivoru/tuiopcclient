@@ -7,8 +7,7 @@ use ratatui::{
     Frame,
 };
 
-impl super::BrowseScreen {
-    pub fn render(&mut self, f: &mut Frame, area: Rect) {
+impl super::BrowseScreen {    pub fn render(&mut self, f: &mut Frame, area: Rect) -> Option<Rect> {
         let main_chunks = Layout::default()
             .direction(Direction::Vertical)
             .constraints([
@@ -28,10 +27,15 @@ impl super::BrowseScreen {
         self.render_tree_view(f, content_chunks[0]);
 
         // Attributes panel
-        self.render_attributes_panel(f, content_chunks[1]);
-
-        // Status bar
+        self.render_attributes_panel(f, content_chunks[1]);        // Status bar
         self.render_status_bar(f, main_chunks[1]);
+
+        // Render search dialog if open and return its area
+        if self.search_dialog_open {
+            Some(self.render_search_dialog(f, area))
+        } else {
+            None
+        }
     }
 
     fn render_status_bar(&self, f: &mut Frame, area: Rect) {
@@ -57,9 +61,8 @@ impl super::BrowseScreen {
             Span::raw(" | "),
             Span::styled(&selected_node_info, Style::default().fg(Color::Yellow)),
             Span::raw(" | "),
-            Span::styled(&selection_count, Style::default().fg(Color::Magenta)),
-            Span::raw(
-                " | Use ←/→ expand/collapse, ↑/↓ navigate, SPACE select, c clear, q/Esc exit",
+            Span::styled(&selection_count, Style::default().fg(Color::Magenta)),            Span::raw(
+                " | Use ←/→ expand/collapse, ↑/↓ navigate, SPACE select, c clear, F3/Ctrl+F search, q/Esc exit",
             ),
         ];
 
@@ -285,5 +288,128 @@ impl super::BrowseScreen {
         .column_spacing(1);
 
         f.render_widget(table, area);
+    }    fn render_search_dialog(&self, f: &mut Frame, area: Rect) -> Rect {        // Calculate dialog position (centered)
+        let dialog_width = 50;
+        let dialog_height = 6; // Reduced from 8 to 6 (2 lines smaller)
+        let x = (area.width.saturating_sub(dialog_width)) / 2;
+        let y = (area.height.saturating_sub(dialog_height)) / 2;
+        
+        let dialog_area = Rect::new(x, y, dialog_width, dialog_height);        // Create a semi-transparent overlay only around the borders of the dialog
+        let overlay_padding = 1;
+        let overlay_area = Rect::new(
+            dialog_area.x.saturating_sub(overlay_padding),
+            dialog_area.y.saturating_sub(overlay_padding),
+            dialog_area.width + (overlay_padding * 2),
+            dialog_area.height + (overlay_padding * 2),
+        );
+        
+        let overlay = Block::default()
+            .style(Style::default().bg(Color::Black));
+        f.render_widget(overlay, overlay_area);
+        
+        // Clear the dialog area to ensure clean rendering
+        let overlay_content = ratatui::widgets::Clear;
+        f.render_widget(overlay_content, dialog_area);        // Main dialog box with blue background and white border
+        let dialog_block = Block::default()
+            .title("Find Node")
+            .title_style(Style::default().fg(Color::White).add_modifier(Modifier::BOLD))
+            .borders(Borders::ALL)
+            .border_style(Style::default().fg(Color::White))
+            .style(Style::default().bg(Color::Blue));
+        f.render_widget(dialog_block, dialog_area);
+
+        // Inner content area
+        let inner_area = Rect::new(
+            dialog_area.x + 1,
+            dialog_area.y + 1,
+            dialog_area.width - 2,
+            dialog_area.height - 2,
+        );        // Create layout for dialog content
+        let dialog_chunks = Layout::default()
+            .direction(Direction::Vertical)
+            .constraints([
+                Constraint::Length(3), // Input field + button row (with borders)
+                Constraint::Length(1), // Checkbox (removed spacing above and below)
+            ])
+            .split(inner_area);
+
+        // Create horizontal layout for input field and button
+        let input_button_chunks = Layout::default()
+            .direction(Direction::Horizontal)
+            .constraints([
+                Constraint::Percentage(70), // Input field (70% of width)
+                Constraint::Length(1),      // Small spacing
+                Constraint::Percentage(29), // Button (29% of width)
+            ])
+            .split(dialog_chunks[0]);        // Input field styled like connect screen
+        let (input_text, input_style) = if self.search_input.is_empty() {
+            // Show placeholder
+            ("Enter NodeId, BrowseName, or DisplayName...".to_string(), Style::default().fg(Color::DarkGray))
+        } else {
+            // Show actual input
+            (self.search_input.clone(), Style::default().fg(Color::White))
+        };
+
+        // Set border color based on focus
+        let input_border_color = if matches!(self.search_dialog_focus, super::types::SearchDialogFocus::Input) {
+            Color::Yellow
+        } else {
+            Color::White
+        };
+
+        let input_paragraph = Paragraph::new(input_text)
+            .style(input_style)
+            .block(
+                Block::default()
+                    .title("Search text")
+                    .borders(Borders::ALL)
+                    .border_style(Style::default().fg(input_border_color))
+                    .title_style(Style::default().fg(Color::Yellow)),
+            );
+        f.render_widget(input_paragraph, input_button_chunks[0]);        // Position cursor if input is focused and not showing placeholder
+        if matches!(self.search_dialog_focus, super::types::SearchDialogFocus::Input) && !self.search_input.is_empty() {
+            let cursor_x = input_button_chunks[0].x + 1 + self.search_input.len() as u16;
+            f.set_cursor_position((cursor_x, input_button_chunks[0].y + 1));
+        }// Text-only button: [ Find Next ]
+        let button_enabled = !self.search_input.trim().is_empty();
+        
+        // Text-only button area - positioned in the middle of the button area
+        let button_text_area = Rect {
+            x: input_button_chunks[2].x,
+            y: input_button_chunks[2].y + 1, // Center vertically
+            width: input_button_chunks[2].width,
+            height: 1,
+        };          // Button text color based on state (no focus highlighting since not in Tab navigation)
+        let button_text_color = if !button_enabled {
+            Color::DarkGray
+        } else {
+            Color::LightGreen // Always bright green when enabled
+        };// Text-only button with brackets
+        let button_text = "[ Find Next ]";
+        
+        let button_paragraph = Paragraph::new(button_text)
+            .style(Style::default()
+                .fg(button_text_color)
+                .bg(Color::Blue) // Keep dialog background
+                .add_modifier(Modifier::BOLD)) // Bold and underlined for emphasis
+            .alignment(ratatui::layout::Alignment::Center);
+        
+        f.render_widget(button_paragraph, button_text_area);// Render "Also look at values" checkbox
+        let checkbox_symbol = if self.search_include_values { "☑" } else { "☐" };
+        let checkbox_focused = matches!(self.search_dialog_focus, super::types::SearchDialogFocus::Checkbox);
+        let checkbox_text = if checkbox_focused {
+            format!("> {} Also look at values <", checkbox_symbol)
+        } else {
+            format!("  {} Also look at values", checkbox_symbol)
+        };
+
+        let checkbox_style = if checkbox_focused {
+            Style::default().fg(Color::Yellow).bg(Color::Blue).add_modifier(Modifier::BOLD)
+        } else {
+            Style::default().fg(Color::White).bg(Color::Blue)        };        let checkbox_paragraph = Paragraph::new(checkbox_text).style(checkbox_style);
+        f.render_widget(checkbox_paragraph, dialog_chunks[1]);
+        
+        // Return the dialog area for mouse handling
+        dialog_area
     }
 }
