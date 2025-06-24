@@ -218,6 +218,28 @@ impl super::BrowseScreen {
             &[]
         };
 
+        // Calculate optimal attribute name column width
+        let max_attr_name_length = if !self.selected_attributes.is_empty() {
+            self.selected_attributes
+                .iter()
+                .map(|attr| attr.name.len())
+                .max()
+                .unwrap_or(0)
+        } else {
+            10 // Default minimum width
+        };
+
+        // Calculate percentage based on area width, but cap at 40%
+        let available_width = area.width.saturating_sub(3) as usize; // Subtract borders and spacing
+        let attr_name_percentage = if available_width > 0 {
+            let calculated_percentage = (max_attr_name_length * 100) / available_width;
+            calculated_percentage.min(40) // Cap at 40%
+        } else {
+            40
+        };
+
+        let value_percentage = 100 - attr_name_percentage;
+
         let rows: Vec<Row> = visible_attributes
             .iter()
             .map(|attr| {
@@ -242,7 +264,10 @@ impl super::BrowseScreen {
 
         let table = Table::new(
             rows,
-            &[Constraint::Percentage(40), Constraint::Percentage(60)],
+            &[
+                Constraint::Percentage(attr_name_percentage as u16), 
+                Constraint::Percentage(value_percentage as u16)
+            ],
         )
         .header(
             Row::new(vec!["Attribute", "Value"]).style(

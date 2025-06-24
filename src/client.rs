@@ -464,7 +464,7 @@ impl OpcUaClientManager {
                             };
 
                             attributes.push(OpcUaAttribute {
-                                name: "   ValueStatus".to_string(),
+                                name: "   Status".to_string(),
                                 value: value_status_text,
                                 data_type: "Debug".to_string(),
                                 status: "Good".to_string(),
