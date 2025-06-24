@@ -445,47 +445,30 @@ impl super::BrowseScreen {    pub async fn handle_input(
             }
         }
         Ok(None)
-    }
-
-    async fn perform_search(&mut self) -> Result<()> {
+    }    async fn perform_search(&mut self) -> Result<()> {
         let query = self.search_input.value().trim().to_lowercase();
         self.last_search_query = query.clone();
         self.search_results.clear();
         self.current_search_index = 0;
-        self.search_highlight = None;
-
-        // Search through all nodes
-        for (index, node) in self.tree_nodes.iter().enumerate() {
-            let node_id_lower = node.node_id.to_lowercase();
-            let name_lower = node.name.to_lowercase();
-            
-            let mut matches = false;
-            
-            // Check if query matches NodeId, BrowseName (name), or DisplayName
-            if node_id_lower.contains(&query) || name_lower.contains(&query) {
-                matches = true;
-            }
-            
-            // If "Also look at values" is checked, search in node attributes
-            if !matches && self.search_include_values {
-                if let Some(opcua_node_id) = &node.opcua_node_id {
-                    // Try to read attributes for this node and search in values
-                    let client_guard = self.client.read().await;
-                    if let Ok(attributes) = client_guard.read_node_attributes(opcua_node_id).await {
-                        for attr in &attributes {
-                            if attr.value.to_lowercase().contains(&query) {
-                                matches = true;
-                                break;
-                            }
-                        }
-                    }
-                }
-            }
-            
-            if matches {
-                self.search_results.push(index);
+        self.search_highlight = None;        // First, search through currently visible nodes
+        for (_index, node) in self.tree_nodes.iter().enumerate() {
+            if self.node_matches_query(node, &query).await? {
+                self.search_results.push(node.node_id.clone());
             }
         }
+
+        // Then, search through unexpanded areas by temporarily expanding them
+        // We'll collect all possible search matches by doing a deep search
+        let additional_matches = self.deep_search_unexpanded_nodes(&query).await?;
+        
+        // Add any new matches to search results
+        for node_id in additional_matches {
+            if !self.search_results.contains(&node_id) {
+                self.search_results.push(node_id);
+            }
+        }
+
+        // No need to sort since we're using node IDs now
 
         if !self.search_results.is_empty() {
             // Navigate to first result
@@ -495,33 +478,131 @@ impl super::BrowseScreen {    pub async fn handle_input(
         Ok(())
     }
 
+    async fn node_matches_query(&self, node: &super::types::TreeNode, query: &str) -> Result<bool> {
+        let node_id_lower = node.node_id.to_lowercase();
+        let name_lower = node.name.to_lowercase();
+        
+        // Check if query matches NodeId, BrowseName (name), or DisplayName
+        if node_id_lower.contains(query) || name_lower.contains(query) {
+            return Ok(true);
+        }
+        
+        // If "Also look at values" is checked, search in node attributes
+        if self.search_include_values {
+            if let Some(opcua_node_id) = &node.opcua_node_id {
+                // Try to read attributes for this node and search in values
+                let client_guard = self.client.read().await;
+                if let Ok(attributes) = client_guard.read_node_attributes(opcua_node_id).await {
+                    for attr in &attributes {
+                        if attr.value.to_lowercase().contains(query) {
+                            return Ok(true);
+                        }
+                    }
+                }
+            }
+        }
+        
+        Ok(false)
+    }    async fn deep_search_unexpanded_nodes(&mut self, query: &str) -> Result<Vec<String>> {
+        let mut additional_matches = Vec::new();
+        let mut processed_nodes = std::collections::HashSet::new();
+        
+        // Use iterative approach instead of recursion to avoid boxing issues
+        loop {
+            let mut nodes_to_expand = Vec::new();
+            
+            // Find nodes that have children but aren't expanded and haven't been processed
+            for (index, node) in self.tree_nodes.iter().enumerate() {
+                if node.has_children && !node.is_expanded && node.should_show_expand_indicator()
+                    && !processed_nodes.contains(&node.node_id) {
+                    nodes_to_expand.push((index, node.node_id.clone()));
+                }
+            }
+            
+            if nodes_to_expand.is_empty() {
+                break; // No more nodes to expand
+            }
+            
+            // Process each unexpanded node
+            for (node_index, node_id) in nodes_to_expand {
+                if processed_nodes.contains(&node_id) {
+                    continue; // Skip if already processed
+                }
+                
+                let original_tree_len = self.tree_nodes.len();
+                
+                // Temporarily expand the node
+                if let Err(e) = self.expand_node_async(node_index).await {
+                    log::warn!("Failed to expand node during search: {}", e);
+                    processed_nodes.insert(node_id);
+                    continue;
+                }
+                
+                // Search through the newly added nodes
+                for new_index in original_tree_len..self.tree_nodes.len() {
+                    if let Some(node) = self.tree_nodes.get(new_index) {
+                        if self.node_matches_query(node, query).await? {
+                            additional_matches.push(node.node_id.clone());
+                        }
+                    }
+                }
+                
+                // Mark as processed and collapse back to restore original state
+                processed_nodes.insert(node_id);
+                self.collapse_node(node_index);
+            }
+        }
+
+        Ok(additional_matches)
+    }
+
     async fn next_search_result(&mut self) -> Result<()> {
         if !self.search_results.is_empty() {
             self.current_search_index = (self.current_search_index + 1) % self.search_results.len();
             self.navigate_to_search_result(self.current_search_index).await?;
         }
         Ok(())
+    }    async fn navigate_to_search_result(&mut self, result_index: usize) -> Result<()> {
+        if result_index < self.search_results.len() {
+            let target_node_id = self.search_results[result_index].clone(); // Clone to avoid borrowing issues
+            
+            // Find the current index of the node with this ID
+            let node_index = self.find_node_index_by_id(&target_node_id);
+            
+            if let Some(node_index) = node_index {
+                // Expand parent nodes if necessary
+                self.ensure_node_visible(node_index).await?;
+                
+                // Re-find the index after potential tree changes
+                if let Some(updated_node_index) = self.find_node_index_by_id(&target_node_id) {
+                    // Select the node
+                    self.selected_node_index = updated_node_index;
+                    self.update_scroll();
+                    
+                    // Update attributes and set up highlighting
+                    if let Err(e) = self.update_selected_attributes_async().await {
+                        log::error!("Failed to update attributes: {}", e);
+                    }
+                    
+                    // Set up search highlighting in attributes
+                    self.setup_search_highlighting(updated_node_index);
+                }
+            } else {
+                // Node not currently visible, need to search and expand to find it
+                self.expand_to_find_node(&target_node_id).await?;
+            }
+        }
+        Ok(())
     }
 
-    async fn navigate_to_search_result(&mut self, result_index: usize) -> Result<()> {
-        if result_index < self.search_results.len() {
-            let node_index = self.search_results[result_index];
-            
-            // Expand parent nodes if necessary
-            self.ensure_node_visible(node_index).await?;
-            
-            // Select the node
-            self.selected_node_index = node_index;
-            self.update_scroll();
-            
-            // Update attributes and set up highlighting
-            if let Err(e) = self.update_selected_attributes_async().await {
-                log::error!("Failed to update attributes: {}", e);
-            }
-            
-            // Set up search highlighting in attributes
-            self.setup_search_highlighting(node_index);
-        }
+    fn find_node_index_by_id(&self, target_node_id: &str) -> Option<usize> {
+        self.tree_nodes.iter().position(|node| node.node_id == target_node_id)
+    }
+
+    async fn expand_to_find_node(&mut self, target_node_id: &str) -> Result<()> {
+        // This is a simplified version - in a real implementation, you might need
+        // to traverse the OPC UA server structure to find the node's path
+        log::warn!("Node with ID {} not found in current tree - may need deeper search", target_node_id);
         Ok(())
     }
 
@@ -557,9 +638,7 @@ impl super::BrowseScreen {    pub async fn handle_input(
         }
 
         Ok(())
-    }
-
-    fn setup_search_highlighting(&mut self, node_index: usize) {
+    }    fn setup_search_highlighting(&mut self, node_index: usize) {
         if node_index >= self.tree_nodes.len() {
             return;
         }
@@ -567,16 +646,20 @@ impl super::BrowseScreen {    pub async fn handle_input(
         let node = &self.tree_nodes[node_index];
         let query = &self.last_search_query;
         
+        // Helper function to find case-insensitive match and return position in original string
+        let find_case_insensitive = |text: &str, query: &str| -> Option<usize> {
+            let text_lower = text.to_lowercase();
+            text_lower.find(&query.to_lowercase())
+        };
+        
         // Check NodeId for highlighting
-        let node_id_lower = node.node_id.to_lowercase();
-        if let Some(start) = node_id_lower.find(query) {
+        if let Some(start) = find_case_insensitive(&node.node_id, query) {
             self.search_highlight = Some(("NodeId".to_string(), start, query.len()));
             return;
         }
         
         // Check DisplayName for highlighting
-        let name_lower = node.name.to_lowercase();
-        if let Some(start) = name_lower.find(query) {
+        if let Some(start) = find_case_insensitive(&node.name, query) {
             self.search_highlight = Some(("DisplayName".to_string(), start, query.len()));
             return;
         }
@@ -586,9 +669,18 @@ impl super::BrowseScreen {    pub async fn handle_input(
             "{}:{}",
             if node.node_id.starts_with("ns=") { "2" } else { "0" },
             node.name
-        ).to_lowercase();
-        if let Some(start) = browse_name.find(query) {
+        );
+        if let Some(start) = find_case_insensitive(&browse_name, query) {
             self.search_highlight = Some(("BrowseName".to_string(), start, query.len()));
+            return;
+        }
+        
+        // If "Also look at values" was checked and we found a match through attribute values,
+        // we need to check the actual attribute values for highlighting
+        if self.search_include_values {
+            // For now, we'll just indicate that there was a match but not highlight specific text
+            // since we don't store the attribute values here. We could enhance this later.
+            self.search_highlight = None;
         }
     }
 }

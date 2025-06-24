@@ -95,15 +95,13 @@ pub struct BrowseScreen {
     pub client: Arc<RwLock<OpcUaClientManager>>,
 
     // Loading state
-    pub is_loading: bool,
-
-    // Search functionality
+    pub is_loading: bool,    // Search functionality
     pub search_dialog_open: bool,
     pub search_input: Input,
     pub search_include_values: bool,
     pub search_dialog_focus: SearchDialogFocus,
     pub last_search_query: String,
-    pub search_results: Vec<usize>,
+    pub search_results: Vec<String>, // Store node IDs instead of indices
     pub current_search_index: usize,
     pub search_highlight: Option<(String, usize, usize)>, // (attribute_name, start_pos, length)
 }

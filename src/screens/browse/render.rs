@@ -241,12 +241,9 @@ impl super::BrowseScreen {    pub fn render(&mut self, f: &mut Frame, area: Rect
             40
         };
 
-        let value_percentage = 100 - attr_name_percentage;
-
-        let rows: Vec<Row> = visible_attributes
+        let value_percentage = 100 - attr_name_percentage;        let rows: Vec<Row> = visible_attributes
             .iter()
-            .map(|attr| {
-                let value_cell = if attr.name == "Value" {
+            .map(|attr| {                let value_cell = if attr.name == "Value" {
                     // Color code the Value attribute based on is_value_good
                     if attr.is_value_good {
                         Cell::from(attr.value.as_str()).style(Style::default().fg(Color::Green))
@@ -254,8 +251,37 @@ impl super::BrowseScreen {    pub fn render(&mut self, f: &mut Frame, area: Rect
                         Cell::from(attr.value.as_str()).style(Style::default().fg(Color::Red))
                     }
                 } else {
-                    // Regular styling for other attributes
-                    Cell::from(attr.value.as_str())
+                    // Check for search highlighting
+                    if let Some((highlight_attr, start_pos, length)) = &self.search_highlight {
+                        if highlight_attr == &attr.name {
+                            // Create highlighted text using Spans for partial highlighting
+                            let value_str = &attr.value;
+                            if *start_pos < value_str.len() && *start_pos + *length <= value_str.len() {
+                                let before = &value_str[..*start_pos];
+                                let highlighted = &value_str[*start_pos..*start_pos + *length];
+                                let after = &value_str[*start_pos + *length..];
+                                
+                                // Create spans with different styling - only highlight the matched part
+                                let mut spans = Vec::new();
+                                if !before.is_empty() {
+                                    spans.push(Span::styled(before, Style::default().fg(Color::White)));
+                                }
+                                spans.push(Span::styled(highlighted, Style::default().bg(Color::Yellow).fg(Color::Black)));
+                                if !after.is_empty() {
+                                    spans.push(Span::styled(after, Style::default().fg(Color::White)));
+                                }
+                                
+                                Cell::from(Line::from(spans))
+                            } else {
+                                Cell::from(attr.value.as_str())
+                            }
+                        } else {
+                            Cell::from(attr.value.as_str())
+                        }
+                    } else {
+                        // Regular styling for other attributes
+                        Cell::from(attr.value.as_str())
+                    }
                 };
 
                 Row::new(vec![
