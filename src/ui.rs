@@ -227,8 +227,8 @@ impl App {    pub fn new(client_manager: Arc<RwLock<OpcUaClientManager>>) -> Sel
                     let content_chunks = Layout::default()
                         .direction(Direction::Horizontal)
                         .constraints([
-                            Constraint::Percentage(70), // Tree view
-                            Constraint::Percentage(30), // Attributes panel
+                            Constraint::Percentage(50), // Tree view
+                            Constraint::Percentage(50), // Attributes panel
                         ])
                         .split(main_chunks[0]);
 
