@@ -550,7 +550,8 @@ impl super::BrowseScreen {
     }
     async fn perform_search(&mut self) -> Result<()> {
         let query = self.search_input.value().trim().to_lowercase();
-        log::info!("Performing background search for query: '{}'", query);
+        log::info!("🔍 === SEARCH INITIATED ===");
+        log::info!("Query: '{}' (include values: {})", query, self.search_include_values);
         
         if query.is_empty() {
             log::info!("Empty query, nothing to search");
@@ -577,7 +578,7 @@ impl super::BrowseScreen {
             let start_node_id = if let Some(current_node) = self.tree_nodes.get(self.selected_node_index) {
                 // If the current node has an OPC UA node ID, use it
                 if let Some(ref opcua_node_id) = current_node.opcua_node_id {
-                    log::info!("Starting search from selected node: {} ({})", current_node.name, opcua_node_id);
+                    log::info!("Starting recursive search from selected node: '{}' ({})", current_node.name, opcua_node_id);
                     opcua_node_id.clone()
                 } else {
                     log::warn!("Selected node has no OPC UA node ID, using ObjectsFolder");
@@ -710,22 +711,24 @@ impl super::BrowseScreen {
         self.tree_nodes.iter().position(|node| node.node_id == target_node_id)
     }
     pub async fn expand_to_find_node(&mut self, target_node_id: &str) -> Result<()> {
-        log::info!("Expanding tree to find node: {}", target_node_id);
+        log::info!("🌳 === NAVIGATING TO SEARCH RESULT ===");
+        log::info!("Target node: {}", target_node_id);
         
         // Parse the target node ID
         let target_opcua_node_id = match opcua::types::NodeId::from_str(target_node_id) {
             Ok(node_id) => node_id,
             Err(e) => {
-                log::error!("Failed to parse target node ID '{}': {}", target_node_id, e);
+                log::error!("❌ Failed to parse target node ID '{}': {}", target_node_id, e);
                 return Err(anyhow::anyhow!("Invalid node ID format: {}", target_node_id));
             }
         };
         
         // Check if the target node is already visible in the tree
         if let Some(target_index) = self.find_node_index_by_id(target_node_id) {
-            log::info!("Target node already visible at index: {}", target_index);
+            log::info!("✅ Target node already visible at index: {}", target_index);
             self.selected_node_index = target_index;
             self.update_scroll();
+            log::info!("✅ Navigation completed - node selected and scrolled into view");
             
             // Update attributes
             if let Err(e) = self.update_selected_attributes_async().await {
@@ -871,15 +874,17 @@ impl super::BrowseScreen {
     ) -> Result<Option<ConnectionStatus>> {
         if let Some(area) = progress_area {
             if mouse.kind == MouseEventKind::Down(MouseButton::Left) {
-                // Check if click is within the progress dialog area (anywhere to cancel)
-                if mouse.column >= area.x
-                    && mouse.column < area.x + area.width
-                    && mouse.row >= area.y
-                    && mouse.row < area.y + area.height
-                {
-                    // Cancel the search
+                // Check if click is OUTSIDE the progress dialog area (click outside to cancel)
+                let is_outside_dialog = mouse.column < area.x
+                    || mouse.column >= area.x + area.width
+                    || mouse.row < area.y
+                    || mouse.row >= area.y + area.height;
+                
+                if is_outside_dialog {
+                    // Cancel the search only when clicking outside the dialog
                     self.cancel_search();
                 }
+                // If clicking inside the dialog, do nothing (don't cancel)
             }
         }
         Ok(None)

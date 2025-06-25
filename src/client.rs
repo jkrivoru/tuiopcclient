@@ -535,6 +535,73 @@ impl OpcUaClientManager {
         }
     }
 
+    /// Read only the attributes needed for search (BrowseName and DisplayName)
+    /// This is much more efficient than reading all node attributes
+    pub async fn read_node_search_attributes(&self, node_id: &NodeId) -> Result<(String, String)> {
+        if let Some(session) = &self.session {
+            let session_guard = session.read();
+            
+            // Read only BrowseName and DisplayName attributes
+            let read_values = vec![
+                ReadValueId {
+                    node_id: node_id.clone(),
+                    attribute_id: AttributeId::BrowseName as u32,
+                    index_range: UAString::null(),
+                    data_encoding: QualifiedName::null(),
+                },
+                ReadValueId {
+                    node_id: node_id.clone(),
+                    attribute_id: AttributeId::DisplayName as u32,
+                    index_range: UAString::null(),
+                    data_encoding: QualifiedName::null(),
+                },
+            ];
+            
+            match session_guard.read(&read_values, TimestampsToReturn::Neither, 0.0) {
+                Ok(results) => {
+                    let browse_name = if let Some(result) = results.get(0) {
+                        if let Some(Variant::QualifiedName(qname)) = &result.value {
+                            qname.name
+                                .value()
+                                .as_ref()
+                                .map(|s| s.as_str())
+                                .unwrap_or("(empty)")
+                                .to_string()
+                        } else {
+                            String::new()
+                        }
+                    } else {
+                        String::new()
+                    };
+                    
+                    let display_name = if let Some(result) = results.get(1) {
+                        if let Some(Variant::LocalizedText(ltext)) = &result.value {
+                            ltext.text
+                                .value()
+                                .as_ref()
+                                .map(|s| s.as_str())
+                                .unwrap_or("(empty)")
+                                .to_string()
+                        } else {
+                            String::new()
+                        }
+                    } else {
+                        String::new()
+                    };
+                    
+                    Ok((browse_name, display_name))
+                }
+                Err(e) => {
+                    log::debug!("Failed to read search attributes for node {}: {}", node_id, e);
+                    // Return empty strings if we can't read the attributes
+                    Ok((String::new(), String::new()))
+                }
+            }
+        } else {
+            Err(anyhow::anyhow!("Not connected to OPC UA server"))
+        }
+    }
+
     pub async fn get_root_node(&self) -> Result<NodeId> {
         // Return the Objects folder as the root
         Ok(ObjectId::ObjectsFolder.into())

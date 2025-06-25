@@ -39,10 +39,8 @@ impl super::BrowseScreen {    pub fn render(&mut self, f: &mut Frame, area: Rect
         };
         
         let progress_dialog_area = if self.search_progress_open {
-            log::info!("Rendering progress dialog - search_progress_open=true");
             Some(self.render_progress_dialog(f, area))
         } else {
-            log::debug!("Not rendering progress dialog - search_progress_open=false");
             None
         };
         
@@ -475,15 +473,11 @@ impl super::BrowseScreen {    pub fn render(&mut self, f: &mut Frame, area: Rect
         dialog_area
     }
       fn render_progress_dialog(&self, f: &mut Frame, area: Rect) -> Rect {
-        log::info!("render_progress_dialog called - search_progress_open: {}", self.search_progress_open);
-        
         // Calculate dialog position (centered, smaller than search dialog)
-        let dialog_width = 50.min(area.width.saturating_sub(4));
-        let dialog_height = 8.min(area.height.saturating_sub(4));
+        let dialog_width = 40.min(area.width.saturating_sub(4));
+        let dialog_height = 7.min(area.height.saturating_sub(4));
         let dialog_x = (area.width.saturating_sub(dialog_width)) / 2;
         let dialog_y = (area.height.saturating_sub(dialog_height)) / 2;
-        
-        log::info!("Progress dialog area: x={}, y={}, w={}, h={}", dialog_x, dialog_y, dialog_width, dialog_height);
         
         let dialog_area = Rect::new(dialog_x, dialog_y, dialog_width, dialog_height);
         
@@ -529,6 +523,7 @@ impl super::BrowseScreen {    pub fn render(&mut self, f: &mut Frame, area: Rect
                 Constraint::Length(1), // Message
                 Constraint::Length(1), // Progress bar
                 Constraint::Length(1), // Percentage
+                Constraint::Length(1), // Separator line
                 Constraint::Length(1), // Cancel instruction
             ])
             .split(inner_area);
@@ -563,11 +558,16 @@ impl super::BrowseScreen {    pub fn render(&mut self, f: &mut Frame, area: Rect
             .style(Style::default().fg(Color::White).bg(Color::Blue));
         f.render_widget(percentage_paragraph, chunks[2]);
         
+        // Render empty separator line
+        let separator_paragraph = Paragraph::new("")
+            .style(Style::default().bg(Color::Blue));
+        f.render_widget(separator_paragraph, chunks[3]);
+        
         // Render cancel instruction
-        let cancel_text = "Press ESC or click anywhere to cancel";
+        let cancel_text = "Press ESC to cancel";
         let cancel_paragraph = Paragraph::new(cancel_text)
             .style(Style::default().fg(Color::Yellow).bg(Color::Blue));
-        f.render_widget(cancel_paragraph, chunks[3]);
+        f.render_widget(cancel_paragraph, chunks[4]);
         
         // Return the dialog area for mouse handling
         dialog_area
