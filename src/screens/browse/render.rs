@@ -3,11 +3,12 @@ use ratatui::{
     layout::{Constraint, Direction, Layout, Rect},
     style::{Color, Modifier, Style},
     text::{Line, Span},
-    widgets::{Block, Borders, Cell, List, ListItem, Paragraph, Row, Table},
+    widgets::{Block, Borders, Cell, Clear, List, ListItem, Paragraph, Row, Table},
     Frame,
 };
+use tui_logger::{TuiLoggerWidget, TuiLoggerLevelOutput};
 
-impl super::BrowseScreen {    pub fn render(&mut self, f: &mut Frame, area: Rect) -> Option<Rect> {
+impl super::BrowseScreen {    pub fn render(&mut self, f: &mut Frame, area: Rect) -> (Option<Rect>, Option<Rect>, Option<Rect>) {
         let main_chunks = Layout::default()
             .direction(Direction::Vertical)
             .constraints([
@@ -30,12 +31,28 @@ impl super::BrowseScreen {    pub fn render(&mut self, f: &mut Frame, area: Rect
         self.render_attributes_panel(f, content_chunks[1]);        // Status bar
         self.render_status_bar(f, main_chunks[1]);
 
-        // Render search dialog if open and return its area
-        if self.search_dialog_open {
+        // Render dialogs and return their areas
+        let search_dialog_area = if self.search_dialog_open {
             Some(self.render_search_dialog(f, area))
         } else {
             None
-        }
+        };
+        
+        let progress_dialog_area = if self.search_progress_open {
+            log::info!("Rendering progress dialog - search_progress_open=true");
+            Some(self.render_progress_dialog(f, area))
+        } else {
+            log::debug!("Not rendering progress dialog - search_progress_open=false");
+            None
+        };
+        
+        let log_viewer_area = if self.log_viewer_open {
+            Some(self.render_log_viewer(f, area))
+        } else {
+            None
+        };
+        
+        (search_dialog_area, progress_dialog_area, log_viewer_area)
     }
 
     fn render_status_bar(&self, f: &mut Frame, area: Rect) {
@@ -62,7 +79,7 @@ impl super::BrowseScreen {    pub fn render(&mut self, f: &mut Frame, area: Rect
             Span::styled(&selected_node_info, Style::default().fg(Color::Yellow)),
             Span::raw(" | "),
             Span::styled(&selection_count, Style::default().fg(Color::Magenta)),            Span::raw(
-                " | Use ←/→ expand/collapse, ↑/↓ navigate, SPACE select, c clear, F3/Ctrl+F search, q/Esc exit",
+                " | Use ←/→ expand/collapse, ↑/↓ navigate, SPACE select, c clear, F3/Ctrl+F search, F12 logs, q/Esc exit",
             ),
         ];
 
@@ -454,8 +471,166 @@ impl super::BrowseScreen {    pub fn render(&mut self, f: &mut Frame, area: Rect
         } else {
             Style::default().fg(Color::White).bg(Color::Blue)        };        let checkbox_paragraph = Paragraph::new(checkbox_text).style(checkbox_style);
         f.render_widget(checkbox_paragraph, dialog_chunks[1]);
+          // Return the dialog area for mouse handling
+        dialog_area
+    }
+      fn render_progress_dialog(&self, f: &mut Frame, area: Rect) -> Rect {
+        log::info!("render_progress_dialog called - search_progress_open: {}", self.search_progress_open);
+        
+        // Calculate dialog position (centered, smaller than search dialog)
+        let dialog_width = 50.min(area.width.saturating_sub(4));
+        let dialog_height = 8.min(area.height.saturating_sub(4));
+        let dialog_x = (area.width.saturating_sub(dialog_width)) / 2;
+        let dialog_y = (area.height.saturating_sub(dialog_height)) / 2;
+        
+        log::info!("Progress dialog area: x={}, y={}, w={}, h={}", dialog_x, dialog_y, dialog_width, dialog_height);
+        
+        let dialog_area = Rect::new(dialog_x, dialog_y, dialog_width, dialog_height);
+        
+        // Create a semi-transparent overlay around the dialog
+        let overlay_padding = 1;
+        let overlay_area = Rect::new(
+            dialog_area.x.saturating_sub(overlay_padding),
+            dialog_area.y.saturating_sub(overlay_padding),
+            dialog_area.width + (overlay_padding * 2),
+            dialog_area.height + (overlay_padding * 2),
+        );
+        
+        let overlay = Block::default()
+            .style(Style::default().bg(Color::Black));
+        f.render_widget(overlay, overlay_area);
+        
+        // Clear the dialog area to ensure clean rendering
+        let clear_widget = ratatui::widgets::Clear;
+        f.render_widget(clear_widget, dialog_area);
+        
+        // Create the dialog block with full blue background
+        let dialog_block = Block::default()
+            .title(" Search Progress ")
+            .title_style(Style::default().fg(Color::White).add_modifier(Modifier::BOLD))
+            .borders(Borders::ALL)
+            .border_style(Style::default().fg(Color::White))
+            .style(Style::default().bg(Color::Blue));
+        
+        f.render_widget(dialog_block, dialog_area);
+        
+        // Inner area for content
+        let inner_area = Rect::new(
+            dialog_area.x + 1,
+            dialog_area.y + 1,
+            dialog_area.width - 2,
+            dialog_area.height - 2,
+        );
+        
+        // Split inner area vertically
+        let chunks = Layout::default()
+            .direction(Direction::Vertical)
+            .constraints([
+                Constraint::Length(1), // Message
+                Constraint::Length(1), // Progress bar
+                Constraint::Length(1), // Percentage
+                Constraint::Length(1), // Cancel instruction
+            ])
+            .split(inner_area);
+        
+        // Render progress message
+        let message_paragraph = Paragraph::new(self.search_progress_message.clone())
+            .style(Style::default().fg(Color::White).bg(Color::Blue));
+        f.render_widget(message_paragraph, chunks[0]);
+        
+        // Render progress bar
+        let progress_ratio = if self.search_progress_total > 0 {
+            self.search_progress_current as f64 / self.search_progress_total as f64
+        } else {
+            0.0
+        };
+        
+        let progress_width = (chunks[1].width as f64 * progress_ratio) as u16;
+        let progress_bar = format!(
+            "{}{}",
+            "=".repeat(progress_width as usize),
+            " ".repeat((chunks[1].width - progress_width) as usize)
+        );
+        
+        let progress_paragraph = Paragraph::new(progress_bar)
+            .style(Style::default().fg(Color::Green).bg(Color::Blue));
+        f.render_widget(progress_paragraph, chunks[1]);
+        
+        // Render percentage
+        let percentage = (progress_ratio * 100.0) as u32;
+        let percentage_text = format!("{}% ({}/{})", percentage, self.search_progress_current, self.search_progress_total);
+        let percentage_paragraph = Paragraph::new(percentage_text)
+            .style(Style::default().fg(Color::White).bg(Color::Blue));
+        f.render_widget(percentage_paragraph, chunks[2]);
+        
+        // Render cancel instruction
+        let cancel_text = "Press ESC or click anywhere to cancel";
+        let cancel_paragraph = Paragraph::new(cancel_text)
+            .style(Style::default().fg(Color::Yellow).bg(Color::Blue));
+        f.render_widget(cancel_paragraph, chunks[3]);
         
         // Return the dialog area for mouse handling
         dialog_area
+    }    fn render_log_viewer(&self, f: &mut Frame, area: Rect) -> Rect {
+        // Full-screen log viewer overlay
+        let log_area = area; // Use the entire screen area
+
+        // Clear the area to ensure clean rendering
+        let clear_widget = Clear;
+        f.render_widget(clear_widget, log_area);
+
+        // Create the log viewer block with title and borders
+        let log_block = Block::default()
+            .title(" Log Viewer (F12/ESC to close) ")
+            .title_style(Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD))
+            .borders(Borders::ALL)
+            .border_style(Style::default().fg(Color::White))
+            .style(Style::default().bg(Color::Black).fg(Color::White));
+
+        f.render_widget(log_block, log_area);
+
+        // Inner area for the actual log content
+        let inner_area = Rect::new(
+            log_area.x + 1,
+            log_area.y + 1,
+            log_area.width - 2,
+            log_area.height.saturating_sub(3), // Leave space for instructions
+        );        // Create the TuiLoggerWidget with proper state management
+        let tui_logger = TuiLoggerWidget::default()
+            .style_error(Style::default().fg(Color::Red))
+            .style_debug(Style::default().fg(Color::Green))
+            .style_warn(Style::default().fg(Color::Yellow))
+            .style_trace(Style::default().fg(Color::Magenta))
+            .style_info(Style::default().fg(Color::Cyan))
+            .output_separator(':')
+            .output_timestamp(Some("%H:%M:%S".to_string()))
+            .output_level(Some(TuiLoggerLevelOutput::Long))
+            .output_target(true)
+            .output_file(false)
+            .output_line(false)
+            .state(&self.logger_widget_state) // Use proper state management
+            .block(
+                Block::default()
+                    .borders(Borders::NONE) // No borders since we already have the outer block
+                    .style(Style::default().bg(Color::Black).fg(Color::White))
+            );
+
+        // Render the logger widget
+        f.render_widget(tui_logger, inner_area);
+
+        // Add navigation instructions at the bottom
+        let instruction_area = Rect::new(
+            log_area.x + 1,
+            log_area.y + log_area.height.saturating_sub(2),
+            log_area.width.saturating_sub(2),
+            1,
+        );        let instructions = Paragraph::new("Use ↑/↓, PgUp/PgDown, Home/End to scroll | F12/ESC to close")
+            .style(Style::default().fg(Color::Yellow).bg(Color::Black))
+            .alignment(ratatui::layout::Alignment::Center);
+        
+        f.render_widget(instructions, instruction_area);
+
+        // Return the full area for mouse handling
+        log_area
     }
 }

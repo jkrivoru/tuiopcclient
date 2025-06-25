@@ -38,6 +38,7 @@ pub struct App {
     
     // Mouse handling
     dialog_area: Option<Rect>,
+    progress_dialog_area: Option<Rect>,
 }
 
 #[derive(Debug, Clone)]
@@ -46,8 +47,7 @@ enum AppState {
     Connected(String), // Store server URL
 }
 
-impl App {    pub fn new(client_manager: Arc<RwLock<OpcUaClientManager>>) -> Self {
-        Self {
+impl App {    pub fn new(client_manager: Arc<RwLock<OpcUaClientManager>>) -> Self {        Self {
             client_manager,
             should_quit: false,
             test_mode: false,
@@ -55,8 +55,8 @@ impl App {    pub fn new(client_manager: Arc<RwLock<OpcUaClientManager>>) -> Sel
             connect_screen: ConnectScreen::new(),
             browse_screen: None,
             dialog_area: None,
-        }}    pub fn new_with_browse_direct(client_manager: Arc<RwLock<OpcUaClientManager>>, server_url: String) -> Self {
-        Self {
+            progress_dialog_area: None,
+        }}    pub fn new_with_browse_direct(client_manager: Arc<RwLock<OpcUaClientManager>>, server_url: String) -> Self {        Self {
             client_manager: client_manager.clone(),
             should_quit: false,
             test_mode: false,
@@ -64,6 +64,7 @@ impl App {    pub fn new(client_manager: Arc<RwLock<OpcUaClientManager>>) -> Sel
             connect_screen: ConnectScreen::new(),
             browse_screen: Some(BrowseScreen::new(server_url, client_manager)),
             dialog_area: None,
+            progress_dialog_area: None,
         }
     }
 
@@ -238,7 +239,7 @@ impl App {    pub fn new(client_manager: Arc<RwLock<OpcUaClientManager>>) -> Sel
                         width: content_chunks[0].width.saturating_sub(2), // Account for both borders
                         height: content_chunks[0].height.saturating_sub(2), // Account for both borders
                     };                    if let Some(connection_result) =
-                        browse_screen.handle_mouse_input(mouse, tree_area, self.dialog_area).await?
+                        browse_screen.handle_mouse_input(mouse, tree_area, self.dialog_area, self.progress_dialog_area).await?
                     {
                         match connection_result {
                             ConnectionStatus::Disconnected => {
@@ -270,8 +271,12 @@ impl App {    pub fn new(client_manager: Arc<RwLock<OpcUaClientManager>>) -> Sel
                         log::error!("Error handling connect screen operations: {}", e);
                     }
                 }
-            }
-            AppState::Connected(_) => {
+            }            AppState::Connected(_) => {
+                // Process search messages from background tasks
+                if let Some(browse_screen) = &mut self.browse_screen {
+                    browse_screen.process_search_messages().await;
+                }
+                
                 // Update connection status from client manager
                 if let Ok(client) = self.client_manager.try_read() {
                     let status = client.get_connection_status();
@@ -283,6 +288,8 @@ impl App {    pub fn new(client_manager: Arc<RwLock<OpcUaClientManager>>) -> Sel
                         self.connect_screen.async_reset().await;
                     }
                 }
+                
+                // Note: Background search processing removed - using synchronous depth-first search instead
             }
         }
     }
@@ -389,9 +396,11 @@ impl App {    pub fn new(client_manager: Arc<RwLock<OpcUaClientManager>>) -> Sel
                         Constraint::Min(0), // Browse screen
                     ])
                     .split(size);                if let Some(browse_screen) = &mut self.browse_screen {
-                    let dialog_area = browse_screen.render(f, chunks[0]);
-                    // Store dialog area for mouse handling
+                    let (dialog_area, progress_dialog_area, _log_viewer_area) = browse_screen.render(f, chunks[0]);
+                    // Store dialog areas for mouse handling
                     self.dialog_area = dialog_area;
+                    self.progress_dialog_area = progress_dialog_area;
+                    // Note: log_viewer_area covers the entire screen, so we don't need to store it separately
                 }
             }
         }

@@ -1,8 +1,9 @@
 use crate::client::{ConnectionStatus, OpcUaClientManager};
 use opcua::types::NodeId;
 use std::sync::Arc;
-use tokio::sync::RwLock;
+use tokio::sync::{RwLock, mpsc};
 use tui_input::Input;
+use tui_logger::TuiWidgetState;
 
 #[derive(Clone)]
 pub struct TreeNode {
@@ -68,6 +69,29 @@ pub enum SearchDialogFocus {
     Button,
 }
 
+#[derive(Debug)]
+pub enum SearchMessage {
+    Progress {
+        current: usize,
+        total: usize,
+        current_node: String,
+    },
+    Result {
+        node_id: String,
+    },
+    Complete,
+    Cancelled,
+}
+
+#[derive(Debug)]
+pub enum SearchCommand {
+    Start {
+        query: String,
+        include_values: bool,
+    },
+    Cancel,
+}
+
 pub struct BrowseScreen {
     // Tree navigation state
     pub current_path: Vec<String>,
@@ -96,12 +120,28 @@ pub struct BrowseScreen {
 
     // Loading state
     pub is_loading: bool,    // Search functionality
-    pub search_dialog_open: bool,    pub search_input: Input,
+    pub search_dialog_open: bool,
+    pub search_input: Input,
     pub search_include_values: bool,
     pub search_dialog_focus: SearchDialogFocus,
     pub last_search_query: String,
     pub search_results: Vec<String>, // Store node IDs instead of indices
     pub current_search_index: usize,
+    
+    // Progress dialog for search
+    pub search_progress_open: bool,
+    pub search_progress_current: usize,
+    pub search_progress_total: usize,
+    pub search_progress_message: String,
+    pub search_cancelled: bool,
+    
+    // Background search channels
+    pub search_command_tx: Option<mpsc::UnboundedSender<SearchCommand>>,
+    pub search_message_rx: Option<mpsc::UnboundedReceiver<SearchMessage>>,
+    
+    // Log viewer
+    pub log_viewer_open: bool,
+    pub logger_widget_state: TuiWidgetState,
 }
 
 impl BrowseScreen {
@@ -123,10 +163,17 @@ impl BrowseScreen {
             search_dialog_open: false,
             search_input: Input::default(),
             search_include_values: false,
-            search_dialog_focus: SearchDialogFocus::Input,
-            last_search_query: "".to_string(),
+            search_dialog_focus: SearchDialogFocus::Input,            last_search_query: "".to_string(),
             search_results: Vec::new(),
             current_search_index: 0,
+            search_progress_open: false,            search_progress_current: 0,
+            search_progress_total: 0,
+            search_progress_message: "Searching...".to_string(),
+            search_cancelled: false,
+            search_command_tx: None,
+            search_message_rx: None,
+            log_viewer_open: false,
+            logger_widget_state: TuiWidgetState::new(),
         };// Real data will be loaded asynchronously via load_real_tree() from real_data.rs
         browse_screen
     }    pub fn update_selected_attributes(&mut self) {
