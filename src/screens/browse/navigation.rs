@@ -44,7 +44,8 @@ impl super::BrowseScreen {
             if self.expanded_nodes.contains(&child_path) {
                 child.is_expanded = true;
             }
-        }    }
+        }
+    }
 
     // Improved collapse method
     pub fn collapse_node(&mut self, index: usize) {
@@ -71,7 +72,7 @@ impl super::BrowseScreen {
             self.selected_node_index -= end_index - index - 1;
         }
 
-        // Remove children from visual tree (but keep their expansion state)
+        // Remove children from visual tree (but keep their expansion state for restoration)
         self.tree_nodes.drain(index + 1..end_index);
 
         // Ensure selected index is valid

@@ -563,7 +563,7 @@ impl BrowseScreen {
         let query_lower = query.to_ascii_lowercase();
         
         // Use the lightweight method to read BrowseName, DisplayName, NodeClass, and optionally Value
-        if let Ok((browse_name, display_name, value_attr, node_class)) = client_guard.read_node_search_attributes(node_id, search_by_value).await {
+        if let Ok((browse_name, display_name, value_attr, _node_class)) = client_guard.read_node_search_attributes(node_id, search_by_value).await {
             // Send progress message with the current node being searched (DisplayName + NodeId)
             let progress_text = format!("{} [{}]", display_name, node_id);
             let _ = message_tx.send(SearchMessage::Progress {

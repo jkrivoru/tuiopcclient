@@ -127,10 +127,15 @@ impl super::BrowseScreen {
         {
             Ok(mut child_nodes) => {
                 // Restore expansion state for children
-                self.restore_child_expansion_states(&mut child_nodes);                // Insert children after the current node
+                self.restore_child_expansion_states(&mut child_nodes);
+                
+                // Insert children after the current node
                 self.tree_nodes.splice(index + 1..index + 1, child_nodes);
 
-                // TODO: Implement recursive expansion restoration in a separate non-recursive method
+                // Recursively restore expansions for the newly added children
+                // Use the iterative approach starting from the first child
+                let first_child_index = index + 1;
+                self.recursively_restore_expansions(first_child_index).await?;
             }
             Err(e) => {
                 log::error!("Failed to load children for node: {}", e);
@@ -200,4 +205,67 @@ impl super::BrowseScreen {
 
         Ok(())
     }
+
+    // Recursively restore expansion states for all previously expanded children
+    pub async fn recursively_restore_expansions(&mut self, starting_index: usize) -> Result<()> {
+        let starting_node_level = if starting_index > 0 {
+            self.tree_nodes[starting_index - 1].level // Parent level
+        } else {
+            0 // Root level
+        };
+        
+        let mut current_index = starting_index;
+        
+        // Process only nodes that are descendants of the node that was just expanded
+        while current_index < self.tree_nodes.len() {
+            let node = &self.tree_nodes[current_index];
+            
+            // Stop if we've gone beyond the descendants of the originally expanded node
+            if node.level <= starting_node_level {
+                break;
+            }
+            
+            let node_path = self.get_node_path(node);
+            
+            // Check if this node was previously expanded and should be restored
+            if node.has_children && self.expanded_nodes.contains(&node_path) && node.is_expanded {
+                log::debug!("Restoring expansion for node: {} at index {}", node.name, current_index);
+                
+                // Store the current node info before expansion (since indices will change)
+                let node_info = {
+                    let node = &self.tree_nodes[current_index];
+                    (
+                        node.opcua_node_id.clone(),
+                        node.level,
+                        self.get_node_path(node),
+                    )
+                };
+                
+                if let Some(opcua_node_id) = node_info.0 {
+                    // Load child nodes from OPC UA server
+                    match self.get_real_children(&opcua_node_id, node_info.1 + 1, &node_info.2).await {
+                        Ok(mut child_nodes) => {
+                            // Restore expansion state for direct children
+                            self.restore_child_expansion_states(&mut child_nodes);
+                            
+                            // Insert children after the current node
+                            self.tree_nodes.splice(current_index + 1..current_index + 1, child_nodes);
+                            
+                            // Continue processing - the newly added children will be processed in subsequent iterations
+                        }
+                        Err(e) => {
+                            log::error!("Failed to restore expansion for node {}: {}", node_info.2, e);
+                            // Revert expansion state on error
+                            self.tree_nodes[current_index].is_expanded = false;
+                        }
+                    }
+                }
+            }
+            
+            current_index += 1;
+        }
+        
+        Ok(())
+    }
+    // ...existing code...
 }
