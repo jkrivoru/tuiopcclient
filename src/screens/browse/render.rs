@@ -8,14 +8,17 @@ use ratatui::{
 };
 use tui_logger::{TuiLoggerWidget, TuiLoggerLevelOutput};
 
-impl super::BrowseScreen {    pub fn render(&mut self, f: &mut Frame, area: Rect) -> (Option<Rect>, Option<Rect>, Option<Rect>) {
+impl super::BrowseScreen {
+    pub fn render(&mut self, f: &mut Frame, area: Rect) -> (Option<Rect>, Option<Rect>, Option<Rect>) {
         let main_chunks = Layout::default()
             .direction(Direction::Vertical)
             .constraints([
                 Constraint::Min(0),    // Main content area
                 Constraint::Length(1), // Status bar
             ])
-            .split(area);        // Main content area: Tree view on left, attributes on right
+            .split(area);
+
+        // Main content area: Tree view on left, attributes on right
         let content_chunks = Layout::default()
             .direction(Direction::Horizontal)
             .constraints([
@@ -28,7 +31,9 @@ impl super::BrowseScreen {    pub fn render(&mut self, f: &mut Frame, area: Rect
         self.render_tree_view(f, content_chunks[0]);
 
         // Attributes panel
-        self.render_attributes_panel(f, content_chunks[1]);        // Status bar
+        self.render_attributes_panel(f, content_chunks[1]);
+
+        // Status bar
         self.render_status_bar(f, main_chunks[1]);
 
         // Render dialogs and return their areas
@@ -473,9 +478,9 @@ impl super::BrowseScreen {    pub fn render(&mut self, f: &mut Frame, area: Rect
         dialog_area
     }
       fn render_progress_dialog(&self, f: &mut Frame, area: Rect) -> Rect {
-        // Calculate dialog position (centered, smaller than search dialog)
-        let dialog_width = 40.min(area.width.saturating_sub(4));
-        let dialog_height = 7.min(area.height.saturating_sub(4));
+        // Calculate dialog position (centered, wider than before)
+        let dialog_width = 60.min(area.width.saturating_sub(4));
+        let dialog_height = 5.min(area.height.saturating_sub(4));
         let dialog_x = (area.width.saturating_sub(dialog_width)) / 2;
         let dialog_y = (area.height.saturating_sub(dialog_height)) / 2;
         
@@ -521,8 +526,6 @@ impl super::BrowseScreen {    pub fn render(&mut self, f: &mut Frame, area: Rect
             .direction(Direction::Vertical)
             .constraints([
                 Constraint::Length(1), // Message
-                Constraint::Length(1), // Progress bar
-                Constraint::Length(1), // Percentage
                 Constraint::Length(1), // Separator line
                 Constraint::Length(1), // Cancel instruction
             ])
@@ -533,41 +536,16 @@ impl super::BrowseScreen {    pub fn render(&mut self, f: &mut Frame, area: Rect
             .style(Style::default().fg(Color::White).bg(Color::Blue));
         f.render_widget(message_paragraph, chunks[0]);
         
-        // Render progress bar
-        let progress_ratio = if self.search_progress_total > 0 {
-            self.search_progress_current as f64 / self.search_progress_total as f64
-        } else {
-            0.0
-        };
-        
-        let progress_width = (chunks[1].width as f64 * progress_ratio) as u16;
-        let progress_bar = format!(
-            "{}{}",
-            "=".repeat(progress_width as usize),
-            " ".repeat((chunks[1].width - progress_width) as usize)
-        );
-        
-        let progress_paragraph = Paragraph::new(progress_bar)
-            .style(Style::default().fg(Color::Green).bg(Color::Blue));
-        f.render_widget(progress_paragraph, chunks[1]);
-        
-        // Render percentage
-        let percentage = (progress_ratio * 100.0) as u32;
-        let percentage_text = format!("{}% ({}/{})", percentage, self.search_progress_current, self.search_progress_total);
-        let percentage_paragraph = Paragraph::new(percentage_text)
-            .style(Style::default().fg(Color::White).bg(Color::Blue));
-        f.render_widget(percentage_paragraph, chunks[2]);
-        
         // Render empty separator line
         let separator_paragraph = Paragraph::new("")
             .style(Style::default().bg(Color::Blue));
-        f.render_widget(separator_paragraph, chunks[3]);
+        f.render_widget(separator_paragraph, chunks[1]);
         
         // Render cancel instruction
         let cancel_text = "Press ESC to cancel";
         let cancel_paragraph = Paragraph::new(cancel_text)
             .style(Style::default().fg(Color::Yellow).bg(Color::Blue));
-        f.render_widget(cancel_paragraph, chunks[4]);
+        f.render_widget(cancel_paragraph, chunks[2]);
         
         // Return the dialog area for mouse handling
         dialog_area

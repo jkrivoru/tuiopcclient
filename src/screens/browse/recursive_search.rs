@@ -27,8 +27,6 @@ impl BrowseScreen {
         // Reset search state
         self.search_cancelled = false;
         self.search_progress_open = true;
-        self.search_progress_current = 0;
-        self.search_progress_total = 1;
         self.search_progress_message = format!("Searching for '{}'...", options.query);
         self.search_results.clear();
         self.current_search_index = 0;
@@ -67,10 +65,8 @@ impl BrowseScreen {
         if let Some(rx) = &mut self.search_message_rx {
             while let Ok(message) = rx.try_recv() {
                 match message {
-                    SearchMessage::Progress { current, total, current_node } => {
-                        self.search_progress_current = current;
-                        self.search_progress_total = total;
-                        self.search_progress_message = format!("Searching: {}", current_node);
+                    SearchMessage::Progress { current: _, total: _, current_node } => {
+                        self.search_progress_message = format!("{}", current_node);
                     }
                     SearchMessage::Result { node_id } => {
                         let is_first_result = self.search_results.is_empty();
@@ -226,19 +222,12 @@ impl BrowseScreen {
         let children = Self::get_visible_children_sorted(selected_node_id, client).await?;
         log::info!("Found {} visible children to search", children.len());
         
-        for (i, child) in children.iter().enumerate() {
+        for child in children.iter() {
             // Check for cancellation
             if let Ok(SearchCommand::Cancel) = command_rx.try_recv() {
                 *cancelled = true;
                 return Ok(None);
             }
-            
-            // Send progress update
-            let _ = message_tx.send(SearchMessage::Progress {
-                current: i + 1,
-                total: children.len(),
-                current_node: child.display_name.clone(),
-            });
             
             if let Some(found) = Self::search_in_node_recursive(
                 &child.opcua_node_id,
@@ -300,7 +289,7 @@ impl BrowseScreen {
                     let remaining_root_siblings = &root_siblings[(current_position + 1)..];
                     log::info!("Searching {} remaining root-level siblings", remaining_root_siblings.len());
                     
-                    for (i, sibling) in remaining_root_siblings.iter().enumerate() {
+                    for sibling in remaining_root_siblings.iter() {
                         // Check for cancellation
                         if let Ok(SearchCommand::Cancel) = command_rx.try_recv() {
                             *cancelled = true;
@@ -308,13 +297,6 @@ impl BrowseScreen {
                         }
                         
                         if let Some(sibling_opcua_id) = &sibling.opcua_node_id {
-                            // Send progress update
-                            let _ = message_tx.send(SearchMessage::Progress {
-                                current: i + 1,
-                                total: remaining_root_siblings.len(),
-                                current_node: sibling.name.clone(),
-                            });
-                            
                             if let Some(found) = Self::search_in_node_recursive(
                                 sibling_opcua_id,
                                 query,
@@ -364,19 +346,12 @@ impl BrowseScreen {
             let remaining_siblings = &siblings[(current_position + 1)..];
             log::info!("Searching {} remaining siblings", remaining_siblings.len());
             
-            for (i, sibling) in remaining_siblings.iter().enumerate() {
+            for sibling in remaining_siblings.iter() {
                 // Check for cancellation
                 if let Ok(SearchCommand::Cancel) = command_rx.try_recv() {
                     *cancelled = true;
                     return Ok(None);
                 }
-                
-                // Send progress update
-                let _ = message_tx.send(SearchMessage::Progress {
-                    current: i + 1,
-                    total: remaining_siblings.len(),
-                    current_node: sibling.display_name.clone(),
-                });
                 
                 if let Some(found) = Self::search_in_node_recursive(
                     &sibling.opcua_node_id,
@@ -411,7 +386,7 @@ impl BrowseScreen {
         query: &str,
         search_by_value: bool,
         client: &Arc<RwLock<OpcUaClientManager>>,
-        _message_tx: &mpsc::UnboundedSender<SearchMessage>,
+        message_tx: &mpsc::UnboundedSender<SearchMessage>,
         command_rx: &mut mpsc::UnboundedReceiver<SearchCommand>,
         cancelled: &mut bool,
     ) -> Result<Option<String>> {
@@ -428,13 +403,27 @@ impl BrowseScreen {
             log::info!("🔍 Searching in node: {}", current_node_id);
             
             // Check if this node matches
-            if Self::is_match(&current_node_id, query, search_by_value, client).await {
+            if Self::is_match(&current_node_id, query, search_by_value, client, message_tx).await {
                 log::info!("🎯 MATCH FOUND: {} matches query '{}'", current_node_id, query);
                 return Ok(Some(current_node_id.to_string()));
             }
             else
             {
                 log::info!("❌ No match in node: {}", current_node_id);
+            }
+            
+            // Check if this node is a Method - if so, skip its children (Input/Output arguments)
+            let client_guard = client.read().await;
+            let should_skip_children = if let Ok((_, _, _, node_class)) = client_guard.read_node_search_attributes(&current_node_id, false).await {
+                matches!(node_class, opcua::types::NodeClass::Method)
+            } else {
+                false // If we can't read the node class, assume it's not a Method
+            };
+            drop(client_guard);
+            
+            if should_skip_children {
+                log::info!("🚫 Skipping children of Method node: {}", current_node_id);
+                continue; // Skip to next node in stack without adding children
             }
             
             // Add children to stack (in reverse order for depth-first left-to-right traversal)
@@ -568,19 +557,28 @@ impl BrowseScreen {
         query: &str,
         search_by_value: bool,
         client: &Arc<RwLock<OpcUaClientManager>>,
+        message_tx: &mpsc::UnboundedSender<SearchMessage>,
     ) -> bool {
         let client_guard = client.read().await;
         let query_lower = query.to_ascii_lowercase();
         
-        // Check NodeId
-        let node_id_str = node_id.to_string().to_ascii_lowercase();
-        if node_id_str.contains(&query_lower) {
-            log::info!("✓ NodeId match: '{}' contains '{}'", node_id_str, query);
-            return true;
-        }
-        
-        // Use the lightweight method to read only BrowseName and DisplayName
-        if let Ok((browse_name, display_name)) = client_guard.read_node_search_attributes(node_id).await {
+        // Use the lightweight method to read BrowseName, DisplayName, NodeClass, and optionally Value
+        if let Ok((browse_name, display_name, value_attr, node_class)) = client_guard.read_node_search_attributes(node_id, search_by_value).await {
+            // Send progress message with the current node being searched (DisplayName + NodeId)
+            let progress_text = format!("{} [{}]", display_name, node_id);
+            let _ = message_tx.send(SearchMessage::Progress {
+                current: 0, // Not used anymore
+                total: 0,   // Not used anymore
+                current_node: progress_text,
+            });
+            
+            // Check NodeId
+            let node_id_str = node_id.to_string().to_ascii_lowercase();
+            if node_id_str.contains(&query_lower) {
+                log::info!("✓ NodeId match: '{}' contains '{}'", node_id_str, query);
+                return true;
+            }
+            
             // Check BrowseName
             let browse_name_lower = browse_name.to_ascii_lowercase();
             if browse_name_lower.contains(&query_lower) {
@@ -594,18 +592,14 @@ impl BrowseScreen {
                 log::info!("✓ DisplayName match: '{}' contains '{}'", display_name_lower, query);
                 return true;
             }
-        }
-        
-        // Optional value lookup (only if search_by_value is enabled)
-        if search_by_value {
-            if let Ok(attributes) = client_guard.read_node_attributes(node_id).await {
-                for attr in attributes {
-                    if attr.name.to_lowercase() == "value" {
-                        let value_str = attr.value.to_ascii_lowercase();
-                        if value_str.contains(&query_lower) {
-                            log::info!("✓ Value attribute match: '{}' contains '{}'", value_str, query);
-                            return true;
-                        }
+            
+            // Check Value attribute if it was requested and available
+            if search_by_value {
+                if let Some(value) = value_attr {
+                    let value_lower = value.to_ascii_lowercase();
+                    if value_lower.contains(&query_lower) {
+                        log::info!("✓ Value attribute match: '{}' contains '{}'", value_lower, query);
+                        return true;
                     }
                 }
             }

@@ -535,14 +535,14 @@ impl OpcUaClientManager {
         }
     }
 
-    /// Read only the attributes needed for search (BrowseName and DisplayName)
+    /// Read only the attributes needed for search (BrowseName, DisplayName, and optionally Value)
     /// This is much more efficient than reading all node attributes
-    pub async fn read_node_search_attributes(&self, node_id: &NodeId) -> Result<(String, String)> {
+    pub async fn read_node_search_attributes(&self, node_id: &NodeId, include_value: bool) -> Result<(String, String, Option<String>, NodeClass)> {
         if let Some(session) = &self.session {
             let session_guard = session.read();
             
-            // Read only BrowseName and DisplayName attributes
-            let read_values = vec![
+            // Build read values - always include BrowseName, DisplayName, and NodeClass
+            let mut read_values = vec![
                 ReadValueId {
                     node_id: node_id.clone(),
                     attribute_id: AttributeId::BrowseName as u32,
@@ -555,7 +555,23 @@ impl OpcUaClientManager {
                     index_range: UAString::null(),
                     data_encoding: QualifiedName::null(),
                 },
+                ReadValueId {
+                    node_id: node_id.clone(),
+                    attribute_id: AttributeId::NodeClass as u32,
+                    index_range: UAString::null(),
+                    data_encoding: QualifiedName::null(),
+                },
             ];
+            
+            // Optionally include Value attribute
+            if include_value {
+                read_values.push(ReadValueId {
+                    node_id: node_id.clone(),
+                    attribute_id: AttributeId::Value as u32,
+                    index_range: UAString::null(),
+                    data_encoding: QualifiedName::null(),
+                });
+            }
             
             match session_guard.read(&read_values, TimestampsToReturn::Neither, 0.0) {
                 Ok(results) => {
@@ -589,12 +605,48 @@ impl OpcUaClientManager {
                         String::new()
                     };
                     
-                    Ok((browse_name, display_name))
+                    let node_class = if let Some(result) = results.get(2) {
+                        if let Some(Variant::Int32(class_value)) = &result.value {
+                            match *class_value {
+                                1 => NodeClass::Object,
+                                2 => NodeClass::Variable,
+                                4 => NodeClass::Method,
+                                8 => NodeClass::ObjectType,
+                                16 => NodeClass::VariableType,
+                                32 => NodeClass::ReferenceType,
+                                64 => NodeClass::DataType,
+                                128 => NodeClass::View,
+                                _ => NodeClass::Unspecified,
+                            }
+                        } else {
+                            NodeClass::Unspecified
+                        }
+                    } else {
+                        NodeClass::Unspecified
+                    };
+                    
+                    // Handle Value attribute if requested
+                    let value_attr = if include_value {
+                        if let Some(result) = results.get(3) {
+                            // Check if the status is good and value is present
+                            if let Some(variant) = &result.value {
+                                Some(format!("{}", variant))
+                            } else {
+                                None // No value present
+                            }
+                        } else {
+                            None
+                        }
+                    } else {
+                        None
+                    };
+                    
+                    Ok((browse_name, display_name, value_attr, node_class))
                 }
                 Err(e) => {
                     log::debug!("Failed to read search attributes for node {}: {}", node_id, e);
-                    // Return empty strings if we can't read the attributes
-                    Ok((String::new(), String::new()))
+                    // Return empty strings and default NodeClass if we can't read the attributes
+                    Ok((String::new(), String::new(), None, NodeClass::Unspecified))
                 }
             }
         } else {
