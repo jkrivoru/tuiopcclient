@@ -94,6 +94,7 @@ impl super::BrowseScreen {
 
     fn render_tree_view(&mut self, f: &mut Frame, area: Rect) {
         let visible_height = area.height.saturating_sub(2) as usize; // Subtract borders
+        self.current_visible_height = visible_height; // Store current visible height
         self.update_scroll_with_height(visible_height);
 
         let start_idx = self.scroll_offset;

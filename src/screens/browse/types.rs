@@ -99,6 +99,7 @@ pub struct BrowseScreen {
     pub selected_node_index: usize,
     pub expanded_nodes: std::collections::HashSet<String>,
     pub scroll_offset: usize,
+    pub current_visible_height: usize, // Store current visible height for scroll calculations
 
     // Attributes panel state
     pub selected_attributes: Vec<NodeAttribute>,
@@ -152,6 +153,7 @@ impl BrowseScreen {
             selected_node_index: 0,
             expanded_nodes: std::collections::HashSet::new(),
             scroll_offset: 0,
+            current_visible_height: 20, // Default height, will be updated in render
             selected_attributes: Vec::new(),
             attribute_scroll_offset: 0,
             server_url,

@@ -117,9 +117,8 @@ impl super::BrowseScreen {
 
     // Update scroll position
     pub fn update_scroll(&mut self) {
-        // This will be updated with actual visible height in render
-        let visible_height = 20;
-        self.update_scroll_with_height(visible_height);
+        // Use the stored current visible height
+        self.update_scroll_with_height(self.current_visible_height);
     }
 
     pub fn update_scroll_with_height(&mut self, visible_height: usize) {
@@ -127,12 +126,34 @@ impl super::BrowseScreen {
             return;
         }
 
-        // Keep selected item in view
+        // Calculate 25% zones
+        let top_25_percent = visible_height / 4;
+        let bottom_25_percent = visible_height.saturating_sub(visible_height / 4);
+
+        // Get the current position of selected item relative to visible area
+        let current_visible_position = if self.selected_node_index >= self.scroll_offset {
+            self.selected_node_index - self.scroll_offset
+        } else {
+            0
+        };
+
+        // Check if item is outside visible area or in the 25% zones
         if self.selected_node_index < self.scroll_offset {
-            self.scroll_offset = self.selected_node_index;
+            // Item is above visible area - scroll to position it at 25% from top
+            self.scroll_offset = self.selected_node_index.saturating_sub(top_25_percent);
         } else if self.selected_node_index >= self.scroll_offset + visible_height {
-            self.scroll_offset = self.selected_node_index.saturating_sub(visible_height - 1);
+            // Item is below visible area - scroll to position it at 75% from top (25% from bottom)
+            let target_position = (visible_height * 3) / 4; // 75% from top
+            self.scroll_offset = self.selected_node_index.saturating_sub(target_position);
+        } else if current_visible_position < top_25_percent {
+            // Item is in top 25% - scroll to position it at 25% from top
+            self.scroll_offset = self.selected_node_index.saturating_sub(top_25_percent);
+        } else if current_visible_position >= bottom_25_percent {
+            // Item is in bottom 25% - scroll to position it at 75% from top (25% from bottom)
+            let target_position = (visible_height * 3) / 4; // 75% from top
+            self.scroll_offset = self.selected_node_index.saturating_sub(target_position);
         }
+        // If item is in the middle 50%, no scrolling needed
     }
 
     // Find next sibling at the same level
