@@ -109,9 +109,6 @@ pub struct BrowseScreen {
     pub server_url: String,
     pub connection_status: ConnectionStatus,
 
-    // Selection state for subscription
-    pub selected_items: std::collections::HashSet<String>, // Store node IDs of selected items
-
     // Mouse state for double-click detection
     pub last_click_time: Option<std::time::Instant>,
     pub last_click_position: Option<(u16, u16)>,
@@ -158,7 +155,6 @@ impl BrowseScreen {
             attribute_scroll_offset: 0,
             server_url,
             connection_status: ConnectionStatus::Connected,
-            selected_items: std::collections::HashSet::new(),
             last_click_time: None,
             last_click_position: None,
             client,            is_loading: true, // Start in loading state
@@ -212,10 +208,6 @@ impl BrowseScreen {
                 },
             ];
         }
-    }
-
-    pub fn clear_selections(&mut self) {
-        self.selected_items.clear();
     }
 }
 

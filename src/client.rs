@@ -49,10 +49,13 @@ impl OpcUaClientManager {
         use crate::connection_manager::{ConnectionManager, ConnectionConfig};
         
         self.connection_status = ConnectionStatus::Connecting;
-        self.server_url = endpoint_url.to_string();        // Create unified connection configuration
+        self.server_url = endpoint_url.to_string();
+
+        // Create unified connection configuration
         let config = ConnectionConfig::ui_connection();
 
-        match ConnectionManager::connect_to_server(endpoint_url, &config).await {
+        // Use robust connection method to handle hostname mismatches
+        match ConnectionManager::connect_to_server_robust(endpoint_url, &config).await {
             Ok((client, session)) => {
                 self.client = Some(client);
                 self.session = Some(session);
@@ -65,6 +68,32 @@ impl OpcUaClientManager {
             }
         }
     }
+
+    /// Connect using secure configuration (with certificates)
+    pub async fn connect_secure(&mut self, endpoint_url: &str) -> Result<()> {
+        use crate::connection_manager::{ConnectionManager, ConnectionConfig};
+        
+        self.connection_status = ConnectionStatus::Connecting;
+        self.server_url = endpoint_url.to_string();
+
+        // Use secure connection configuration
+        let config = ConnectionConfig::secure_connection();
+
+        // Use robust connection method to handle hostname mismatches
+        match ConnectionManager::connect_to_server_robust(endpoint_url, &config).await {
+            Ok((client, session)) => {
+                self.client = Some(client);
+                self.session = Some(session);
+                self.connection_status = ConnectionStatus::Connected;
+                Ok(())
+            }
+            Err(e) => {
+                self.connection_status = ConnectionStatus::Error(format!("Connection failed: {}", e));
+                Err(e)
+            }
+        }
+    }
+
     pub async fn disconnect(&mut self) -> Result<()> {
         if let Some(session) = self.session.take() {
             crate::session_utils::SessionUtils::disconnect_session(session).await?;

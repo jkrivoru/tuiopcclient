@@ -6,6 +6,7 @@ use log::{error, info, warn};
 use opcua::client::prelude::*;
 use opcua::types::EndpointDescription;
 use parking_lot::RwLock;
+use std::path::PathBuf;
 use std::sync::Arc;
 
 pub struct SecurityConfig {
@@ -41,7 +42,11 @@ impl ConnectionBuilder {
                 IdentityToken::UserName(inputs.username.clone(), inputs.password.clone())
             }
             AuthenticationType::X509Certificate => {
-                return Err(anyhow!("X509 authentication not yet implemented"));
+                self.validate_x509_certificate(inputs)?;
+                IdentityToken::X509(
+                    PathBuf::from(&inputs.cert_path),
+                    PathBuf::from(&inputs.key_path)
+                )
             }
         });
         Ok(self)
@@ -93,6 +98,57 @@ impl ConnectionBuilder {
             ));
         }        Ok(())
     }
+
+    fn validate_x509_certificate(&self, inputs: &AuthInputs) -> Result<()> {
+        // Validate certificate file
+        if inputs.cert_path.trim().is_empty() {
+            return Err(anyhow!("Certificate file path is required for X509 authentication"));
+        }
+        
+        let cert_path = std::path::Path::new(&inputs.cert_path);
+        if !cert_path.exists() {
+            return Err(anyhow!("Certificate file does not exist: {}", inputs.cert_path));
+        }
+        
+        // Check certificate file extension
+        let cert_ext = cert_path
+            .extension()
+            .and_then(|s| s.to_str())
+            .unwrap_or("");
+        if !["der", "pem", "crt", "cer"].contains(&cert_ext.to_lowercase().as_str()) {
+            return Err(anyhow!(
+                "Certificate file must have .der, .pem, .crt, or .cer extension"
+            ));
+        }
+        
+        // Validate private key file
+        if inputs.key_path.trim().is_empty() {
+            return Err(anyhow!("Private key file path is required for X509 authentication"));
+        }
+        
+        let key_path = std::path::Path::new(&inputs.key_path);
+        if !key_path.exists() {
+            return Err(anyhow!("Private key file does not exist: {}", inputs.key_path));
+        }
+        
+        // Check private key file extension
+        let key_ext = key_path
+            .extension()
+            .and_then(|s| s.to_str())
+            .unwrap_or("");
+        if !["pem", "key"].contains(&key_ext.to_lowercase().as_str()) {
+            return Err(anyhow!(
+                "Private key file must have .pem or .key extension"
+            ));
+        }
+        
+        // Log successful validation
+        info!("X509 certificate validation successful");
+        info!("Certificate: {}", inputs.cert_path);
+        info!("Private key: {}", inputs.key_path);
+        
+        Ok(())
+    }
 }
 
 impl ConnectScreen {
@@ -139,7 +195,12 @@ impl ConnectScreen {
         );
 
         let auth_inputs = self.collect_auth_inputs();
-        let security_config = self.collect_security_config();        let connection_result = match ConnectionBuilder::new(endpoint)
+        let security_config = self.collect_security_config();        
+        info!(
+            "Security Config: {}, {}, {}",
+            security_config.client_cert_path, security_config.client_key_path, security_config.auto_trust
+        );
+        let connection_result = match ConnectionBuilder::new(endpoint)
             .with_identity(&self.authentication_type, &auth_inputs)?
             .with_security(security_config)
             .connect()

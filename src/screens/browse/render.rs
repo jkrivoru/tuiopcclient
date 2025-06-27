@@ -66,8 +66,6 @@ impl super::BrowseScreen {
             "No node selected".to_string()
         };
 
-        let selection_count = format!("{} selected", self.selected_items.len());
-
         let status_text = vec![
             Span::styled(
                 "OPC UA Server: ",
@@ -80,9 +78,8 @@ impl super::BrowseScreen {
             Span::styled("Connected", Style::default().fg(Color::Green)),
             Span::raw(" | "),
             Span::styled(&selected_node_info, Style::default().fg(Color::Yellow)),
-            Span::raw(" | "),
-            Span::styled(&selection_count, Style::default().fg(Color::Magenta)),            Span::raw(
-                " | Use ←/→ expand/collapse, ↑/↓ navigate, SPACE select, c clear, F3/Ctrl+F search, F12 logs, q/Esc exit",
+            Span::raw(
+                " | Use ←/→ expand/collapse, ↑/↓ navigate, F3/Ctrl+F search, F12 logs, q/Esc exit",
             ),
         ];
 
@@ -111,7 +108,6 @@ impl super::BrowseScreen {
             .map(|(i, node)| {
                 let actual_index = start_idx + i;
                 let is_selected = actual_index == self.selected_node_index;
-                let is_selected_for_subscription = self.selected_items.contains(&node.node_id);
 
                 let icon = match node.node_type {
                     NodeType::Object => "📁",
@@ -143,20 +139,9 @@ impl super::BrowseScreen {
                 let name = format!("{}{} {} {}", indent, expand_icon, icon, node.name);
 
                 let style = if is_selected {
-                    if is_selected_for_subscription {
-                        Style::default()
-                            .bg(Color::Blue)
-                            .fg(Color::Yellow)
-                            .add_modifier(Modifier::BOLD)
-                    } else {
-                        Style::default()
-                            .bg(Color::Blue)
-                            .fg(Color::White)
-                            .add_modifier(Modifier::BOLD)
-                    }
-                } else if is_selected_for_subscription {
                     Style::default()
-                        .fg(Color::Yellow)
+                        .bg(Color::Blue)
+                        .fg(Color::White)
                         .add_modifier(Modifier::BOLD)
                 } else {
                     Style::default().fg(Color::White)

@@ -135,18 +135,6 @@ impl super::BrowseScreen {
                 }
                 Ok(None)
             }
-            KeyCode::Char(' ') => {
-                // Toggle selection of current node
-                if self.selected_node_index < self.tree_nodes.len() {
-                    self.toggle_node_selection(self.selected_node_index);
-                }
-                Ok(None)
-            }
-            KeyCode::Char('c') => {
-                // Clear all selections
-                self.clear_selections();
-                Ok(None)
-            }
             KeyCode::Left => {
                 // Left key behavior:
                 // 1. If current node is expanded, collapse it
@@ -254,10 +242,6 @@ impl super::BrowseScreen {
                 self.handle_left_click(mouse.column, mouse.row, tree_area)
                     .await
             }
-            MouseEventKind::Down(MouseButton::Right) => {
-                self.handle_right_click(mouse.column, mouse.row, tree_area)
-                    .await
-            }
             _ => Ok(None),
         }
     }
@@ -296,28 +280,6 @@ impl super::BrowseScreen {
         }
     }
 
-    async fn handle_right_click(
-        &mut self,
-        x: u16,
-        y: u16,
-        tree_area: Rect,
-    ) -> Result<Option<ConnectionStatus>> {
-        // Check if right-click is within the tree area
-        if x >= tree_area.x
-            && x < tree_area.x + tree_area.width
-            && y >= tree_area.y
-            && y < tree_area.y + tree_area.height
-        {
-            let relative_y = y.saturating_sub(tree_area.y);
-            let clicked_index = (relative_y as usize).saturating_add(self.scroll_offset);
-
-            if clicked_index < self.tree_nodes.len() {
-                // Right-click: toggle selection
-                self.toggle_node_selection(clicked_index);
-            }
-        }
-        Ok(None)
-    }
     async fn handle_single_click(&mut self, index: usize) -> Result<Option<ConnectionStatus>> {
         // Navigate to the clicked node
         self.selected_node_index = index;

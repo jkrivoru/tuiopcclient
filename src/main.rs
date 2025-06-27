@@ -1,5 +1,7 @@
 use anyhow::Result;
 use clap::Parser;
+use opcua::types::MessageSecurityMode;  // Add this import
+use std::path::PathBuf;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 
@@ -188,18 +190,42 @@ async fn connect_with_cli_params(
              args.security_policy, args.security_mode);
 
     // Create unified connection configuration
-    let config = ConnectionConfig::cli_connection()
+    let mut config = ConnectionConfig::cli_connection()
         .with_security(
             opcua_security_policy,
             opcua_security_mode,
             args.auto_trust,
             args.client_certificate.clone(),
             args.client_private_key.clone(),
-        )        .with_authentication(identity_token)
+        )
+        .with_authentication(identity_token.clone())
         .with_url_override(args.use_original_url);
 
-    // Use unified connection manager
-    match ConnectionManager::connect_to_server(server_url, &config).await {
+    // If using secure connection with certificates, use the secure config
+    if opcua_security_mode != MessageSecurityMode::None && 
+       (args.client_certificate.is_some() || args.client_private_key.is_some()) {
+        config = ConnectionConfig::secure_connection()
+            .with_security(
+                opcua_security_policy,
+                opcua_security_mode,
+                args.auto_trust,
+                args.client_certificate.clone(),
+                args.client_private_key.clone(),
+            )
+            .with_authentication(identity_token)
+            .with_url_override(args.use_original_url);
+        
+        println!("Using secure connection configuration with certificates");
+    }
+
+    // Use unified connection manager (robust version for secure connections)
+    let connection_result = if opcua_security_mode != MessageSecurityMode::None {
+        ConnectionManager::connect_to_server_robust(server_url, &config).await
+    } else {
+        ConnectionManager::connect_to_server(server_url, &config).await
+    };
+
+    match connection_result {
         Ok((client, session)) => {
             // Store the connection in the client manager
             client_manager.client = Some(client);
@@ -240,10 +266,29 @@ fn create_identity_token(args: &Args) -> Result<opcua::client::prelude::Identity
       if let (Some(username), Some(password)) = (&args.user_name, &args.password) {
         println!("Using username/password authentication for user: {}", username);
         Ok(IdentityToken::UserName(username.clone(), password.clone()))
-    } else if let (Some(_cert_path), Some(_key_path)) = (&args.user_certificate, &args.user_private_key) {
+    } else if let (Some(cert_path), Some(key_path)) = (&args.user_certificate, &args.user_private_key) {
         println!("Using X.509 certificate authentication");
-        // For now, return error as X.509 auth needs more implementation
-        Err(anyhow::anyhow!("X.509 certificate authentication not yet fully implemented"))    } else {
+        
+        // Validate certificate file exists
+        let cert_path = std::path::Path::new(cert_path);
+        if !cert_path.exists() {
+            return Err(anyhow::anyhow!("Certificate file does not exist: {}", cert_path.display()));
+        }
+        
+        // Validate private key file exists
+        let key_path = std::path::Path::new(key_path);
+        if !key_path.exists() {
+            return Err(anyhow::anyhow!("Private key file does not exist: {}", key_path.display()));
+        }
+        
+        println!("Certificate: {}", cert_path.display());
+        println!("Private key: {}", key_path.display());
+        
+        Ok(IdentityToken::X509(
+            PathBuf::from(cert_path),
+            PathBuf::from(key_path)
+        ))
+    } else {
         println!("Using anonymous authentication");
         Ok(IdentityToken::Anonymous)
     }
