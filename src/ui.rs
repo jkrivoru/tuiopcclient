@@ -297,47 +297,42 @@ impl App {    pub fn new(client_manager: Arc<RwLock<OpcUaClientManager>>) -> Sel
     async fn handle_connection_result(&mut self, connection_result: ConnectionStatus) {
         match connection_result {
             ConnectionStatus::Connecting => {
-                // Get the server URL from the connect screen and attempt the actual connection
+                // Connection was successfully established by ConnectScreen
                 let server_url = self.connect_screen.get_server_url();
-                log::info!("Attempting real connection to: {}", server_url);
+                log::info!("Connection established by ConnectScreen to: {}", server_url);
 
-                // Actually connect the client manager to the server
-                let connection_result = {
-                    let mut client_guard = self.client_manager.write().await;
-                    client_guard.connect(&server_url).await
-                };
-
-                match connection_result {
-                    Ok(()) => {
-                        log::info!("Client manager successfully connected to: {}", server_url);
-
-                        // Update client manager status (ensure write lock is released quickly)
-                        {
-                            if let Ok(mut client) = self.client_manager.try_write() {
-                                client.set_connection_status(ConnectionStatus::Connected);
-                            }
-                        }                        // Transition to browse screen
-                        self.app_state = AppState::Connected(server_url.clone());
-                        let mut browse_screen =
-                            BrowseScreen::new(server_url.clone(), self.client_manager.clone());
-
-                        // Load real tree data asynchronously
-                        if let Err(e) = browse_screen.load_real_tree().await {
-                            log::error!("Failed to load real tree data: {}", e);
-                        }
-
-                        self.browse_screen = Some(browse_screen);
+                // Transfer the connection from ConnectScreen to ClientManager
+                if let (Some(client), Some(session)) = (
+                    self.connect_screen.take_client(),
+                    self.connect_screen.take_session()
+                ) {
+                    log::info!("Transferring connection to client manager");
+                    
+                    // Transfer the established connection to client manager
+                    {
+                        let mut client_guard = self.client_manager.write().await;
+                        client_guard.set_connection(client, session, server_url.clone());
+                        client_guard.set_connection_status(ConnectionStatus::Connected);
                     }
-                    Err(e) => {
-                        log::error!("Failed to connect client manager: {}", e);
-                        self.connect_screen.clear_connection().await;
-                        // Set client manager to error state
-                        if let Ok(mut client) = self.client_manager.try_write() {
-                            client.set_connection_status(ConnectionStatus::Error(format!(
-                                "Connection failed: {}",
-                                e
-                            )));
-                        }
+
+                    // Transition to browse screen
+                    self.app_state = AppState::Connected(server_url.clone());
+                    let mut browse_screen =
+                        BrowseScreen::new(server_url.clone(), self.client_manager.clone());
+
+                    // Load real tree data asynchronously
+                    if let Err(e) = browse_screen.load_real_tree().await {
+                        log::error!("Failed to load real tree data: {}", e);
+                    }
+
+                    self.browse_screen = Some(browse_screen);
+                } else {
+                    log::error!("ConnectScreen did not provide client and session");
+                    // Set client manager to error state
+                    if let Ok(mut client) = self.client_manager.try_write() {
+                        client.set_connection_status(ConnectionStatus::Error(
+                            "Connection transfer failed - no client/session available".to_string()
+                        ));
                     }
                 }
             }
@@ -345,7 +340,8 @@ impl App {    pub fn new(client_manager: Arc<RwLock<OpcUaClientManager>>) -> Sel
                 // This shouldn't happen anymore since perform_connection returns Connecting
                 log::warn!("Received Connected status directly - this should not happen");
                 let server_url = self.connect_screen.get_server_url();
-                self.app_state = AppState::Connected(server_url.clone());                let mut browse_screen = BrowseScreen::new(server_url, self.client_manager.clone());
+                self.app_state = AppState::Connected(server_url.clone());
+                let mut browse_screen = BrowseScreen::new(server_url, self.client_manager.clone());
 
                 // Load real tree data asynchronously
                 if let Err(e) = browse_screen.load_real_tree().await {

@@ -54,8 +54,8 @@ impl OpcUaClientManager {
         // Create unified connection configuration
         let config = ConnectionConfig::ui_connection();
 
-        // Use robust connection method to handle hostname mismatches
-        match ConnectionManager::connect_to_server_robust(endpoint_url, &config).await {
+        // Connect to the server
+        match ConnectionManager::connect_to_server(endpoint_url, &config).await {
             Ok((client, session)) => {
                 self.client = Some(client);
                 self.session = Some(session);
@@ -79,8 +79,8 @@ impl OpcUaClientManager {
         // Use secure connection configuration
         let config = ConnectionConfig::secure_connection();
 
-        // Use robust connection method to handle hostname mismatches
-        match ConnectionManager::connect_to_server_robust(endpoint_url, &config).await {
+        // Connect to the server
+        match ConnectionManager::connect_to_server(endpoint_url, &config).await {
             Ok((client, session)) => {
                 self.client = Some(client);
                 self.session = Some(session);
@@ -776,5 +776,13 @@ impl OpcUaClientManager {
             "i=30" => "Image".to_string(),
             _ => format!("Custom DataType ({})", data_type_id),
         }
+    }
+
+    /// Set an existing connection (transfer from ConnectScreen)
+    pub fn set_connection(&mut self, client: Client, session: Arc<RwLock<Session>>, server_url: String) {
+        self.client = Some(client);
+        self.session = Some(session);
+        self.server_url = server_url;
+        self.connection_status = ConnectionStatus::Connected;
     }
 }

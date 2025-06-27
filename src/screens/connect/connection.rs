@@ -65,17 +65,62 @@ impl ConnectionBuilder {
 
         // Parse security policy from endpoint
         let security_policy = Self::parse_security_policy(&self.endpoint.security_policy_uri);
+        
+        log::info!("Connection attempt with endpoint security URI: '{}' -> policy: {:?}, mode: {:?}", 
+                   self.endpoint.security_policy_uri.as_ref(), security_policy, self.endpoint.security_mode);
 
-        // Create unified connection configuration
-        let config = ConnectionConfig::ui_connection()
-            .with_security(
-                security_policy,
-                self.endpoint.security_mode,
-                self.security_config.as_ref().map(|c| c.auto_trust).unwrap_or(true),
-                self.security_config.as_ref().and_then(|c| if c.client_cert_path.is_empty() { None } else { Some(c.client_cert_path.clone()) }),
-                self.security_config.as_ref().and_then(|c| if c.client_key_path.is_empty() { None } else { Some(c.client_key_path.clone()) }),
-            )            .with_authentication(identity_token);
+        // Log security config for debugging
+        if let Some(ref sec_config) = self.security_config {
+            log::info!("Security config - cert: '{}', key: '{}', auto_trust: {}", 
+                       sec_config.client_cert_path, sec_config.client_key_path, sec_config.auto_trust);
+        } else {
+            log::info!("No security config provided");
+        }
 
+        // Use secure connection configuration if:
+        // 1. The endpoint uses a secure policy (not None), OR
+        // 2. The endpoint uses secure mode (not None), OR  
+        // 3. Client certificates are provided
+        let use_secure_config = security_policy != opcua::crypto::SecurityPolicy::None ||
+                               self.endpoint.security_mode != opcua::types::MessageSecurityMode::None ||
+                               self.security_config.as_ref()
+                                   .map(|c| !c.client_cert_path.is_empty() && !c.client_key_path.is_empty())
+                                   .unwrap_or(false);
+
+        log::info!("Use secure config decision: {} (policy={:?} != None: {}, mode={:?} != None: {}, certs provided: {})", 
+                   use_secure_config,
+                   security_policy, security_policy != opcua::crypto::SecurityPolicy::None,
+                   self.endpoint.security_mode, self.endpoint.security_mode != opcua::types::MessageSecurityMode::None,
+                   self.security_config.as_ref().map(|c| !c.client_cert_path.is_empty() && !c.client_key_path.is_empty()).unwrap_or(false));
+
+        let config = if use_secure_config {
+            log::info!("Using secure connection configuration");
+            // Use secure connection configuration 
+            ConnectionConfig::secure_connection()
+                .with_security(
+                    security_policy,
+                    self.endpoint.security_mode,
+                    self.security_config.as_ref().map(|c| c.auto_trust).unwrap_or(true),
+                    self.security_config.as_ref().and_then(|c| if c.client_cert_path.is_empty() { None } else { Some(c.client_cert_path.clone()) }),
+                    self.security_config.as_ref().and_then(|c| if c.client_key_path.is_empty() { None } else { Some(c.client_key_path.clone()) }),
+                )
+                .with_authentication(identity_token)
+        } else {
+            log::info!("Using regular UI connection configuration");
+            // Use regular UI connection configuration for non-secure connections
+            ConnectionConfig::ui_connection()
+                .with_security(
+                    security_policy,
+                    self.endpoint.security_mode,
+                    self.security_config.as_ref().map(|c| c.auto_trust).unwrap_or(true),
+                    self.security_config.as_ref().and_then(|c| if c.client_cert_path.is_empty() { None } else { Some(c.client_cert_path.clone()) }),
+                    self.security_config.as_ref().and_then(|c| if c.client_key_path.is_empty() { None } else { Some(c.client_key_path.clone()) }),
+                )
+                .with_authentication(identity_token)
+        };
+
+        log::info!("Final connection config: policy={:?}, mode={:?}, app_uri={}", 
+                   config.security_policy, config.security_mode, config.application_uri);
         ConnectionManager::connect_to_endpoint(self.endpoint, &config).await
     }
 
@@ -240,6 +285,16 @@ impl ConnectScreen {
         self.client = None;
         info!("Disconnected from OPC UA server");
         Ok(())
+    }
+
+    /// Take ownership of the client (moving it out)
+    pub fn take_client(&mut self) -> Option<Client> {
+        self.client.take()
+    }
+
+    /// Take ownership of the session (moving it out)
+    pub fn take_session(&mut self) -> Option<Arc<RwLock<Session>>> {
+        self.session.take()
     }
 
     fn get_auth_description(&self) -> String {

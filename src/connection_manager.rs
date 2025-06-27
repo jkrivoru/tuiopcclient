@@ -291,88 +291,9 @@ impl ConnectionManager {    /// Discover endpoints from an OPC UA server
 
         // Connect to the selected endpoint
         Self::connect_to_endpoint(selected_endpoint, config).await
-    }    /// Connect to an OPC UA server with multiple URL fallbacks (handles hostname mismatches)
-    pub async fn connect_to_server_robust(
-        server_url: &str,
-        config: &ConnectionConfig,
-    ) -> Result<(Client, Arc<RwLock<Session>>)> {
-        log::info!("Starting robust connection process to: {}", server_url);
-        log::debug!("Connection config: {:?}", config);
-
-        // Generate multiple server URLs to try (handles hostname certificate mismatches)
-        let server_urls = Self::generate_server_url_variants(server_url);
-        log::debug!("Trying URLs: {:?}", server_urls);
-        
-        let mut last_error = None;
-
-        for (i, url) in server_urls.iter().enumerate() {
-            log::info!("Connection attempt {} - Testing: {}", i + 1, url);
-            
-            match Self::connect_to_server(url, config).await {
-                Ok((client, session)) => {
-                    log::info!("Successfully connected using URL: {}", url);
-                    return Ok((client, session));
-                },
-                Err(e) => {
-                    let error_string = e.to_string();
-                    log::error!("Connection attempt {} failed for {}: {}", i + 1, url, e);
-                    
-                    // If it's a hostname error, continue trying other URLs
-                    if error_string.to_lowercase().contains("hostname") || 
-                       error_string.to_lowercase().contains("certificate") {
-                        log::debug!("Hostname/certificate error detected, trying next URL...");
-                        last_error = Some(e);
-                        continue;
-                    }
-                    
-                    // For BadNotConnected, also try other URLs
-                    if error_string.to_lowercase().contains("badnotconnected") ||
-                       error_string.to_lowercase().contains("not connected") {
-                        log::debug!("BadNotConnected error detected, trying next URL...");
-                        last_error = Some(e);
-                        continue;
-                    }
-                    
-                    // For other errors, we might want to fail fast
-                    // but let's try all URLs first
-                    last_error = Some(e);
-                    continue;
-                }
-            }
-        }
-
-        Err(last_error.unwrap_or_else(|| anyhow!("All connection attempts failed")))
     }
 
-    /// Generate server URL variants to handle hostname certificate mismatches
-    fn generate_server_url_variants(original_url: &str) -> Vec<String> {
-        let mut urls = vec![original_url.to_string()];
-        
-        // Parse the original URL to get parts
-        if let Some(base_url) = original_url.strip_prefix("opc.tcp://") {
-            if let Some(colon_pos) = base_url.find(':') {
-                let (_host_part, port_part) = base_url.split_at(colon_pos);
-                
-                // Add common localhost variants
-                urls.push(format!("opc.tcp://localhost{}", port_part));
-                urls.push(format!("opc.tcp://127.0.0.1{}", port_part));
-                
-                // Add known certificate hostnames for OpcPlc
-                urls.push(format!("opc.tcp://ed36dce9f0e4{}", port_part));  // From our debugging
-                urls.push(format!("opc.tcp://f6527cc2559e{}", port_part));  // Original hostname
-            }
-        }
-        
-        // Remove duplicates while preserving order
-        let mut unique_urls = Vec::new();
-        for url in urls {
-            if !unique_urls.contains(&url) {
-                unique_urls.push(url);
-            }
-        }
-        
-        unique_urls
-    }    /// Build a configured OPC UA client for regular connections
+    /// Build a configured OPC UA client for regular connections
     fn build_client(config: &ConnectionConfig) -> Result<Client> {
         log::debug!("Building client with application URI: {}", config.application_uri);
 

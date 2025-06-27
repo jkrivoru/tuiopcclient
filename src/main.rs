@@ -218,12 +218,8 @@ async fn connect_with_cli_params(
         println!("Using secure connection configuration with certificates");
     }
 
-    // Use unified connection manager (robust version for secure connections)
-    let connection_result = if opcua_security_mode != MessageSecurityMode::None {
-        ConnectionManager::connect_to_server_robust(server_url, &config).await
-    } else {
-        ConnectionManager::connect_to_server(server_url, &config).await
-    };
+    // Use unified connection manager
+    let connection_result = ConnectionManager::connect_to_server(server_url, &config).await;
 
     match connection_result {
         Ok((client, session)) => {
