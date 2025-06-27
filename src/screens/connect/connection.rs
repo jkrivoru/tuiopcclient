@@ -95,9 +95,9 @@ impl ConnectionBuilder {
 
         let config = if use_secure_config {
             log::info!("Using secure connection configuration");
-            // Use secure connection configuration 
+            // Use secure connection configuration with automatic URI extraction from certificate
             ConnectionConfig::secure_connection()
-                .with_security(
+                .with_security_auto_uri(
                     security_policy,
                     self.endpoint.security_mode,
                     self.security_config.as_ref().map(|c| c.auto_trust).unwrap_or(true),

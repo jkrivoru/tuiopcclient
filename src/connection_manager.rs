@@ -75,18 +75,76 @@ impl ConnectionConfig {    /// Create configuration for CLI discovery
     }
 
     /// Create configuration for secure OPC UA connections with certificates
+    /// Automatically extracts application URI from the certificate
     pub fn secure_connection() -> Self {
+        let cert_path = "./pki/own/OpcPlc.der";
+        let key_path = "./pki/private/OpcPlc.pem";
+        
+        // Try to extract application URI from certificate, fallback to default
+        let application_uri = ConnectionManager::extract_application_uri_from_certificate(cert_path)
+            .unwrap_or_else(|e| {
+                log::warn!("Failed to extract application URI from certificate: {}", e);
+                log::info!("Using default application URI");
+                "urn:opcua-tui-client-secure".to_string()
+            });
+        
+        log::info!("Using application URI from certificate: {}", application_uri);
+        
         Self {
             application_name: "OPC UA TUI Client - Secure".to_string(),
-            application_uri: "urn:OpcPlc:f6527cc2559e".to_string(),  // Use the correct URI for OpcPlc certificates
+            application_uri,
+            security_policy: SecurityPolicy::Basic256Sha256,
+            security_mode: MessageSecurityMode::SignAndEncrypt,
+            auto_trust: true,
+            client_cert_path: Some(cert_path.to_string()),
+            client_key_path: Some(key_path.to_string()),
+            identity_token: IdentityToken::Anonymous,
+            use_original_url: false,
+        }
+    }
+
+    /// Create configuration for secure OPC UA connections with a custom application URI
+    /// If no URI is provided, attempts to extract from certificate
+    pub fn secure_connection_with_uri(application_uri: String) -> Self {
+        Self {
+            application_name: "OPC UA TUI Client - Secure".to_string(),
+            application_uri,
             security_policy: SecurityPolicy::Basic256Sha256,
             security_mode: MessageSecurityMode::SignAndEncrypt,
             auto_trust: true,
             client_cert_path: Some("./pki/own/OpcPlc.der".to_string()),
-            client_key_path: Some("./pki/private/OpcPlc.pem".to_string()),  // Use OpcPlc.pem as the user mentioned
+            client_key_path: Some("./pki/private/OpcPlc.pem".to_string()),
             identity_token: IdentityToken::Anonymous,
             use_original_url: false,
         }
+    }
+
+    /// Set security configuration and automatically extract application URI from certificate
+    pub fn with_security_auto_uri(
+        mut self,
+        policy: SecurityPolicy,
+        mode: MessageSecurityMode,
+        auto_trust: bool,
+        client_cert: Option<String>,
+        client_key: Option<String>,
+    ) -> Self {
+        self.security_policy = policy;
+        self.security_mode = mode;
+        self.auto_trust = auto_trust;
+        self.client_cert_path = client_cert.clone();
+        self.client_key_path = client_key;
+        
+        // Try to extract application URI from certificate if path is provided
+        if let Some(cert_path) = &client_cert {
+            if let Ok(extracted_uri) = ConnectionManager::extract_application_uri_from_certificate(cert_path) {
+                log::info!("Automatically extracted application URI from certificate: {}", extracted_uri);
+                self.application_uri = extracted_uri;
+            } else {
+                log::warn!("Failed to extract application URI from certificate, using current URI: {}", self.application_uri);
+            }
+        }
+        
+        self
     }
 
     /// Set security configuration
@@ -110,7 +168,15 @@ impl ConnectionConfig {    /// Create configuration for CLI discovery
     pub fn with_authentication(mut self, identity_token: IdentityToken) -> Self {
         self.identity_token = identity_token;
         self
-    }    /// Set URL override behavior
+    }
+
+    /// Set application URI
+    pub fn with_application_uri(mut self, application_uri: String) -> Self {
+        self.application_uri = application_uri;
+        self
+    }
+
+    /// Set URL override behavior
     pub fn with_url_override(mut self, use_original_url: bool) -> Self {
         self.use_original_url = use_original_url;
         self
@@ -605,5 +671,74 @@ impl ConnectionManager {    /// Discover endpoints from an OPC UA server
         
         log::info!("Certificate and private key validation successful - they are compatible");
         Ok(())
+    }
+
+    /// Extract application URI from an X.509 certificate
+    /// This reads the Subject Alternative Name (SAN) extension to find the application URI
+    fn extract_application_uri_from_certificate(cert_path: &str) -> Result<String> {
+        use std::fs;
+        
+        log::debug!("Extracting application URI from certificate: {}", cert_path);
+        
+        // Read certificate file
+        let cert_data = fs::read(cert_path)
+            .map_err(|e| anyhow!("Cannot read certificate file: {}", e))?;
+            
+        if cert_data.is_empty() {
+            return Err(anyhow!("Certificate file is empty"));
+        }
+        
+        // Parse certificate with OpenSSL
+        let cert = if cert_data.starts_with(b"-----BEGIN CERTIFICATE-----") {
+            // PEM format
+            openssl::x509::X509::from_pem(&cert_data)
+                .map_err(|e| anyhow!("Failed to parse PEM certificate: {}", e))?
+        } else {
+            // DER format
+            openssl::x509::X509::from_der(&cert_data)
+                .map_err(|e| anyhow!("Failed to parse DER certificate: {}", e))?
+        };
+        
+        log::debug!("Certificate parsed successfully, extracting Subject Alternative Name");
+        
+        // Get Subject Alternative Name extension
+        let subject_alt_names = cert.subject_alt_names();
+        
+        if let Some(san_list) = subject_alt_names {
+            for san in san_list {
+                // Check if this is a URI entry
+                if let Some(uri) = san.uri() {
+                    let uri_str = uri.to_string();
+                    log::debug!("Found URI in SAN: {}", uri_str);
+                    
+                    // OPC UA application URIs typically start with "urn:" 
+                    // and often contain "opcua" or similar identifiers
+                    if uri_str.starts_with("urn:") {
+                        log::info!("Found application URI in certificate: {}", uri_str);
+                        return Ok(uri_str);
+                    }
+                }
+            }
+        }
+        
+        // If no URI found in SAN, try to get it from subject CN as fallback
+        let subject = cert.subject_name();
+        for entry in subject.entries() {
+            let obj = entry.object();
+            if obj.nid() == openssl::nid::Nid::COMMONNAME {
+                if let Ok(data) = entry.data().as_utf8() {
+                    let cn = data.to_string();
+                    log::debug!("Found CN in certificate: {}", cn);
+                    
+                    // If CN looks like a URN, use it
+                    if cn.starts_with("urn:") {
+                        log::info!("Using CN as application URI: {}", cn);
+                        return Ok(cn);
+                    }
+                }
+            }
+        }
+        
+        Err(anyhow!("No application URI found in certificate Subject Alternative Name or Common Name"))
     }
 }

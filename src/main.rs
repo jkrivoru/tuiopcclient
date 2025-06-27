@@ -66,7 +66,9 @@ pub struct Args {
 
     /// Path to user private key file for X.509 authentication
     #[arg(long)]
-    user_private_key: Option<String>,    /// Use original URL instead of server-provided endpoint URLs
+    user_private_key: Option<String>,
+
+    /// Use original URL instead of server-provided endpoint URLs
     #[arg(long)]
     use_original_url: bool,
 }
@@ -204,8 +206,8 @@ async fn connect_with_cli_params(
     // If using secure connection with certificates, use the secure config
     if opcua_security_mode != MessageSecurityMode::None && 
        (args.client_certificate.is_some() || args.client_private_key.is_some()) {
-        config = ConnectionConfig::secure_connection()
-            .with_security(
+        let secure_config = ConnectionConfig::secure_connection()
+            .with_security_auto_uri(
                 opcua_security_policy,
                 opcua_security_mode,
                 args.auto_trust,
@@ -215,6 +217,7 @@ async fn connect_with_cli_params(
             .with_authentication(identity_token)
             .with_url_override(args.use_original_url);
         
+        config = secure_config;
         println!("Using secure connection configuration with certificates");
     }
 
