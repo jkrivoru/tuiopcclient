@@ -424,6 +424,12 @@ impl ConnectionManager {    /// Discover endpoints from an OPC UA server
                     return Err(anyhow!("Certificate validation failed: {}", e));
                 }
                 
+                // Test certificate with OpenSSL early to catch format and compatibility issues
+                if let Err(e) = Self::test_certificate_with_openssl(cert_path, key_path) {
+                    log::error!("Certificate OpenSSL test failed: {}", e);
+                    return Err(anyhow!("Certificate OpenSSL test failed: {}. Please check certificate and private key formats and compatibility.", e));
+                }
+                
                 client_builder = client_builder
                     .certificate_path(format!("own/{}", cert_filename))
                     .private_key_path(format!("private/{}", key_filename))
@@ -617,6 +623,66 @@ impl ConnectionManager {    /// Discover endpoints from an OPC UA server
             }
         }
         
+        Ok(())
+    }
+
+    /// Test certificate and private key using OpenSSL library
+    /// This validates format and compatibility before the OPC UA client tries to use them
+    fn test_certificate_with_openssl(cert_path: &str, key_path: &str) -> Result<()> {
+        use std::fs;
+        
+        log::debug!("Testing certificate compatibility with OpenSSL for: {} and {}", cert_path, key_path);
+        
+        // Read certificate file
+        let cert_data = fs::read(cert_path)
+            .map_err(|e| anyhow!("Cannot read certificate file: {}", e))?;
+            
+        if cert_data.is_empty() {
+            return Err(anyhow!("Certificate file is empty"));
+        }
+        
+        // Try to parse certificate with OpenSSL
+        let cert = if cert_data.starts_with(b"-----BEGIN CERTIFICATE-----") {
+            // PEM format
+            openssl::x509::X509::from_pem(&cert_data)
+                .map_err(|e| anyhow!("Failed to parse PEM certificate: {}", e))?
+        } else {
+            // DER format
+            openssl::x509::X509::from_der(&cert_data)
+                .map_err(|e| anyhow!("Failed to parse DER certificate: {}", e))?
+        };
+        
+        log::debug!("Certificate parsed successfully with OpenSSL");
+        
+        // Read private key file
+        let key_data = fs::read(key_path)
+            .map_err(|e| anyhow!("Cannot read private key file: {}", e))?;
+            
+        if key_data.is_empty() {
+            return Err(anyhow!("Private key file is empty"));
+        }
+        
+        // Try to parse private key with OpenSSL
+        let private_key = openssl::pkey::PKey::private_key_from_pem(&key_data)
+            .map_err(|e| anyhow!("Failed to parse private key: {}. Make sure the key is in PEM format and not encrypted.", e))?;
+        
+        log::debug!("Private key parsed successfully with OpenSSL");
+        
+        // Test if the private key matches the certificate's public key
+        let cert_public_key = cert.public_key()
+            .map_err(|e| anyhow!("Failed to extract public key from certificate: {}", e))?;
+        
+        // Compare the public keys (this validates that the private key matches the certificate)
+        let private_key_public = private_key.public_key_to_pem()
+            .map_err(|e| anyhow!("Failed to extract public key from private key: {}", e))?;
+        let cert_key_public = cert_public_key.public_key_to_pem()
+            .map_err(|e| anyhow!("Failed to convert certificate public key to PEM: {}", e))?;
+        
+        if private_key_public != cert_key_public {
+            return Err(anyhow!("Private key does not match the certificate's public key"));
+        }
+        
+        log::info!("Certificate and private key validation successful - they are compatible");
         Ok(())
     }
 }
