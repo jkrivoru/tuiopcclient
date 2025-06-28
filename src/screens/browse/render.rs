@@ -6,10 +6,14 @@ use ratatui::{
     widgets::{Block, Borders, Cell, Clear, List, ListItem, Paragraph, Row, Table},
     Frame,
 };
-use tui_logger::{TuiLoggerWidget, TuiLoggerLevelOutput};
+use tui_logger::{TuiLoggerLevelOutput, TuiLoggerWidget};
 
 impl super::BrowseScreen {
-    pub fn render(&mut self, f: &mut Frame, area: Rect) -> (Option<Rect>, Option<Rect>, Option<Rect>) {
+    pub fn render(
+        &mut self,
+        f: &mut Frame,
+        area: Rect,
+    ) -> (Option<Rect>, Option<Rect>, Option<Rect>) {
         let main_chunks = Layout::default()
             .direction(Direction::Vertical)
             .constraints([
@@ -42,19 +46,19 @@ impl super::BrowseScreen {
         } else {
             None
         };
-        
+
         let progress_dialog_area = if self.search_progress_open {
             Some(self.render_progress_dialog(f, area))
         } else {
             None
         };
-        
+
         let log_viewer_area = if self.log_viewer_open {
             Some(self.render_log_viewer(f, area))
         } else {
             None
         };
-        
+
         (search_dialog_area, progress_dialog_area, log_viewer_area)
     }
 
@@ -118,7 +122,7 @@ impl super::BrowseScreen {
                     NodeType::VariableType => "🔧",
                     NodeType::DataType => "📝",
                     NodeType::ReferenceType => "🔗",
-                };                // Create indentation based on level
+                }; // Create indentation based on level
                 let indent = "  ".repeat(node.level);
 
                 // Use consistent width for expand icons
@@ -216,7 +220,8 @@ impl super::BrowseScreen {
                 }
             }
         }
-    }    fn render_attributes_panel(&mut self, f: &mut Frame, area: Rect) {
+    }
+    fn render_attributes_panel(&mut self, f: &mut Frame, area: Rect) {
         let visible_height = area.height.saturating_sub(4) as usize; // Subtract borders and header
 
         let start_idx = self.attribute_scroll_offset;
@@ -247,48 +252,62 @@ impl super::BrowseScreen {
             40
         };
 
-        let value_percentage = 100 - attr_name_percentage;        let rows: Vec<Row> = visible_attributes
+        let value_percentage = 100 - attr_name_percentage;
+        let rows: Vec<Row> = visible_attributes
             .iter()
-            .map(|attr| {                let value_cell = if attr.name == "Value" {
+            .map(|attr| {
+                let value_cell = if attr.name == "Value" {
                     // Color code the Value attribute based on is_value_good
                     if attr.is_value_good {
                         Cell::from(attr.value.as_str()).style(Style::default().fg(Color::Green))
                     } else {
                         Cell::from(attr.value.as_str()).style(Style::default().fg(Color::Red))
-                    }                } else {
+                    }
+                } else {
                     // Dynamic search highlighting - check if search text exists in current attribute
                     if !self.search_input.value().trim().is_empty() {
                         let search_text = self.search_input.value().trim().to_lowercase();
-                        
+
                         // Check if this attribute should be searched based on name and checkbox state
                         let should_search = match attr.name.as_str() {
                             "NodeId" | "BrowseName" | "DisplayName" => true,
                             _ => self.search_include_values, // Only search other attributes if checkbox is checked
                         };
-                        
+
                         if should_search {
                             let value_str = &attr.value;
                             let value_lower = value_str.to_lowercase();
-                            
+
                             if let Some(start_pos) = value_lower.find(&search_text) {
                                 let length = search_text.len();
-                                
+
                                 // Create highlighted text using Spans for partial highlighting
-                                if start_pos < value_str.len() && start_pos + length <= value_str.len() {
+                                if start_pos < value_str.len()
+                                    && start_pos + length <= value_str.len()
+                                {
                                     let before = &value_str[..start_pos];
                                     let highlighted = &value_str[start_pos..start_pos + length];
                                     let after = &value_str[start_pos + length..];
-                                    
+
                                     // Create spans with different styling - only highlight the matched part
                                     let mut spans = Vec::new();
                                     if !before.is_empty() {
-                                        spans.push(Span::styled(before, Style::default().fg(Color::White)));
+                                        spans.push(Span::styled(
+                                            before,
+                                            Style::default().fg(Color::White),
+                                        ));
                                     }
-                                    spans.push(Span::styled(highlighted, Style::default().bg(Color::Yellow).fg(Color::Black)));
+                                    spans.push(Span::styled(
+                                        highlighted,
+                                        Style::default().bg(Color::Yellow).fg(Color::Black),
+                                    ));
                                     if !after.is_empty() {
-                                        spans.push(Span::styled(after, Style::default().fg(Color::White)));
+                                        spans.push(Span::styled(
+                                            after,
+                                            Style::default().fg(Color::White),
+                                        ));
                                     }
-                                    
+
                                     Cell::from(Line::from(spans))
                                 } else {
                                     Cell::from(attr.value.as_str())
@@ -305,18 +324,15 @@ impl super::BrowseScreen {
                     }
                 };
 
-                Row::new(vec![
-                    Cell::from(attr.name.as_str()),
-                    value_cell,
-                ])
+                Row::new(vec![Cell::from(attr.name.as_str()), value_cell])
             })
             .collect();
 
         let table = Table::new(
             rows,
             &[
-                Constraint::Percentage(attr_name_percentage as u16), 
-                Constraint::Percentage(value_percentage as u16)
+                Constraint::Percentage(attr_name_percentage as u16),
+                Constraint::Percentage(value_percentage as u16),
             ],
         )
         .header(
@@ -335,13 +351,15 @@ impl super::BrowseScreen {
         .column_spacing(1);
 
         f.render_widget(table, area);
-    }    fn render_search_dialog(&self, f: &mut Frame, area: Rect) -> Rect {        // Calculate dialog position (centered)
+    }
+    fn render_search_dialog(&self, f: &mut Frame, area: Rect) -> Rect {
+        // Calculate dialog position (centered)
         let dialog_width = 50;
         let dialog_height = 6; // Reduced from 8 to 6 (2 lines smaller)
         let x = (area.width.saturating_sub(dialog_width)) / 2;
         let y = (area.height.saturating_sub(dialog_height)) / 2;
-        
-        let dialog_area = Rect::new(x, y, dialog_width, dialog_height);        // Create a semi-transparent overlay only around the borders of the dialog
+
+        let dialog_area = Rect::new(x, y, dialog_width, dialog_height); // Create a semi-transparent overlay only around the borders of the dialog
         let overlay_padding = 1;
         let overlay_area = Rect::new(
             dialog_area.x.saturating_sub(overlay_padding),
@@ -349,17 +367,20 @@ impl super::BrowseScreen {
             dialog_area.width + (overlay_padding * 2),
             dialog_area.height + (overlay_padding * 2),
         );
-        
-        let overlay = Block::default()
-            .style(Style::default().bg(Color::Black));
+
+        let overlay = Block::default().style(Style::default().bg(Color::Black));
         f.render_widget(overlay, overlay_area);
-        
+
         // Clear the dialog area to ensure clean rendering
         let overlay_content = ratatui::widgets::Clear;
-        f.render_widget(overlay_content, dialog_area);        // Main dialog box with blue background and white border
+        f.render_widget(overlay_content, dialog_area); // Main dialog box with blue background and white border
         let dialog_block = Block::default()
             .title("Find Node")
-            .title_style(Style::default().fg(Color::White).add_modifier(Modifier::BOLD))
+            .title_style(
+                Style::default()
+                    .fg(Color::White)
+                    .add_modifier(Modifier::BOLD),
+            )
             .borders(Borders::ALL)
             .border_style(Style::default().fg(Color::White))
             .style(Style::default().bg(Color::Blue));
@@ -371,7 +392,7 @@ impl super::BrowseScreen {
             dialog_area.y + 1,
             dialog_area.width - 2,
             dialog_area.height - 2,
-        );        // Create layout for dialog content
+        ); // Create layout for dialog content
         let dialog_chunks = Layout::default()
             .direction(Direction::Vertical)
             .constraints([
@@ -388,15 +409,24 @@ impl super::BrowseScreen {
                 Constraint::Length(1),      // Small spacing
                 Constraint::Percentage(29), // Button (29% of width)
             ])
-            .split(dialog_chunks[0]);        // Input field styled like connect screen
+            .split(dialog_chunks[0]); // Input field styled like connect screen
         let (input_text, input_style) = if self.search_input.value().is_empty() {
             // Show placeholder
-            ("Enter NodeId, BrowseName, or DisplayName...".to_string(), Style::default().fg(Color::DarkGray))
+            (
+                "Enter NodeId, BrowseName, or DisplayName...".to_string(),
+                Style::default().fg(Color::DarkGray),
+            )
         } else {
             // Show actual input
-            (self.search_input.value().to_string(), Style::default().fg(Color::White))
-        };        // Set border color based on focus
-        let input_border_color = if matches!(self.search_dialog_focus, super::types::SearchDialogFocus::Input) {
+            (
+                self.search_input.value().to_string(),
+                Style::default().fg(Color::White),
+            )
+        }; // Set border color based on focus
+        let input_border_color = if matches!(
+            self.search_dialog_focus,
+            super::types::SearchDialogFocus::Input
+        ) {
             Color::Yellow
         } else {
             Color::White
@@ -419,36 +449,52 @@ impl super::BrowseScreen {
         f.render_widget(input_paragraph, input_button_chunks[0]);
 
         // Position cursor if input is focused and not showing placeholder
-        if matches!(self.search_dialog_focus, super::types::SearchDialogFocus::Input) && !self.search_input.value().is_empty() {
+        if matches!(
+            self.search_dialog_focus,
+            super::types::SearchDialogFocus::Input
+        ) && !self.search_input.value().is_empty()
+        {
             let cursor_x = self.search_input.visual_cursor().max(scroll) - scroll + 1;
-            f.set_cursor_position((input_button_chunks[0].x + cursor_x as u16, input_button_chunks[0].y + 1));
-        }        // Text-only button: [ Find Next ]
+            f.set_cursor_position((
+                input_button_chunks[0].x + cursor_x as u16,
+                input_button_chunks[0].y + 1,
+            ));
+        } // Text-only button: [ Find Next ]
         let button_enabled = !self.search_input.value().trim().is_empty();
-        
+
         // Text-only button area - positioned in the middle of the button area
         let button_text_area = Rect {
             x: input_button_chunks[2].x,
             y: input_button_chunks[2].y + 1, // Center vertically
             width: input_button_chunks[2].width,
             height: 1,
-        };          // Button text color based on state (no focus highlighting since not in Tab navigation)
+        }; // Button text color based on state (no focus highlighting since not in Tab navigation)
         let button_text_color = if !button_enabled {
             Color::DarkGray
         } else {
             Color::LightGreen // Always bright green when enabled
-        };// Text-only button with brackets
+        }; // Text-only button with brackets
         let button_text = "[ Find Next ]";
-        
+
         let button_paragraph = Paragraph::new(button_text)
-            .style(Style::default()
-                .fg(button_text_color)
-                .bg(Color::Blue) // Keep dialog background
-                .add_modifier(Modifier::BOLD)) // Bold and underlined for emphasis
+            .style(
+                Style::default()
+                    .fg(button_text_color)
+                    .bg(Color::Blue) // Keep dialog background
+                    .add_modifier(Modifier::BOLD),
+            ) // Bold and underlined for emphasis
             .alignment(ratatui::layout::Alignment::Center);
-        
-        f.render_widget(button_paragraph, button_text_area);// Render "Also look at values" checkbox
-        let checkbox_symbol = if self.search_include_values { "☑" } else { "☐" };
-        let checkbox_focused = matches!(self.search_dialog_focus, super::types::SearchDialogFocus::Checkbox);
+
+        f.render_widget(button_paragraph, button_text_area); // Render "Also look at values" checkbox
+        let checkbox_symbol = if self.search_include_values {
+            "☑"
+        } else {
+            "☐"
+        };
+        let checkbox_focused = matches!(
+            self.search_dialog_focus,
+            super::types::SearchDialogFocus::Checkbox
+        );
         let checkbox_text = if checkbox_focused {
             format!("> {} Also look at values <", checkbox_symbol)
         } else {
@@ -456,22 +502,27 @@ impl super::BrowseScreen {
         };
 
         let checkbox_style = if checkbox_focused {
-            Style::default().fg(Color::Yellow).bg(Color::Blue).add_modifier(Modifier::BOLD)
+            Style::default()
+                .fg(Color::Yellow)
+                .bg(Color::Blue)
+                .add_modifier(Modifier::BOLD)
         } else {
-            Style::default().fg(Color::White).bg(Color::Blue)        };        let checkbox_paragraph = Paragraph::new(checkbox_text).style(checkbox_style);
+            Style::default().fg(Color::White).bg(Color::Blue)
+        };
+        let checkbox_paragraph = Paragraph::new(checkbox_text).style(checkbox_style);
         f.render_widget(checkbox_paragraph, dialog_chunks[1]);
-          // Return the dialog area for mouse handling
+        // Return the dialog area for mouse handling
         dialog_area
     }
-      fn render_progress_dialog(&self, f: &mut Frame, area: Rect) -> Rect {
+    fn render_progress_dialog(&self, f: &mut Frame, area: Rect) -> Rect {
         // Calculate dialog position (centered, wider than before)
         let dialog_width = 60.min(area.width.saturating_sub(4));
         let dialog_height = 5.min(area.height.saturating_sub(4));
         let dialog_x = (area.width.saturating_sub(dialog_width)) / 2;
         let dialog_y = (area.height.saturating_sub(dialog_height)) / 2;
-        
+
         let dialog_area = Rect::new(dialog_x, dialog_y, dialog_width, dialog_height);
-        
+
         // Create a semi-transparent overlay around the dialog
         let overlay_padding = 1;
         let overlay_area = Rect::new(
@@ -480,25 +531,28 @@ impl super::BrowseScreen {
             dialog_area.width + (overlay_padding * 2),
             dialog_area.height + (overlay_padding * 2),
         );
-        
-        let overlay = Block::default()
-            .style(Style::default().bg(Color::Black));
+
+        let overlay = Block::default().style(Style::default().bg(Color::Black));
         f.render_widget(overlay, overlay_area);
-        
+
         // Clear the dialog area to ensure clean rendering
         let clear_widget = ratatui::widgets::Clear;
         f.render_widget(clear_widget, dialog_area);
-        
+
         // Create the dialog block with full blue background
         let dialog_block = Block::default()
             .title(" Search Progress ")
-            .title_style(Style::default().fg(Color::White).add_modifier(Modifier::BOLD))
+            .title_style(
+                Style::default()
+                    .fg(Color::White)
+                    .add_modifier(Modifier::BOLD),
+            )
             .borders(Borders::ALL)
             .border_style(Style::default().fg(Color::White))
             .style(Style::default().bg(Color::Blue));
-        
+
         f.render_widget(dialog_block, dialog_area);
-        
+
         // Inner area for content
         let inner_area = Rect::new(
             dialog_area.x + 1,
@@ -506,7 +560,7 @@ impl super::BrowseScreen {
             dialog_area.width - 2,
             dialog_area.height - 2,
         );
-        
+
         // Split inner area vertically
         let chunks = Layout::default()
             .direction(Direction::Vertical)
@@ -516,26 +570,26 @@ impl super::BrowseScreen {
                 Constraint::Length(1), // Cancel instruction
             ])
             .split(inner_area);
-        
+
         // Render progress message
         let message_paragraph = Paragraph::new(self.search_progress_message.clone())
             .style(Style::default().fg(Color::White).bg(Color::Blue));
         f.render_widget(message_paragraph, chunks[0]);
-        
+
         // Render empty separator line
-        let separator_paragraph = Paragraph::new("")
-            .style(Style::default().bg(Color::Blue));
+        let separator_paragraph = Paragraph::new("").style(Style::default().bg(Color::Blue));
         f.render_widget(separator_paragraph, chunks[1]);
-        
+
         // Render cancel instruction
         let cancel_text = "Press ESC to cancel";
-        let cancel_paragraph = Paragraph::new(cancel_text)
-            .style(Style::default().fg(Color::Yellow).bg(Color::Blue));
+        let cancel_paragraph =
+            Paragraph::new(cancel_text).style(Style::default().fg(Color::Yellow).bg(Color::Blue));
         f.render_widget(cancel_paragraph, chunks[2]);
-        
+
         // Return the dialog area for mouse handling
         dialog_area
-    }    fn render_log_viewer(&self, f: &mut Frame, area: Rect) -> Rect {
+    }
+    fn render_log_viewer(&self, f: &mut Frame, area: Rect) -> Rect {
         // Full-screen log viewer overlay
         let log_area = area; // Use the entire screen area
 
@@ -546,7 +600,11 @@ impl super::BrowseScreen {
         // Create the log viewer block with title and borders
         let log_block = Block::default()
             .title(" Log Viewer (F12/ESC to close) ")
-            .title_style(Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD))
+            .title_style(
+                Style::default()
+                    .fg(Color::Yellow)
+                    .add_modifier(Modifier::BOLD),
+            )
             .borders(Borders::ALL)
             .border_style(Style::default().fg(Color::White))
             .style(Style::default().bg(Color::Black).fg(Color::White));
@@ -559,7 +617,7 @@ impl super::BrowseScreen {
             log_area.y + 1,
             log_area.width - 2,
             log_area.height.saturating_sub(3), // Leave space for instructions
-        );        // Create the TuiLoggerWidget with proper state management
+        ); // Create the TuiLoggerWidget with proper state management
         let tui_logger = TuiLoggerWidget::default()
             .style_error(Style::default().fg(Color::Red))
             .style_debug(Style::default().fg(Color::Green))
@@ -576,7 +634,7 @@ impl super::BrowseScreen {
             .block(
                 Block::default()
                     .borders(Borders::NONE) // No borders since we already have the outer block
-                    .style(Style::default().bg(Color::Black).fg(Color::White))
+                    .style(Style::default().bg(Color::Black).fg(Color::White)),
             );
 
         // Render the logger widget
@@ -588,10 +646,12 @@ impl super::BrowseScreen {
             log_area.y + log_area.height.saturating_sub(2),
             log_area.width.saturating_sub(2),
             1,
-        );        let instructions = Paragraph::new("Use ↑/↓, PgUp/PgDown, Home/End to scroll | F12/ESC to close")
-            .style(Style::default().fg(Color::Yellow).bg(Color::Black))
-            .alignment(ratatui::layout::Alignment::Center);
-        
+        );
+        let instructions =
+            Paragraph::new("Use ↑/↓, PgUp/PgDown, Home/End to scroll | F12/ESC to close")
+                .style(Style::default().fg(Color::Yellow).bg(Color::Black))
+                .alignment(ratatui::layout::Alignment::Center);
+
         f.render_widget(instructions, instruction_area);
 
         // Return the full area for mouse handling

@@ -1,6 +1,7 @@
 use anyhow::Result;
 use clap::Parser;
-use opcua::types::MessageSecurityMode;  // Add this import
+use opcua::types::MessageSecurityMode;
+// Add this import
 use std::path::PathBuf;
 use std::sync::Arc;
 use tokio::sync::RwLock;
@@ -81,32 +82,36 @@ async fn main() -> Result<()> {
     tui_logger::init_logger(log::LevelFilter::Info).unwrap();
     tui_logger::set_default_level(log::LevelFilter::Info);
 
-    let client_manager = Arc::new(RwLock::new(OpcUaClientManager::new()));    // Check if we should connect directly via command line parameters
+    let client_manager = Arc::new(RwLock::new(OpcUaClientManager::new())); // Check if we should connect directly via command line parameters
     if let Some(ref server_url) = args.server_url {
         println!("Starting OPC UA Client with command line connection...");
         println!("Server URL: {}", server_url);
         println!("Security Policy: {}", args.security_policy);
         println!("Security Mode: {}", args.security_mode);
-        
+
         if args.use_original_url {
             println!("Using original URL override");
-        }        match connect_via_command_line(&args, &server_url, client_manager.clone()).await {            Ok(()) => {
+        }
+        match connect_via_command_line(&args, &server_url, client_manager.clone()).await {
+            Ok(()) => {
                 println!("Connection successful! Opening browse screen...");
-                
+
                 // Create app in browse mode with the actual server URL
                 let mut app = App::new_with_browse_direct(client_manager, server_url.clone());
-                
+
                 // Initialize the browse screen with tree data
                 if let Err(e) = app.initialize_browse_screen().await {
                     eprintln!("Warning: Failed to load tree data: {}", e);
                 }
-                
+
                 app.run().await?;
-            }Err(e) => {
+            }
+            Err(e) => {
                 eprintln!("Connection failed: {}", e);
                 std::process::exit(1);
             }
-        }    } else {
+        }
+    } else {
         // Normal TUI mode
         let mut app = App::new(client_manager);
         app.run().await?;
@@ -129,7 +134,7 @@ async fn connect_via_command_line(
                 "Client certificate and private key are required for non-None security"
             ));
         }
-        
+
         if !args.auto_trust && args.trusted_store.is_none() {
             return Err(anyhow::anyhow!(
                 "Trusted certificate store is required when auto_trust is false"
@@ -147,8 +152,11 @@ async fn connect_via_command_line(
         "Username/Password"
     } else if args.user_certificate.is_some() && args.user_private_key.is_some() {
         "X.509 Certificate"
-    } else if args.user_name.is_some() || args.password.is_some() || 
-             args.user_certificate.is_some() || args.user_private_key.is_some() {
+    } else if args.user_name.is_some()
+        || args.password.is_some()
+        || args.user_certificate.is_some()
+        || args.user_private_key.is_some()
+    {
         return Err(anyhow::anyhow!(
             "Incomplete authentication parameters: both username and password OR both user certificate and private key must be specified"
         ));
@@ -161,35 +169,37 @@ async fn connect_via_command_line(
     // Connect using a more detailed implementation
     println!("Creating endpoint and connecting...");
     let mut client_manager_guard = client_manager.write().await;
-    
-    match connect_with_cli_params(args, server_url, &mut *client_manager_guard).await {        Ok(()) => {
+
+    match connect_with_cli_params(args, server_url, &mut *client_manager_guard).await {
+        Ok(()) => {
             println!("Successfully connected to OPC UA server");
             Ok(())
         }
-        Err(e) => {
-            Err(anyhow::anyhow!("Failed to connect to server: {}", e))
-        }    }
+        Err(e) => Err(anyhow::anyhow!("Failed to connect to server: {}", e)),
+    }
 }
 
 async fn connect_with_cli_params(
-    args: &Args, 
-    server_url: &str, 
-    client_manager: &mut OpcUaClientManager
+    args: &Args,
+    server_url: &str,
+    client_manager: &mut OpcUaClientManager,
 ) -> Result<()> {
-    use crate::connection_manager::{ConnectionManager, ConnectionConfig};
-    
+    use crate::connection_manager::{ConnectionConfig, ConnectionManager};
+
     client_manager.connection_status = crate::client::ConnectionStatus::Connecting;
     client_manager.server_url = server_url.to_string();
 
     // Convert our local enums to opcua crate enums
     let opcua_security_policy = convert_security_policy(&args.security_policy)?;
     let opcua_security_mode = convert_security_mode(&args.security_mode)?;
-    
+
     // Create identity token based on authentication parameters
     let identity_token = create_identity_token(args)?;
-    
-    println!("Building client with security policy: {} and mode: {}", 
-             args.security_policy, args.security_mode);
+
+    println!(
+        "Building client with security policy: {} and mode: {}",
+        args.security_policy, args.security_mode
+    );
 
     // Create unified connection configuration
     let mut config = ConnectionConfig::cli_connection()
@@ -204,8 +214,9 @@ async fn connect_with_cli_params(
         .with_url_override(args.use_original_url);
 
     // If using secure connection with certificates, use the secure config
-    if opcua_security_mode != MessageSecurityMode::None && 
-       (args.client_certificate.is_some() || args.client_private_key.is_some()) {
+    if opcua_security_mode != MessageSecurityMode::None
+        && (args.client_certificate.is_some() || args.client_private_key.is_some())
+    {
         let secure_config = ConnectionConfig::secure_connection()
             .with_security_auto_uri(
                 opcua_security_policy,
@@ -216,7 +227,7 @@ async fn connect_with_cli_params(
             )
             .with_authentication(identity_token)
             .with_url_override(args.use_original_url);
-        
+
         config = secure_config;
         println!("Using secure connection configuration with certificates");
     }
@@ -233,7 +244,8 @@ async fn connect_with_cli_params(
             Ok(())
         }
         Err(e) => {
-            client_manager.connection_status = crate::client::ConnectionStatus::Error("Connection failed".to_string());
+            client_manager.connection_status =
+                crate::client::ConnectionStatus::Error("Connection failed".to_string());
             Err(anyhow::anyhow!("Connection failed: {}", e))
         }
     }
@@ -247,7 +259,7 @@ fn convert_security_policy(policy: &str) -> Result<opcua::crypto::SecurityPolicy
         "Basic256Sha256" => Ok(opcua::crypto::SecurityPolicy::Basic256Sha256),
         "Aes128Sha256RsaOaep" => Ok(opcua::crypto::SecurityPolicy::Aes128Sha256RsaOaep),
         "Aes256Sha256RsaPss" => Ok(opcua::crypto::SecurityPolicy::Aes256Sha256RsaPss),
-        _ => Err(anyhow::anyhow!("Invalid security policy: {}", policy))
+        _ => Err(anyhow::anyhow!("Invalid security policy: {}", policy)),
     }
 }
 
@@ -256,36 +268,47 @@ fn convert_security_mode(mode: &str) -> Result<opcua::types::MessageSecurityMode
         "None" => Ok(opcua::types::MessageSecurityMode::None),
         "Sign" => Ok(opcua::types::MessageSecurityMode::Sign),
         "SignAndEncrypt" => Ok(opcua::types::MessageSecurityMode::SignAndEncrypt),
-        _ => Err(anyhow::anyhow!("Invalid security mode: {}", mode))
+        _ => Err(anyhow::anyhow!("Invalid security mode: {}", mode)),
     }
 }
 
 fn create_identity_token(args: &Args) -> Result<opcua::client::prelude::IdentityToken> {
     use opcua::client::prelude::IdentityToken;
-      if let (Some(username), Some(password)) = (&args.user_name, &args.password) {
-        println!("Using username/password authentication for user: {}", username);
+    if let (Some(username), Some(password)) = (&args.user_name, &args.password) {
+        println!(
+            "Using username/password authentication for user: {}",
+            username
+        );
         Ok(IdentityToken::UserName(username.clone(), password.clone()))
-    } else if let (Some(cert_path), Some(key_path)) = (&args.user_certificate, &args.user_private_key) {
+    } else if let (Some(cert_path), Some(key_path)) =
+        (&args.user_certificate, &args.user_private_key)
+    {
         println!("Using X.509 certificate authentication");
-        
+
         // Validate certificate file exists
         let cert_path = std::path::Path::new(cert_path);
         if !cert_path.exists() {
-            return Err(anyhow::anyhow!("Certificate file does not exist: {}", cert_path.display()));
+            return Err(anyhow::anyhow!(
+                "Certificate file does not exist: {}",
+                cert_path.display()
+            ));
         }
-        
+
         // Validate private key file exists
         let key_path = std::path::Path::new(key_path);
         if !key_path.exists() {
-            return Err(anyhow::anyhow!("Private key file does not exist: {}", key_path.display()));
+            return Err(anyhow::anyhow!(
+                "Private key file does not exist: {}",
+                key_path.display()
+            ));
         }
-        
+
         println!("Certificate: {}", cert_path.display());
         println!("Private key: {}", key_path.display());
-        
+
         Ok(IdentityToken::X509(
             PathBuf::from(cert_path),
-            PathBuf::from(key_path)
+            PathBuf::from(key_path),
         ))
     } else {
         println!("Using anonymous authentication");

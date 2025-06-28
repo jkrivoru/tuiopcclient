@@ -1,5 +1,5 @@
-use anyhow::Result;
 use super::types::TreeNode;
+use anyhow::Result;
 
 impl super::BrowseScreen {
     // Centralized path generation for consistency
@@ -9,16 +9,15 @@ impl super::BrowseScreen {
 
     // Check if a node can be expanded
     pub fn can_expand(&self, index: usize) -> bool {
-        index < self.tree_nodes.len() 
-            && self.tree_nodes[index].has_children 
+        index < self.tree_nodes.len()
+            && self.tree_nodes[index].has_children
             && self.tree_nodes[index].should_show_expand_indicator()
             && !self.tree_nodes[index].is_expanded
     }
 
     // Check if a node can be collapsed
     pub fn can_collapse(&self, index: usize) -> bool {
-        index < self.tree_nodes.len() 
-            && self.tree_nodes[index].is_expanded
+        index < self.tree_nodes.len() && self.tree_nodes[index].is_expanded
     }
 
     // New method to track expansion state
@@ -26,7 +25,7 @@ impl super::BrowseScreen {
         if index < self.tree_nodes.len() {
             let node_path = self.get_node_path(&self.tree_nodes[index]);
             self.tree_nodes[index].is_expanded = expanded;
-            
+
             if expanded {
                 self.expanded_nodes.insert(node_path);
             } else {
@@ -39,7 +38,7 @@ impl super::BrowseScreen {
     pub fn restore_child_expansion_states(&self, child_nodes: &mut Vec<TreeNode>) {
         for child in child_nodes.iter_mut() {
             let child_path = self.get_node_path(child);
-            
+
             // Check if this child was previously expanded
             if self.expanded_nodes.contains(&child_path) {
                 child.is_expanded = true;
@@ -54,7 +53,7 @@ impl super::BrowseScreen {
         }
 
         let node_level = self.tree_nodes[index].level;
-        
+
         // Update expansion state
         self.update_expansion_state(index, false);
 
@@ -67,7 +66,8 @@ impl super::BrowseScreen {
         // Adjust selected index if needed
         if self.selected_node_index > index && self.selected_node_index < end_index {
             // Selected node is a child that will be removed
-            self.selected_node_index = index;        } else if self.selected_node_index >= end_index {
+            self.selected_node_index = index;
+        } else if self.selected_node_index >= end_index {
             // Selected node is after the removed children
             self.selected_node_index -= end_index - index - 1;
         }
@@ -79,7 +79,7 @@ impl super::BrowseScreen {
         if self.selected_node_index >= self.tree_nodes.len() {
             self.selected_node_index = self.tree_nodes.len().saturating_sub(1);
         }
-    }    // Toggle expansion state
+    } // Toggle expansion state
     pub async fn toggle_node_async(&mut self, index: usize) -> Result<()> {
         if index >= self.tree_nodes.len() {
             return Ok(());
@@ -163,10 +163,10 @@ impl super::BrowseScreen {
         }
 
         let current_level = self.tree_nodes[self.selected_node_index].level;
-        
+
         for i in self.selected_node_index + 1..self.tree_nodes.len() {
             let node_level = self.tree_nodes[i].level;
-            
+
             if node_level < current_level {
                 // We've gone up a level, no more siblings
                 break;
@@ -186,10 +186,10 @@ impl super::BrowseScreen {
         }
 
         let current_level = self.tree_nodes[self.selected_node_index].level;
-        
+
         for i in (0..self.selected_node_index).rev() {
             let node_level = self.tree_nodes[i].level;
-            
+
             if node_level < current_level {
                 // We've gone up a level, no more siblings
                 break;
@@ -199,7 +199,8 @@ impl super::BrowseScreen {
                 self.update_scroll();
                 break;
             }
-        }    }
+        }
+    }
 
     // Async method that handles real OPC UA data
     pub async fn expand_node_async(&mut self, index: usize) -> Result<()> {

@@ -28,7 +28,8 @@ impl super::BrowseScreen {
         match tokio::time::timeout(tokio::time::Duration::from_secs(10), load_future).await {
             Ok(Ok(children)) => {
                 self.tree_nodes = children;
-            }            Ok(Err(e)) => {
+            }
+            Ok(Err(e)) => {
                 log::warn!("Failed to load real tree data: {}", e);
                 // Don't fail completely, just leave tree_nodes empty
             }
@@ -53,7 +54,8 @@ impl super::BrowseScreen {
         }
 
         let opcua_nodes = client_guard.browse_node(parent_node_id).await?;
-        drop(client_guard);        let mut tree_nodes = Vec::new();
+        drop(client_guard);
+        let mut tree_nodes = Vec::new();
         for opcua_node in opcua_nodes {
             let node_type = match opcua_node.node_class {
                 NodeClass::Object => NodeType::Object,
@@ -83,11 +85,11 @@ impl super::BrowseScreen {
                 is_expanded: false,
                 parent_path: parent_path.to_string(),
             });
-        }        // Sort nodes by type priority, then by name
+        } // Sort nodes by type priority, then by name
         tree_nodes.sort_by(|a, b| {
             let type_order_a = a.node_type.get_sort_priority();
             let type_order_b = b.node_type.get_sort_priority();
-            
+
             match type_order_a.cmp(&type_order_b) {
                 std::cmp::Ordering::Equal => {
                     // If same type, sort by name (case-insensitive)
@@ -95,7 +97,8 @@ impl super::BrowseScreen {
                 }
                 other => other,
             }
-        });        Ok(tree_nodes)
+        });
+        Ok(tree_nodes)
     }
 
     // Improved expand method for real OPC UA data
@@ -113,9 +116,9 @@ impl super::BrowseScreen {
             )
         };
 
-        let opcua_node_id = node_info.0.ok_or_else(|| {
-            anyhow::anyhow!("No OPC UA node ID for expansion")
-        })?;
+        let opcua_node_id = node_info
+            .0
+            .ok_or_else(|| anyhow::anyhow!("No OPC UA node ID for expansion"))?;
 
         // Update expansion state
         self.update_expansion_state(index, true);
@@ -128,14 +131,15 @@ impl super::BrowseScreen {
             Ok(mut child_nodes) => {
                 // Restore expansion state for children
                 self.restore_child_expansion_states(&mut child_nodes);
-                
+
                 // Insert children after the current node
                 self.tree_nodes.splice(index + 1..index + 1, child_nodes);
 
                 // Recursively restore expansions for the newly added children
                 // Use the iterative approach starting from the first child
                 let first_child_index = index + 1;
-                self.recursively_restore_expansions(first_child_index).await?;
+                self.recursively_restore_expansions(first_child_index)
+                    .await?;
             }
             Err(e) => {
                 log::error!("Failed to load children for node: {}", e);
@@ -166,7 +170,8 @@ impl super::BrowseScreen {
             }
 
             match client_guard.read_node_attributes(&opcua_node_id).await {
-                Ok(opcua_attributes) => {                    self.selected_attributes = opcua_attributes
+                Ok(opcua_attributes) => {
+                    self.selected_attributes = opcua_attributes
                         .into_iter()
                         .map(|attr| NodeAttribute {
                             name: attr.name,
@@ -185,7 +190,7 @@ impl super::BrowseScreen {
         }
 
         Ok(())
-    }    // Async wrapper that chooses real attribute updates
+    } // Async wrapper that chooses real attribute updates
     pub async fn update_selected_attributes_async(&mut self) -> Result<()> {
         if self.selected_node_index >= self.tree_nodes.len() {
             self.selected_attributes.clear();
@@ -196,7 +201,8 @@ impl super::BrowseScreen {
             .opcua_node_id
             .is_some();
 
-        if has_real_node_id {            // Use real OPC UA data
+        if has_real_node_id {
+            // Use real OPC UA data
             self.update_real_attributes().await?;
         } else {
             // No real NodeId available
@@ -213,24 +219,28 @@ impl super::BrowseScreen {
         } else {
             0 // Root level
         };
-        
+
         let mut current_index = starting_index;
-        
+
         // Process only nodes that are descendants of the node that was just expanded
         while current_index < self.tree_nodes.len() {
             let node = &self.tree_nodes[current_index];
-            
+
             // Stop if we've gone beyond the descendants of the originally expanded node
             if node.level <= starting_node_level {
                 break;
             }
-            
+
             let node_path = self.get_node_path(node);
-            
+
             // Check if this node was previously expanded and should be restored
             if node.has_children && self.expanded_nodes.contains(&node_path) && node.is_expanded {
-                log::debug!("Restoring expansion for node: {} at index {}", node.name, current_index);
-                
+                log::debug!(
+                    "Restoring expansion for node: {} at index {}",
+                    node.name,
+                    current_index
+                );
+
                 // Store the current node info before expansion (since indices will change)
                 let node_info = {
                     let node = &self.tree_nodes[current_index];
@@ -240,31 +250,39 @@ impl super::BrowseScreen {
                         self.get_node_path(node),
                     )
                 };
-                
+
                 if let Some(opcua_node_id) = node_info.0 {
                     // Load child nodes from OPC UA server
-                    match self.get_real_children(&opcua_node_id, node_info.1 + 1, &node_info.2).await {
+                    match self
+                        .get_real_children(&opcua_node_id, node_info.1 + 1, &node_info.2)
+                        .await
+                    {
                         Ok(mut child_nodes) => {
                             // Restore expansion state for direct children
                             self.restore_child_expansion_states(&mut child_nodes);
-                            
+
                             // Insert children after the current node
-                            self.tree_nodes.splice(current_index + 1..current_index + 1, child_nodes);
-                            
+                            self.tree_nodes
+                                .splice(current_index + 1..current_index + 1, child_nodes);
+
                             // Continue processing - the newly added children will be processed in subsequent iterations
                         }
                         Err(e) => {
-                            log::error!("Failed to restore expansion for node {}: {}", node_info.2, e);
+                            log::error!(
+                                "Failed to restore expansion for node {}: {}",
+                                node_info.2,
+                                e
+                            );
                             // Revert expansion state on error
                             self.tree_nodes[current_index].is_expanded = false;
                         }
                     }
                 }
             }
-            
+
             current_index += 1;
         }
-        
+
         Ok(())
     }
     // ...existing code...

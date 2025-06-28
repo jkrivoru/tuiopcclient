@@ -38,7 +38,8 @@ impl Default for ConnectionConfig {
     }
 }
 
-impl ConnectionConfig {    /// Create configuration for CLI discovery
+impl ConnectionConfig {
+    /// Create configuration for CLI discovery
     pub fn cli_discovery() -> Self {
         Self {
             application_name: "OPC UA TUI Client - CLI Discovery".to_string(),
@@ -79,7 +80,7 @@ impl ConnectionConfig {    /// Create configuration for CLI discovery
     pub fn secure_connection() -> Self {
         let cert_path = "./pki/own/OpcPlc.der";
         let key_path = "./pki/private/OpcPlc.pem";
-        
+
         // Try to extract application URI from certificate, fallback to default
         let application_uri = ConnectionManager::extract_application_uri_from_certificate(cert_path)
             .unwrap_or_else(|e| {
@@ -87,9 +88,9 @@ impl ConnectionConfig {    /// Create configuration for CLI discovery
                 log::info!("Using default application URI");
                 "urn:opcua-tui-client-secure".to_string()
             });
-        
+
         log::info!("Using application URI from certificate: {}", application_uri);
-        
+
         Self {
             application_name: "OPC UA TUI Client - Secure".to_string(),
             application_uri,
@@ -133,7 +134,7 @@ impl ConnectionConfig {    /// Create configuration for CLI discovery
         self.auto_trust = auto_trust;
         self.client_cert_path = client_cert.clone();
         self.client_key_path = client_key;
-        
+
         // Try to extract application URI from certificate if path is provided
         if let Some(cert_path) = &client_cert {
             if let Ok(extracted_uri) = ConnectionManager::extract_application_uri_from_certificate(cert_path) {
@@ -143,7 +144,7 @@ impl ConnectionConfig {    /// Create configuration for CLI discovery
                 log::warn!("Failed to extract application URI from certificate, using current URI: {}", self.application_uri);
             }
         }
-        
+
         self
     }
 
@@ -183,7 +184,8 @@ impl ConnectionConfig {    /// Create configuration for CLI discovery
     }
 }
 
-impl ConnectionManager {    /// Discover endpoints from an OPC UA server
+impl ConnectionManager {
+    /// Discover endpoints from an OPC UA server
     pub async fn discover_endpoints(
         server_url: &str,
         config: &ConnectionConfig,
@@ -221,7 +223,7 @@ impl ConnectionManager {    /// Discover endpoints from an OPC UA server
                 }
             }
         })
-        .await?
+            .await?
     }
 
     /// Connect to an OPC UA server using a discovered endpoint
@@ -237,14 +239,15 @@ impl ConnectionManager {    /// Discover endpoints from an OPC UA server
             if let Some(original_url) = endpoint.endpoint_url.value() {
                 log::info!("Using original URL override: {}", original_url);
             }
-        }        tokio::task::spawn_blocking(move || -> Result<(Client, Arc<RwLock<Session>>)> {
+        }
+        tokio::task::spawn_blocking(move || -> Result<(Client, Arc<RwLock<Session>>)> {
             log::debug!("Building client with config: {:?}", config);
-            
+
             let mut client = match Self::build_client(&config) {
                 Ok(c) => {
                     log::debug!("Client built successfully");
                     c
-                },
+                }
                 Err(e) => {
                     log::error!("Failed to build client: {}", e);
                     return Err(anyhow!("Client build failed: {}", e));
@@ -259,7 +262,7 @@ impl ConnectionManager {    /// Discover endpoints from an OPC UA server
             );
 
             log::debug!("Attempting connection with identity token: {:?}", config.identity_token);
-            
+
             // Wrap the connection attempt in a panic-catching mechanism
             match std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
                 client.connect_to_endpoint(endpoint, config.identity_token)
@@ -267,11 +270,11 @@ impl ConnectionManager {    /// Discover endpoints from an OPC UA server
                 Ok(Ok(session)) => {
                     log::info!("Successfully established OPC UA connection");
                     Ok((client, session))
-                },
+                }
                 Ok(Err(e)) => {
                     log::error!("Failed to connect to endpoint: {}", e);
                     log::debug!("Connection error details: {:?}", e);
-                    
+
                     // Provide more specific error analysis
                     let error_msg = e.to_string();
                     if error_msg.contains("BadSecurityChecksFailed") {
@@ -281,9 +284,9 @@ impl ConnectionManager {    /// Discover endpoints from an OPC UA server
                     } else if error_msg.contains("BadIdentityTokenInvalid") {
                         log::error!("Identity token is invalid - check authentication credentials");
                     }
-                    
+
                     Err(anyhow!("Endpoint connection failed: {}", e))
-                },
+                }
                 Err(panic_info) => {
                     // Handle panics gracefully
                     let panic_msg = if let Some(s) = panic_info.downcast_ref::<&str>() {
@@ -293,7 +296,7 @@ impl ConnectionManager {    /// Discover endpoints from an OPC UA server
                     } else {
                         "Unknown panic occurred during connection".to_string()
                     };
-                    
+
                     log::error!("Connection attempt panicked: {}", panic_msg);
                     log::error!("This usually indicates a certificate/private key format issue or mismatch");
                     log::info!("Suggestions:");
@@ -301,12 +304,12 @@ impl ConnectionManager {    /// Discover endpoints from an OPC UA server
                     log::info!("  2. Check that the private key is in PEM format");
                     log::info!("  3. Ensure the certificate contains the correct application URI");
                     log::info!("  4. Try regenerating the certificate/key pair if the issue persists");
-                    
+
                     Err(anyhow!("Connection failed due to certificate/key issue: {}", panic_msg))
                 }
             }
         })
-        .await?
+            .await?
     }
 
     /// Connect to an OPC UA server by URL (discovers endpoints first)
@@ -391,7 +394,7 @@ impl ConnectionManager {    /// Discover endpoints from an OPC UA server
                     log::error!("Client private key file not found: {}", key_path);
                     return Err(anyhow!("Client private key file not found: {}", key_path));
                 }
-                
+
                 // Use PKI directory structure approach (more reliable than absolute paths)
                 let cert_filename = std::path::Path::new(cert_path)
                     .file_name()
@@ -401,22 +404,22 @@ impl ConnectionManager {    /// Discover endpoints from an OPC UA server
                     .file_name()
                     .and_then(|s| s.to_str())
                     .unwrap_or("private.pem");
-                
+
                 log::debug!("Using certificate file: own/{}", cert_filename);
                 log::debug!("Using private key file: private/{}", key_filename);
-                
+
                 // Validate certificate and key files before proceeding
                 if let Err(e) = Self::validate_certificate_files(cert_path, key_path) {
                     log::error!("Certificate validation failed: {}", e);
                     return Err(anyhow!("Certificate validation failed: {}", e));
                 }
-                
+
                 // Test certificate with OpenSSL early to catch format and compatibility issues
                 if let Err(e) = Self::test_certificate_with_openssl(cert_path, key_path) {
                     log::error!("Certificate OpenSSL test failed: {}", e);
                     return Err(anyhow!("Certificate OpenSSL test failed: {}. Please check certificate and private key formats and compatibility.", e));
                 }
-                
+
                 client_builder = client_builder
                     .certificate_path(format!("own/{}", cert_filename))
                     .private_key_path(format!("private/{}", key_filename))
@@ -437,11 +440,11 @@ impl ConnectionManager {    /// Discover endpoints from an OPC UA server
             Ok(Some(client)) => {
                 log::debug!("Client created successfully");
                 Ok(client)
-            },
+            }
             Ok(None) => {
                 log::error!("Failed to create client - builder returned None");
                 Err(anyhow!("Failed to create client"))
-            },
+            }
             Err(panic_info) => {
                 let panic_msg = if let Some(s) = panic_info.downcast_ref::<&str>() {
                     s.to_string()
@@ -450,7 +453,7 @@ impl ConnectionManager {    /// Discover endpoints from an OPC UA server
                 } else {
                     "Unknown panic during client creation".to_string()
                 };
-                
+
                 log::error!("Client creation panicked: {}", panic_msg);
                 log::error!("This usually indicates certificate/private key loading issues");
                 Err(anyhow!("Client creation failed: {}", panic_msg))
@@ -571,12 +574,12 @@ impl ConnectionManager {    /// Discover endpoints from an OPC UA server
     /// Validate certificate and private key files
     fn validate_certificate_files(cert_path: &str, key_path: &str) -> Result<()> {
         use std::fs;
-        
+
         // Check if files can be read
         match fs::read(cert_path) {
             Ok(cert_data) => {
                 log::debug!("Certificate file readable, size: {} bytes", cert_data.len());
-                
+
                 // Basic validation - check if it looks like a DER or PEM certificate
                 if cert_data.starts_with(b"-----BEGIN CERTIFICATE-----") {
                     log::debug!("Certificate appears to be in PEM format");
@@ -585,31 +588,31 @@ impl ConnectionManager {    /// Discover endpoints from an OPC UA server
                 } else {
                     log::warn!("Certificate file format may be invalid");
                 }
-            },
+            }
             Err(e) => {
                 return Err(anyhow!("Cannot read certificate file: {}", e));
             }
         }
-        
+
         match fs::read(key_path) {
             Ok(key_data) => {
                 log::debug!("Private key file readable, size: {} bytes", key_data.len());
-                
+
                 // Basic validation - check if it looks like a PEM private key
                 if key_data.starts_with(b"-----BEGIN PRIVATE KEY-----") ||
-                   key_data.starts_with(b"-----BEGIN RSA PRIVATE KEY-----") ||
-                   key_data.starts_with(b"-----BEGIN EC PRIVATE KEY-----") {
+                    key_data.starts_with(b"-----BEGIN RSA PRIVATE KEY-----") ||
+                    key_data.starts_with(b"-----BEGIN EC PRIVATE KEY-----") {
                     log::debug!("Private key appears to be in PEM format");
                 } else {
                     log::warn!("Private key file may not be in expected PEM format");
                     log::warn!("Expected format: -----BEGIN PRIVATE KEY----- or -----BEGIN RSA PRIVATE KEY-----");
                 }
-            },
+            }
             Err(e) => {
                 return Err(anyhow!("Cannot read private key file: {}", e));
             }
         }
-        
+
         Ok(())
     }
 
@@ -617,17 +620,17 @@ impl ConnectionManager {    /// Discover endpoints from an OPC UA server
     /// This validates format and compatibility before the OPC UA client tries to use them
     fn test_certificate_with_openssl(cert_path: &str, key_path: &str) -> Result<()> {
         use std::fs;
-        
+
         log::debug!("Testing certificate compatibility with OpenSSL for: {} and {}", cert_path, key_path);
-        
+
         // Read certificate file
         let cert_data = fs::read(cert_path)
             .map_err(|e| anyhow!("Cannot read certificate file: {}", e))?;
-            
+
         if cert_data.is_empty() {
             return Err(anyhow!("Certificate file is empty"));
         }
-        
+
         // Try to parse certificate with OpenSSL
         let cert = if cert_data.starts_with(b"-----BEGIN CERTIFICATE-----") {
             // PEM format
@@ -638,37 +641,37 @@ impl ConnectionManager {    /// Discover endpoints from an OPC UA server
             openssl::x509::X509::from_der(&cert_data)
                 .map_err(|e| anyhow!("Failed to parse DER certificate: {}", e))?
         };
-        
+
         log::debug!("Certificate parsed successfully with OpenSSL");
-        
+
         // Read private key file
         let key_data = fs::read(key_path)
             .map_err(|e| anyhow!("Cannot read private key file: {}", e))?;
-            
+
         if key_data.is_empty() {
             return Err(anyhow!("Private key file is empty"));
         }
-        
+
         // Try to parse private key with OpenSSL
         let private_key = openssl::pkey::PKey::private_key_from_pem(&key_data)
             .map_err(|e| anyhow!("Failed to parse private key: {}. Make sure the key is in PEM format and not encrypted.", e))?;
-        
+
         log::debug!("Private key parsed successfully with OpenSSL");
-        
+
         // Test if the private key matches the certificate's public key
         let cert_public_key = cert.public_key()
             .map_err(|e| anyhow!("Failed to extract public key from certificate: {}", e))?;
-        
+
         // Compare the public keys (this validates that the private key matches the certificate)
         let private_key_public = private_key.public_key_to_pem()
             .map_err(|e| anyhow!("Failed to extract public key from private key: {}", e))?;
         let cert_key_public = cert_public_key.public_key_to_pem()
             .map_err(|e| anyhow!("Failed to convert certificate public key to PEM: {}", e))?;
-        
+
         if private_key_public != cert_key_public {
             return Err(anyhow!("Private key does not match the certificate's public key"));
         }
-        
+
         log::info!("Certificate and private key validation successful - they are compatible");
         Ok(())
     }
@@ -677,17 +680,17 @@ impl ConnectionManager {    /// Discover endpoints from an OPC UA server
     /// This reads the Subject Alternative Name (SAN) extension to find the application URI
     fn extract_application_uri_from_certificate(cert_path: &str) -> Result<String> {
         use std::fs;
-        
+
         log::debug!("Extracting application URI from certificate: {}", cert_path);
-        
+
         // Read certificate file
         let cert_data = fs::read(cert_path)
             .map_err(|e| anyhow!("Cannot read certificate file: {}", e))?;
-            
+
         if cert_data.is_empty() {
             return Err(anyhow!("Certificate file is empty"));
         }
-        
+
         // Parse certificate with OpenSSL
         let cert = if cert_data.starts_with(b"-----BEGIN CERTIFICATE-----") {
             // PEM format
@@ -698,19 +701,19 @@ impl ConnectionManager {    /// Discover endpoints from an OPC UA server
             openssl::x509::X509::from_der(&cert_data)
                 .map_err(|e| anyhow!("Failed to parse DER certificate: {}", e))?
         };
-        
+
         log::debug!("Certificate parsed successfully, extracting Subject Alternative Name");
-        
+
         // Get Subject Alternative Name extension
         let subject_alt_names = cert.subject_alt_names();
-        
+
         if let Some(san_list) = subject_alt_names {
             for san in san_list {
                 // Check if this is a URI entry
                 if let Some(uri) = san.uri() {
                     let uri_str = uri.to_string();
                     log::debug!("Found URI in SAN: {}", uri_str);
-                    
+
                     // OPC UA application URIs typically start with "urn:" 
                     // and often contain "opcua" or similar identifiers
                     if uri_str.starts_with("urn:") {
@@ -720,7 +723,7 @@ impl ConnectionManager {    /// Discover endpoints from an OPC UA server
                 }
             }
         }
-        
+
         // If no URI found in SAN, try to get it from subject CN as fallback
         let subject = cert.subject_name();
         for entry in subject.entries() {
@@ -729,7 +732,7 @@ impl ConnectionManager {    /// Discover endpoints from an OPC UA server
                 if let Ok(data) = entry.data().as_utf8() {
                     let cn = data.to_string();
                     log::debug!("Found CN in certificate: {}", cn);
-                    
+
                     // If CN looks like a URN, use it
                     if cn.starts_with("urn:") {
                         log::info!("Using CN as application URI: {}", cn);
@@ -738,7 +741,7 @@ impl ConnectionManager {    /// Discover endpoints from an OPC UA server
                 }
             }
         }
-        
+
         Err(anyhow!("No application URI found in certificate Subject Alternative Name or Common Name"))
     }
 }

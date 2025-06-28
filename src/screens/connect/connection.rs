@@ -45,7 +45,7 @@ impl ConnectionBuilder {
                 self.validate_x509_certificate(inputs)?;
                 IdentityToken::X509(
                     PathBuf::from(&inputs.cert_path),
-                    PathBuf::from(&inputs.key_path)
+                    PathBuf::from(&inputs.key_path),
                 )
             }
         });
@@ -55,9 +55,10 @@ impl ConnectionBuilder {
     pub fn with_security(mut self, config: SecurityConfig) -> Self {
         self.security_config = Some(config);
         self
-    }    pub async fn connect(self) -> Result<(Client, Arc<RwLock<Session>>)> {
-        use crate::connection_manager::{ConnectionManager, ConnectionConfig};
-        
+    }
+    pub async fn connect(self) -> Result<(Client, Arc<RwLock<Session>>)> {
+        use crate::connection_manager::{ConnectionConfig, ConnectionManager};
+
         let identity_token = self
             .identity_token
             .clone()
@@ -65,27 +66,37 @@ impl ConnectionBuilder {
 
         // Parse security policy from endpoint
         let security_policy = Self::parse_security_policy(&self.endpoint.security_policy_uri);
-        
-        log::info!("Connection attempt with endpoint security URI: '{}' -> policy: {:?}, mode: {:?}", 
-                   self.endpoint.security_policy_uri.as_ref(), security_policy, self.endpoint.security_mode);
+
+        log::info!(
+            "Connection attempt with endpoint security URI: '{}' -> policy: {:?}, mode: {:?}",
+            self.endpoint.security_policy_uri.as_ref(),
+            security_policy,
+            self.endpoint.security_mode
+        );
 
         // Log security config for debugging
         if let Some(ref sec_config) = self.security_config {
-            log::info!("Security config - cert: '{}', key: '{}', auto_trust: {}", 
-                       sec_config.client_cert_path, sec_config.client_key_path, sec_config.auto_trust);
+            log::info!(
+                "Security config - cert: '{}', key: '{}', auto_trust: {}",
+                sec_config.client_cert_path,
+                sec_config.client_key_path,
+                sec_config.auto_trust
+            );
         } else {
             log::info!("No security config provided");
         }
 
         // Use secure connection configuration if:
         // 1. The endpoint uses a secure policy (not None), OR
-        // 2. The endpoint uses secure mode (not None), OR  
+        // 2. The endpoint uses secure mode (not None), OR
         // 3. Client certificates are provided
-        let use_secure_config = security_policy != opcua::crypto::SecurityPolicy::None ||
-                               self.endpoint.security_mode != opcua::types::MessageSecurityMode::None ||
-                               self.security_config.as_ref()
-                                   .map(|c| !c.client_cert_path.is_empty() && !c.client_key_path.is_empty())
-                                   .unwrap_or(false);
+        let use_secure_config = security_policy != opcua::crypto::SecurityPolicy::None
+            || self.endpoint.security_mode != opcua::types::MessageSecurityMode::None
+            || self
+                .security_config
+                .as_ref()
+                .map(|c| !c.client_cert_path.is_empty() && !c.client_key_path.is_empty())
+                .unwrap_or(false);
 
         log::info!("Use secure config decision: {} (policy={:?} != None: {}, mode={:?} != None: {}, certs provided: {})", 
                    use_secure_config,
@@ -100,9 +111,24 @@ impl ConnectionBuilder {
                 .with_security_auto_uri(
                     security_policy,
                     self.endpoint.security_mode,
-                    self.security_config.as_ref().map(|c| c.auto_trust).unwrap_or(true),
-                    self.security_config.as_ref().and_then(|c| if c.client_cert_path.is_empty() { None } else { Some(c.client_cert_path.clone()) }),
-                    self.security_config.as_ref().and_then(|c| if c.client_key_path.is_empty() { None } else { Some(c.client_key_path.clone()) }),
+                    self.security_config
+                        .as_ref()
+                        .map(|c| c.auto_trust)
+                        .unwrap_or(true),
+                    self.security_config.as_ref().and_then(|c| {
+                        if c.client_cert_path.is_empty() {
+                            None
+                        } else {
+                            Some(c.client_cert_path.clone())
+                        }
+                    }),
+                    self.security_config.as_ref().and_then(|c| {
+                        if c.client_key_path.is_empty() {
+                            None
+                        } else {
+                            Some(c.client_key_path.clone())
+                        }
+                    }),
                 )
                 .with_authentication(identity_token)
         } else {
@@ -112,26 +138,57 @@ impl ConnectionBuilder {
                 .with_security(
                     security_policy,
                     self.endpoint.security_mode,
-                    self.security_config.as_ref().map(|c| c.auto_trust).unwrap_or(true),
-                    self.security_config.as_ref().and_then(|c| if c.client_cert_path.is_empty() { None } else { Some(c.client_cert_path.clone()) }),
-                    self.security_config.as_ref().and_then(|c| if c.client_key_path.is_empty() { None } else { Some(c.client_key_path.clone()) }),
+                    self.security_config
+                        .as_ref()
+                        .map(|c| c.auto_trust)
+                        .unwrap_or(true),
+                    self.security_config.as_ref().and_then(|c| {
+                        if c.client_cert_path.is_empty() {
+                            None
+                        } else {
+                            Some(c.client_cert_path.clone())
+                        }
+                    }),
+                    self.security_config.as_ref().and_then(|c| {
+                        if c.client_key_path.is_empty() {
+                            None
+                        } else {
+                            Some(c.client_key_path.clone())
+                        }
+                    }),
                 )
                 .with_authentication(identity_token)
         };
 
-        log::info!("Final connection config: policy={:?}, mode={:?}, app_uri={}", 
-                   config.security_policy, config.security_mode, config.application_uri);
+        log::info!(
+            "Final connection config: policy={:?}, mode={:?}, app_uri={}",
+            config.security_policy,
+            config.security_mode,
+            config.application_uri
+        );
         ConnectionManager::connect_to_endpoint(self.endpoint, &config).await
     }
 
     fn parse_security_policy(uri: &opcua::types::UAString) -> opcua::crypto::SecurityPolicy {
         match uri.as_ref() {
-            "http://opcfoundation.org/UA/SecurityPolicy#None" => opcua::crypto::SecurityPolicy::None,
-            "http://opcfoundation.org/UA/SecurityPolicy#Basic128Rsa15" => opcua::crypto::SecurityPolicy::Basic128Rsa15,
-            "http://opcfoundation.org/UA/SecurityPolicy#Basic256" => opcua::crypto::SecurityPolicy::Basic256,
-            "http://opcfoundation.org/UA/SecurityPolicy#Basic256Sha256" => opcua::crypto::SecurityPolicy::Basic256Sha256,
-            "http://opcfoundation.org/UA/SecurityPolicy#Aes128_Sha256_RsaOaep" => opcua::crypto::SecurityPolicy::Aes128Sha256RsaOaep,
-            "http://opcfoundation.org/UA/SecurityPolicy#Aes256_Sha256_RsaPss" => opcua::crypto::SecurityPolicy::Aes256Sha256RsaPss,
+            "http://opcfoundation.org/UA/SecurityPolicy#None" => {
+                opcua::crypto::SecurityPolicy::None
+            }
+            "http://opcfoundation.org/UA/SecurityPolicy#Basic128Rsa15" => {
+                opcua::crypto::SecurityPolicy::Basic128Rsa15
+            }
+            "http://opcfoundation.org/UA/SecurityPolicy#Basic256" => {
+                opcua::crypto::SecurityPolicy::Basic256
+            }
+            "http://opcfoundation.org/UA/SecurityPolicy#Basic256Sha256" => {
+                opcua::crypto::SecurityPolicy::Basic256Sha256
+            }
+            "http://opcfoundation.org/UA/SecurityPolicy#Aes128_Sha256_RsaOaep" => {
+                opcua::crypto::SecurityPolicy::Aes128Sha256RsaOaep
+            }
+            "http://opcfoundation.org/UA/SecurityPolicy#Aes256_Sha256_RsaPss" => {
+                opcua::crypto::SecurityPolicy::Aes256Sha256RsaPss
+            }
             _ => opcua::crypto::SecurityPolicy::None,
         }
     }
@@ -141,57 +198,60 @@ impl ConnectionBuilder {
             return Err(anyhow!(
                 "Username is required for user/password authentication"
             ));
-        }        Ok(())
+        }
+        Ok(())
     }
 
     fn validate_x509_certificate(&self, inputs: &AuthInputs) -> Result<()> {
         // Validate certificate file
         if inputs.cert_path.trim().is_empty() {
-            return Err(anyhow!("Certificate file path is required for X509 authentication"));
+            return Err(anyhow!(
+                "Certificate file path is required for X509 authentication"
+            ));
         }
-        
+
         let cert_path = std::path::Path::new(&inputs.cert_path);
         if !cert_path.exists() {
-            return Err(anyhow!("Certificate file does not exist: {}", inputs.cert_path));
+            return Err(anyhow!(
+                "Certificate file does not exist: {}",
+                inputs.cert_path
+            ));
         }
-        
+
         // Check certificate file extension
-        let cert_ext = cert_path
-            .extension()
-            .and_then(|s| s.to_str())
-            .unwrap_or("");
+        let cert_ext = cert_path.extension().and_then(|s| s.to_str()).unwrap_or("");
         if !["der", "pem", "crt", "cer"].contains(&cert_ext.to_lowercase().as_str()) {
             return Err(anyhow!(
                 "Certificate file must have .der, .pem, .crt, or .cer extension"
             ));
         }
-        
+
         // Validate private key file
         if inputs.key_path.trim().is_empty() {
-            return Err(anyhow!("Private key file path is required for X509 authentication"));
-        }
-        
-        let key_path = std::path::Path::new(&inputs.key_path);
-        if !key_path.exists() {
-            return Err(anyhow!("Private key file does not exist: {}", inputs.key_path));
-        }
-        
-        // Check private key file extension
-        let key_ext = key_path
-            .extension()
-            .and_then(|s| s.to_str())
-            .unwrap_or("");
-        if !["pem", "key"].contains(&key_ext.to_lowercase().as_str()) {
             return Err(anyhow!(
-                "Private key file must have .pem or .key extension"
+                "Private key file path is required for X509 authentication"
             ));
         }
-        
+
+        let key_path = std::path::Path::new(&inputs.key_path);
+        if !key_path.exists() {
+            return Err(anyhow!(
+                "Private key file does not exist: {}",
+                inputs.key_path
+            ));
+        }
+
+        // Check private key file extension
+        let key_ext = key_path.extension().and_then(|s| s.to_str()).unwrap_or("");
+        if !["pem", "key"].contains(&key_ext.to_lowercase().as_str()) {
+            return Err(anyhow!("Private key file must have .pem or .key extension"));
+        }
+
         // Log successful validation
         info!("X509 certificate validation successful");
         info!("Certificate: {}", inputs.cert_path);
         info!("Private key: {}", inputs.key_path);
-        
+
         Ok(())
     }
 }
@@ -240,10 +300,12 @@ impl ConnectScreen {
         );
 
         let auth_inputs = self.collect_auth_inputs();
-        let security_config = self.collect_security_config();        
+        let security_config = self.collect_security_config();
         info!(
             "Security Config: {}, {}, {}",
-            security_config.client_cert_path, security_config.client_key_path, security_config.auto_trust
+            security_config.client_cert_path,
+            security_config.client_key_path,
+            security_config.auto_trust
         );
         let connection_result = match ConnectionBuilder::new(endpoint)
             .with_identity(&self.authentication_type, &auth_inputs)?

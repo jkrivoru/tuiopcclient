@@ -45,9 +45,10 @@ impl OpcUaClientManager {
             session: None,
             server_url: String::new(),
         }
-    }    pub async fn connect(&mut self, endpoint_url: &str) -> Result<()> {
-        use crate::connection_manager::{ConnectionManager, ConnectionConfig};
-        
+    }
+    pub async fn connect(&mut self, endpoint_url: &str) -> Result<()> {
+        use crate::connection_manager::{ConnectionConfig, ConnectionManager};
+
         self.connection_status = ConnectionStatus::Connecting;
         self.server_url = endpoint_url.to_string();
 
@@ -63,7 +64,8 @@ impl OpcUaClientManager {
                 Ok(())
             }
             Err(e) => {
-                self.connection_status = ConnectionStatus::Error(format!("Connection failed: {}", e));
+                self.connection_status =
+                    ConnectionStatus::Error(format!("Connection failed: {}", e));
                 Err(e)
             }
         }
@@ -71,8 +73,8 @@ impl OpcUaClientManager {
 
     /// Connect using secure configuration (with certificates)
     pub async fn connect_secure(&mut self, endpoint_url: &str) -> Result<()> {
-        use crate::connection_manager::{ConnectionManager, ConnectionConfig};
-        
+        use crate::connection_manager::{ConnectionConfig, ConnectionManager};
+
         self.connection_status = ConnectionStatus::Connecting;
         self.server_url = endpoint_url.to_string();
 
@@ -88,7 +90,8 @@ impl OpcUaClientManager {
                 Ok(())
             }
             Err(e) => {
-                self.connection_status = ConnectionStatus::Error(format!("Connection failed: {}", e));
+                self.connection_status =
+                    ConnectionStatus::Error(format!("Connection failed: {}", e));
                 Err(e)
             }
         }
@@ -178,7 +181,8 @@ impl OpcUaClientManager {
                         }
                     }
                     Ok(nodes)
-                }                Ok(Err(e)) => {
+                }
+                Ok(Err(e)) => {
                     // Browse operation failed
                     log::warn!("Failed to browse node {}: {}", node_id, e);
                     Err(anyhow::anyhow!("Browse operation failed: {}", e))
@@ -191,11 +195,13 @@ impl OpcUaClientManager {
             }
         } else {
             // Not connected
-            Err(anyhow::anyhow!("Not connected to OPC UA server"))        }
-    }    pub async fn read_node_attributes(&self, node_id: &NodeId) -> Result<Vec<OpcUaAttribute>> {
+            Err(anyhow::anyhow!("Not connected to OPC UA server"))
+        }
+    }
+    pub async fn read_node_attributes(&self, node_id: &NodeId) -> Result<Vec<OpcUaAttribute>> {
         if let Some(session) = &self.session {
             let session_guard = session.read();
-            let mut attributes = Vec::new();            // Define all the standard OPC UA attributes we want to read (excluding Value for special handling)
+            let mut attributes = Vec::new(); // Define all the standard OPC UA attributes we want to read (excluding Value for special handling)
             let attribute_ids = vec![
                 AttributeId::NodeId,
                 AttributeId::NodeClass,
@@ -236,7 +242,8 @@ impl OpcUaClientManager {
 
                 match session_guard.read(&[read_value_id], TimestampsToReturn::Both, 0.0) {
                     Ok(results) => {
-                        if let Some(result) = results.first() {                            let name = match attr_id {
+                        if let Some(result) = results.first() {
+                            let name = match attr_id {
                                 AttributeId::NodeId => "NodeId",
                                 AttributeId::NodeClass => "NodeClass",
                                 AttributeId::BrowseName => "BrowseName",
@@ -342,7 +349,8 @@ impl OpcUaClientManager {
                                     (value_str, type_str.to_string())
                                 }
                                 None => ("(null)".to_string(), "Unknown".to_string()),
-                            };                            let status = if let Some(status_code) = &result.status {
+                            };
+                            let status = if let Some(status_code) = &result.status {
                                 if status_code.is_good() {
                                     "Good".to_string()
                                 } else {
@@ -357,13 +365,19 @@ impl OpcUaClientManager {
                                 Some(val) => match val {
                                     Variant::String(s) => {
                                         s.value().as_ref().map(|s| !s.is_empty()).unwrap_or(false)
-                                    },
-                                    Variant::LocalizedText(lt) => {
-                                        lt.text.value().as_ref().map(|s| !s.is_empty()).unwrap_or(false)
-                                    },
-                                    Variant::QualifiedName(qn) => {
-                                        qn.name.value().as_ref().map(|s| !s.is_empty()).unwrap_or(false)
-                                    },
+                                    }
+                                    Variant::LocalizedText(lt) => lt
+                                        .text
+                                        .value()
+                                        .as_ref()
+                                        .map(|s| !s.is_empty())
+                                        .unwrap_or(false),
+                                    Variant::QualifiedName(qn) => qn
+                                        .name
+                                        .value()
+                                        .as_ref()
+                                        .map(|s| !s.is_empty())
+                                        .unwrap_or(false),
                                     Variant::ByteString(bs) => !bs.as_ref().is_empty(),
                                     _ => true, // Include all other non-null variants
                                 },
@@ -391,15 +405,16 @@ impl OpcUaClientManager {
                         );
                     }
                 }
-            }            // Check if this node can have a Value attribute by examining its NodeClass
-            let node_class_from_attributes = attributes.iter()
+            } // Check if this node can have a Value attribute by examining its NodeClass
+            let node_class_from_attributes = attributes
+                .iter()
                 .find(|attr| attr.name == "NodeClass")
                 .map(|attr| attr.value.as_str());
 
             let can_have_value = match node_class_from_attributes {
                 Some("Variable") | Some("VariableType") => true,
                 _ => false,
-            };            // Only read Value attribute for Variable and VariableType nodes
+            }; // Only read Value attribute for Variable and VariableType nodes
             if can_have_value {
                 let read_value_id = ReadValueId {
                     node_id: node_id.clone(),
@@ -476,7 +491,7 @@ impl OpcUaClientManager {
                                 }
                             } else {
                                 "Unknown".to_string()
-                            };                            // Use DataValue.is_valid() to determine if value should be colored green
+                            }; // Use DataValue.is_valid() to determine if value should be colored green
                             let is_value_good = data_value.is_valid();
 
                             attributes.push(OpcUaAttribute {
@@ -485,7 +500,7 @@ impl OpcUaClientManager {
                                 data_type,
                                 status,
                                 is_value_good,
-                            });                            // Add custom debug attributes with indentation
+                            }); // Add custom debug attributes with indentation
                             let value_status_text = if let Some(status_code) = &data_value.status {
                                 format!("{:?}", status_code)
                             } else {
@@ -501,11 +516,12 @@ impl OpcUaClientManager {
                             });
 
                             // Add SourceTimestamp attribute
-                            let source_timestamp_text = if let Some(timestamp) = &data_value.source_timestamp {
-                                timestamp.to_string()
-                            } else {
-                                "None".to_string()
-                            };
+                            let source_timestamp_text =
+                                if let Some(timestamp) = &data_value.source_timestamp {
+                                    timestamp.to_string()
+                                } else {
+                                    "None".to_string()
+                                };
 
                             attributes.push(OpcUaAttribute {
                                 name: "   SourceTimestamp".to_string(),
@@ -516,11 +532,12 @@ impl OpcUaClientManager {
                             });
 
                             // Add ServerTimestamp attribute
-                            let server_timestamp_text = if let Some(timestamp) = &data_value.server_timestamp {
-                                timestamp.to_string()
-                            } else {
-                                "None".to_string()
-                            };
+                            let server_timestamp_text =
+                                if let Some(timestamp) = &data_value.server_timestamp {
+                                    timestamp.to_string()
+                                } else {
+                                    "None".to_string()
+                                };
 
                             attributes.push(OpcUaAttribute {
                                 name: "   ServerTimestamp".to_string(),
@@ -532,11 +549,7 @@ impl OpcUaClientManager {
                         }
                     }
                     Err(e) => {
-                        log::warn!(
-                            "Failed to read Value attribute for node {}: {}",
-                            node_id,
-                            e
-                        );
+                        log::warn!("Failed to read Value attribute for node {}: {}", node_id, e);
                         // Add a placeholder Value attribute with error status
                         attributes.push(OpcUaAttribute {
                             name: "Value".to_string(),
@@ -548,7 +561,7 @@ impl OpcUaClientManager {
                     }
                 }
             }
-            // Note: For nodes that cannot have values (Objects, Methods, etc.), 
+            // Note: For nodes that cannot have values (Objects, Methods, etc.),
             // we simply don't add a Value attribute at all
 
             // If we couldn't read any real attributes, return error
@@ -566,10 +579,14 @@ impl OpcUaClientManager {
 
     /// Read only the attributes needed for search (BrowseName, DisplayName, and optionally Value)
     /// This is much more efficient than reading all node attributes
-    pub async fn read_node_search_attributes(&self, node_id: &NodeId, include_value: bool) -> Result<(String, String, Option<String>, NodeClass)> {
+    pub async fn read_node_search_attributes(
+        &self,
+        node_id: &NodeId,
+        include_value: bool,
+    ) -> Result<(String, String, Option<String>, NodeClass)> {
         if let Some(session) = &self.session {
             let session_guard = session.read();
-            
+
             // Build read values - always include BrowseName, DisplayName, and NodeClass
             let mut read_values = vec![
                 ReadValueId {
@@ -591,7 +608,7 @@ impl OpcUaClientManager {
                     data_encoding: QualifiedName::null(),
                 },
             ];
-            
+
             // Optionally include Value attribute
             if include_value {
                 read_values.push(ReadValueId {
@@ -601,12 +618,13 @@ impl OpcUaClientManager {
                     data_encoding: QualifiedName::null(),
                 });
             }
-            
+
             match session_guard.read(&read_values, TimestampsToReturn::Neither, 0.0) {
                 Ok(results) => {
                     let browse_name = if let Some(result) = results.get(0) {
                         if let Some(Variant::QualifiedName(qname)) = &result.value {
-                            qname.name
+                            qname
+                                .name
                                 .value()
                                 .as_ref()
                                 .map(|s| s.as_str())
@@ -618,10 +636,11 @@ impl OpcUaClientManager {
                     } else {
                         String::new()
                     };
-                    
+
                     let display_name = if let Some(result) = results.get(1) {
                         if let Some(Variant::LocalizedText(ltext)) = &result.value {
-                            ltext.text
+                            ltext
+                                .text
                                 .value()
                                 .as_ref()
                                 .map(|s| s.as_str())
@@ -633,7 +652,7 @@ impl OpcUaClientManager {
                     } else {
                         String::new()
                     };
-                    
+
                     let node_class = if let Some(result) = results.get(2) {
                         if let Some(Variant::Int32(class_value)) = &result.value {
                             match *class_value {
@@ -653,7 +672,7 @@ impl OpcUaClientManager {
                     } else {
                         NodeClass::Unspecified
                     };
-                    
+
                     // Handle Value attribute if requested
                     let value_attr = if include_value {
                         if let Some(result) = results.get(3) {
@@ -669,11 +688,15 @@ impl OpcUaClientManager {
                     } else {
                         None
                     };
-                    
+
                     Ok((browse_name, display_name, value_attr, node_class))
                 }
                 Err(e) => {
-                    log::debug!("Failed to read search attributes for node {}: {}", node_id, e);
+                    log::debug!(
+                        "Failed to read search attributes for node {}: {}",
+                        node_id,
+                        e
+                    );
                     // Return empty strings and default NodeClass if we can't read the attributes
                     Ok((String::new(), String::new(), None, NodeClass::Unspecified))
                 }
@@ -779,7 +802,12 @@ impl OpcUaClientManager {
     }
 
     /// Set an existing connection (transfer from ConnectScreen)
-    pub fn set_connection(&mut self, client: Client, session: Arc<RwLock<Session>>, server_url: String) {
+    pub fn set_connection(
+        &mut self,
+        client: Client,
+        session: Arc<RwLock<Session>>,
+        server_url: String,
+    ) {
         self.client = Some(client);
         self.session = Some(session);
         self.server_url = server_url;

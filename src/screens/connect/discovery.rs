@@ -35,8 +35,11 @@ impl EndpointConverter {
         })
     }
     fn parse_security_policy(&self, uri: &UAString) -> Option<LocalSecurityPolicy> {
-        let uri_str = uri.as_ref();        match uri_str {
-            crate::screens::connect::constants::security_policies::NONE => Some(LocalSecurityPolicy::None),
+        let uri_str = uri.as_ref();
+        match uri_str {
+            crate::screens::connect::constants::security_policies::NONE => {
+                Some(LocalSecurityPolicy::None)
+            }
             crate::screens::connect::constants::security_policies::BASIC128_RSA15 => {
                 Some(LocalSecurityPolicy::Basic128Rsa15)
             }
@@ -126,9 +129,10 @@ impl ConnectScreen {
         }
 
         Ok(())
-    }    async fn discover_from_server(&self, url: &str) -> Result<Vec<EndpointDescription>> {
-        use crate::connection_manager::{ConnectionManager, ConnectionConfig};
-        
+    }
+    async fn discover_from_server(&self, url: &str) -> Result<Vec<EndpointDescription>> {
+        use crate::connection_manager::{ConnectionConfig, ConnectionManager};
+
         let config = ConnectionConfig::ui_discovery();
         ConnectionManager::discover_endpoints(url, &config).await
     }

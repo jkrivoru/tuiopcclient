@@ -35,7 +35,7 @@ pub struct App {
     // Screens
     connect_screen: ConnectScreen,
     browse_screen: Option<BrowseScreen>,
-    
+
     // Mouse handling
     dialog_area: Option<Rect>,
     progress_dialog_area: Option<Rect>,
@@ -47,7 +47,9 @@ enum AppState {
     Connected(String), // Store server URL
 }
 
-impl App {    pub fn new(client_manager: Arc<RwLock<OpcUaClientManager>>) -> Self {        Self {
+impl App {
+    pub fn new(client_manager: Arc<RwLock<OpcUaClientManager>>) -> Self {
+        Self {
             client_manager,
             should_quit: false,
             test_mode: false,
@@ -56,7 +58,13 @@ impl App {    pub fn new(client_manager: Arc<RwLock<OpcUaClientManager>>) -> Sel
             browse_screen: None,
             dialog_area: None,
             progress_dialog_area: None,
-        }}    pub fn new_with_browse_direct(client_manager: Arc<RwLock<OpcUaClientManager>>, server_url: String) -> Self {        Self {
+        }
+    }
+    pub fn new_with_browse_direct(
+        client_manager: Arc<RwLock<OpcUaClientManager>>,
+        server_url: String,
+    ) -> Self {
+        Self {
             client_manager: client_manager.clone(),
             should_quit: false,
             test_mode: false,
@@ -238,8 +246,15 @@ impl App {    pub fn new(client_manager: Arc<RwLock<OpcUaClientManager>>) -> Sel
                         y: content_chunks[0].y + 1, // Account for top border
                         width: content_chunks[0].width.saturating_sub(2), // Account for both borders
                         height: content_chunks[0].height.saturating_sub(2), // Account for both borders
-                    };                    if let Some(connection_result) =
-                        browse_screen.handle_mouse_input(mouse, tree_area, self.dialog_area, self.progress_dialog_area).await?
+                    };
+                    if let Some(connection_result) = browse_screen
+                        .handle_mouse_input(
+                            mouse,
+                            tree_area,
+                            self.dialog_area,
+                            self.progress_dialog_area,
+                        )
+                        .await?
                     {
                         match connection_result {
                             ConnectionStatus::Disconnected => {
@@ -271,12 +286,13 @@ impl App {    pub fn new(client_manager: Arc<RwLock<OpcUaClientManager>>) -> Sel
                         log::error!("Error handling connect screen operations: {}", e);
                     }
                 }
-            }            AppState::Connected(_) => {
+            }
+            AppState::Connected(_) => {
                 // Process search messages from background tasks
                 if let Some(browse_screen) = &mut self.browse_screen {
                     browse_screen.process_search_messages().await;
                 }
-                
+
                 // Update connection status from client manager
                 if let Ok(client) = self.client_manager.try_read() {
                     let status = client.get_connection_status();
@@ -288,7 +304,7 @@ impl App {    pub fn new(client_manager: Arc<RwLock<OpcUaClientManager>>) -> Sel
                         self.connect_screen.async_reset().await;
                     }
                 }
-                
+
                 // Note: Background search processing removed - using synchronous depth-first search instead
             }
         }
@@ -304,10 +320,10 @@ impl App {    pub fn new(client_manager: Arc<RwLock<OpcUaClientManager>>) -> Sel
                 // Transfer the connection from ConnectScreen to ClientManager
                 if let (Some(client), Some(session)) = (
                     self.connect_screen.take_client(),
-                    self.connect_screen.take_session()
+                    self.connect_screen.take_session(),
                 ) {
                     log::info!("Transferring connection to client manager");
-                    
+
                     // Transfer the established connection to client manager
                     {
                         let mut client_guard = self.client_manager.write().await;
@@ -331,7 +347,7 @@ impl App {    pub fn new(client_manager: Arc<RwLock<OpcUaClientManager>>) -> Sel
                     // Set client manager to error state
                     if let Ok(mut client) = self.client_manager.try_write() {
                         client.set_connection_status(ConnectionStatus::Error(
-                            "Connection transfer failed - no client/session available".to_string()
+                            "Connection transfer failed - no client/session available".to_string(),
                         ));
                     }
                 }
@@ -391,8 +407,10 @@ impl App {    pub fn new(client_manager: Arc<RwLock<OpcUaClientManager>>) -> Sel
                     .constraints([
                         Constraint::Min(0), // Browse screen
                     ])
-                    .split(size);                if let Some(browse_screen) = &mut self.browse_screen {
-                    let (dialog_area, progress_dialog_area, _log_viewer_area) = browse_screen.render(f, chunks[0]);
+                    .split(size);
+                if let Some(browse_screen) = &mut self.browse_screen {
+                    let (dialog_area, progress_dialog_area, _log_viewer_area) =
+                        browse_screen.render(f, chunks[0]);
                     // Store dialog areas for mouse handling
                     self.dialog_area = dialog_area;
                     self.progress_dialog_area = progress_dialog_area;
@@ -501,7 +519,8 @@ impl App {    pub fn new(client_manager: Arc<RwLock<OpcUaClientManager>>) -> Sel
     }
 
     pub async fn initialize_browse_screen(&mut self) -> Result<()> {
-        if let Some(browse_screen) = &mut self.browse_screen {            // Load the tree data automatically for CLI connections
+        if let Some(browse_screen) = &mut self.browse_screen {
+            // Load the tree data automatically for CLI connections
             if let Err(e) = browse_screen.load_real_tree().await {
                 log::error!("Failed to load real tree data: {}", e);
             }
