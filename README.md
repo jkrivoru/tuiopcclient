@@ -245,7 +245,9 @@ The application provides detailed logging. Use the built-in log viewer (F1) or c
 
 ## License
 
-[Add your license information here]
+MIT License
+
+Do whatever you want. Take responsibility for your actions.  
 
 ## Acknowledgments
 
