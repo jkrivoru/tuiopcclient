@@ -2,6 +2,8 @@
 
 A modern, terminal-based OPC UA client built with Rust that provides an intuitive text user interface (TUI) for browsing and interacting with OPC UA servers.
 
+![image](https://github.com/user-attachments/assets/1269ff32-2b49-4c93-a132-bd54e75be276)
+
 ## Features
 
 ### 🖥️ Terminal User Interface
