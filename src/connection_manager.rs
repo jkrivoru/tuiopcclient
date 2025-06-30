@@ -298,12 +298,6 @@ impl ConnectionManager {
                     };
 
                     log::error!("Connection attempt panicked: {}", panic_msg);
-                    log::error!("This usually indicates a certificate/private key format issue or mismatch");
-                    log::info!("Suggestions:");
-                    log::info!("  1. Verify certificate and private key files are valid and matching");
-                    log::info!("  2. Check that the private key is in PEM format");
-                    log::info!("  3. Ensure the certificate contains the correct application URI");
-                    log::info!("  4. Try regenerating the certificate/key pair if the issue persists");
 
                     Err(anyhow!("Connection failed due to certificate/key issue: {}", panic_msg))
                 }
@@ -408,16 +402,10 @@ impl ConnectionManager {
                 log::debug!("Using certificate file: own/{}", cert_filename);
                 log::debug!("Using private key file: private/{}", key_filename);
 
-                // Validate certificate and key files before proceeding
-                if let Err(e) = Self::validate_certificate_files(cert_path, key_path) {
-                    log::error!("Certificate validation failed: {}", e);
-                    return Err(anyhow!("Certificate validation failed: {}", e));
-                }
-
-                // Test certificate with OpenSSL early to catch format and compatibility issues
+                // Validate certificate and key files with OpenSSL to catch format and compatibility issues
                 if let Err(e) = Self::test_certificate_with_openssl(cert_path, key_path) {
-                    log::error!("Certificate OpenSSL test failed: {}", e);
-                    return Err(anyhow!("Certificate OpenSSL test failed: {}. Please check certificate and private key formats and compatibility.", e));
+                    log::error!("Certificate validation failed: {}", e);
+                    return Err(anyhow!("Certificate validation failed: {}. Please check certificate and private key formats and compatibility.", e));
                 }
 
                 client_builder = client_builder
@@ -569,51 +557,6 @@ impl ConnectionManager {
             }
             _ => "Unknown",
         }
-    }
-
-    /// Validate certificate and private key files
-    fn validate_certificate_files(cert_path: &str, key_path: &str) -> Result<()> {
-        use std::fs;
-
-        // Check if files can be read
-        match fs::read(cert_path) {
-            Ok(cert_data) => {
-                log::debug!("Certificate file readable, size: {} bytes", cert_data.len());
-
-                // Basic validation - check if it looks like a DER or PEM certificate
-                if cert_data.starts_with(b"-----BEGIN CERTIFICATE-----") {
-                    log::debug!("Certificate appears to be in PEM format");
-                } else if cert_data.len() > 10 && cert_data[0] == 0x30 {
-                    log::debug!("Certificate appears to be in DER format");
-                } else {
-                    log::warn!("Certificate file format may be invalid");
-                }
-            }
-            Err(e) => {
-                return Err(anyhow!("Cannot read certificate file: {}", e));
-            }
-        }
-
-        match fs::read(key_path) {
-            Ok(key_data) => {
-                log::debug!("Private key file readable, size: {} bytes", key_data.len());
-
-                // Basic validation - check if it looks like a PEM private key
-                if key_data.starts_with(b"-----BEGIN PRIVATE KEY-----") ||
-                    key_data.starts_with(b"-----BEGIN RSA PRIVATE KEY-----") ||
-                    key_data.starts_with(b"-----BEGIN EC PRIVATE KEY-----") {
-                    log::debug!("Private key appears to be in PEM format");
-                } else {
-                    log::warn!("Private key file may not be in expected PEM format");
-                    log::warn!("Expected format: -----BEGIN PRIVATE KEY----- or -----BEGIN RSA PRIVATE KEY-----");
-                }
-            }
-            Err(e) => {
-                return Err(anyhow!("Cannot read private key file: {}", e));
-            }
-        }
-
-        Ok(())
     }
 
     /// Test certificate and private key using OpenSSL library

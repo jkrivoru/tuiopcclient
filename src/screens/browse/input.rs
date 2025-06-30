@@ -523,12 +523,8 @@ impl super::BrowseScreen {
     }
     async fn perform_search(&mut self) -> Result<()> {
         let query = self.search_input.value().trim().to_lowercase();
-        log::info!("🔍 === SEARCH INITIATED ===");
-        log::info!(
-            "Query: '{}' (include values: {})",
-            query,
-            self.search_include_values
-        );
+        log::info!("Search initialized with query: '{} (include values: {})'", query,
+            self.search_include_values);
 
         if query.is_empty() {
             log::info!("Empty query, nothing to search");
