@@ -73,14 +73,32 @@ pub struct Args {
     /// Use original URL instead of server-provided endpoint URLs
     #[arg(long)]
     use_original_url: bool,
+
+    /// Log level (Error, Warn, Info, Debug, Trace)
+    #[arg(long, default_value = "Info")]
+    log_level: String,
 }
 
 #[tokio::main]
 async fn main() -> Result<()> {
     let args = Args::parse();
 
-    // Initialize our custom dual logger
-    logging::init_logger();
+    // Parse log level from command line argument
+    let log_level = match args.log_level.to_lowercase().as_str() {
+        "error" => log::LevelFilter::Error,
+        "warn" => log::LevelFilter::Warn,
+        "info" => log::LevelFilter::Info,
+        "debug" => log::LevelFilter::Debug,
+        "trace" => log::LevelFilter::Trace,
+        "off" => log::LevelFilter::Off,
+        _ => {
+            eprintln!("Invalid log level: {}. Using Info level.", args.log_level);
+            log::LevelFilter::Info
+        }
+    };
+
+    // Initialize our custom dual logger with the specified level
+    logging::init_logger(log_level);
 
     let client_manager = Arc::new(RwLock::new(OpcUaClientManager::new())); // Check if we should connect directly via command line parameters
     if let Some(ref server_url) = args.server_url {
