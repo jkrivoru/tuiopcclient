@@ -30,11 +30,11 @@ impl super::BrowseScreen {
                 self.tree_nodes = children;
             }
             Ok(Err(e)) => {
-                log::warn!("Failed to load real tree data: {}", e);
+                log::warn!("browse: failed to load real tree data: {}", e);
                 // Don't fail completely, just leave tree_nodes empty
             }
             Err(_timeout) => {
-                log::warn!("Tree loading timed out");
+                log::warn!("browse: tree loading timed out");
                 // Don't fail completely, just leave tree_nodes empty
             }
         }
@@ -142,7 +142,7 @@ impl super::BrowseScreen {
                     .await?;
             }
             Err(e) => {
-                log::error!("Failed to load children for node: {}", e);
+                log::error!("browse: failed to load children for node: {}", e);
                 // Revert expansion state on error
                 self.update_expansion_state(index, false);
             }
@@ -181,7 +181,7 @@ impl super::BrowseScreen {
                         .collect();
                 }
                 Err(e) => {
-                    log::error!("Failed to read node attributes: {}", e);
+                    log::error!("browse: failed to read node attributes: {}", e);
                     self.selected_attributes.clear();
                 }
             }
@@ -206,7 +206,7 @@ impl super::BrowseScreen {
             self.update_real_attributes().await?;
         } else {
             // No real NodeId available
-            log::warn!("No real NodeId available for selected node");
+            log::warn!("browse: no real NodeId available for selected node");
         }
 
         Ok(())

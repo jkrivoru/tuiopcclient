@@ -16,7 +16,7 @@ impl BrowseScreen {
     /// Start a background search task that communicates via channels
     pub fn start_background_search(&mut self, options: RecursiveSearchOptions) -> Result<()> {
         log::info!(
-            "Starting background search for '{}' from node {}",
+            "search: starting background search for '{}' from node {}",
             options.query,
             options.start_node_id
         );
@@ -56,7 +56,7 @@ impl BrowseScreen {
             )
             .await
             {
-                log::error!("Background search task failed: {}", e);
+                log::error!("search: background search task failed: {}", e);
                 // Try to send a complete message even on error (using the original sender from the closure)
             }
         });
@@ -125,15 +125,15 @@ impl BrowseScreen {
             match close_reason {
                 SearchMessage::Complete => {
                     log::info!(
-                        "Search completed with {} results",
+                        "search: completed with {} results",
                         self.search_results.len()
                     );
                 }
                 SearchMessage::Cancelled => {
                     if first_result_found {
-                        log::info!("Search stopped after finding first result");
+                        log::info!("search: stopped after finding first result");
                     } else {
-                        log::info!("Search was cancelled");
+                        log::info!("search: cancelled");
                     }
                 }
                 _ => {}
@@ -157,7 +157,7 @@ impl BrowseScreen {
         };
 
         if !is_connected {
-            log::error!("Client is not connected, cannot perform recursive search");
+            log::error!("search: client is not connected, cannot perform recursive search");
             let _ = message_tx.send(SearchMessage::Complete);
             return Err(anyhow::anyhow!("OPC UA client is not connected"));
         }
@@ -166,7 +166,7 @@ impl BrowseScreen {
         let mut cancelled = false;
 
         log::info!(
-            "Starting search from children of selected node (skipping selected node itself)"
+            "search: starting from children of selected node (skipping selected node itself)"
         );
 
         // First, search the children of the selected node (skip the selected node itself)
@@ -183,7 +183,7 @@ impl BrowseScreen {
         .await
         {
             if !cancelled {
-                log::error!("Error during children search");
+                log::error!("search: error during children search");
             }
         }
 
@@ -271,7 +271,7 @@ impl BrowseScreen {
         cancelled: &mut bool,
     ) -> Result<()> {
         log::info!(
-            "Searching children of node: {} (skipping the node itself)",
+            "search: searching children of node '{}' (skipping the node itself)",
             parent_node_id
         );
 
@@ -288,7 +288,7 @@ impl BrowseScreen {
                 Ok(browse_results) => browse_results,
                 Err(e) => {
                     log::warn!(
-                        "Failed to browse children of node {}: {}",
+                        "search: failed to browse children of node '{}': {}",
                         parent_node_id,
                         e
                     );
@@ -297,7 +297,7 @@ impl BrowseScreen {
             }
         };
 
-        log::info!("Found {} children to search", children.len());
+        log::info!("search: found {} children to search", children.len());
 
         // Use a queue for breadth-first search through all children and their descendants
         let mut search_queue = VecDeque::new();
@@ -335,7 +335,7 @@ impl BrowseScreen {
             )
             .await
             {
-                log::info!("Found match: {}", current_node_id);
+                log::info!("search: found match '{}'", current_node_id);
                 let _ = message_tx.send(SearchMessage::Result {
                     node_id: current_node_id.to_string(),
                 });
@@ -378,7 +378,7 @@ impl BrowseScreen {
         command_rx: &mut mpsc::UnboundedReceiver<SearchCommand>,
         cancelled: &mut bool,
     ) -> Result<()> {
-        log::info!("Search subtree called for node: {}", root_node_id);
+        log::info!("search: searching subtree for node '{}'", root_node_id);
 
         // Check for cancellation before starting
         if let Ok(SearchCommand::Cancel) = command_rx.try_recv() {
@@ -410,7 +410,7 @@ impl BrowseScreen {
             )
             .await
             {
-                log::info!("Found match: {}", current_node_id);
+                log::info!("search: found match '{}'", current_node_id);
                 let _ = message_tx.send(SearchMessage::Result {
                     node_id: current_node_id.to_string(),
                 });

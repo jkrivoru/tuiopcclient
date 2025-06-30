@@ -49,6 +49,7 @@ impl OpcUaClientManager {
     pub async fn connect(&mut self, endpoint_url: &str) -> Result<()> {
         use crate::connection_manager::{ConnectionConfig, ConnectionManager};
 
+        log::info!("client: starting connection to '{}'", endpoint_url);
         self.connection_status = ConnectionStatus::Connecting;
         self.server_url = endpoint_url.to_string();
 
@@ -58,12 +59,14 @@ impl OpcUaClientManager {
         // Connect to the server
         match ConnectionManager::connect_to_server(endpoint_url, &config).await {
             Ok((client, session)) => {
+                log::info!("client: successfully connected to '{}'", endpoint_url);
                 self.client = Some(client);
                 self.session = Some(session);
                 self.connection_status = ConnectionStatus::Connected;
                 Ok(())
             }
             Err(e) => {
+                log::error!("client: connection failed to '{}': {}", endpoint_url, e);
                 self.connection_status =
                     ConnectionStatus::Error(format!("Connection failed: {}", e));
                 Err(e)
@@ -75,6 +78,7 @@ impl OpcUaClientManager {
     pub async fn connect_secure(&mut self, endpoint_url: &str) -> Result<()> {
         use crate::connection_manager::{ConnectionConfig, ConnectionManager};
 
+        log::info!("client: starting secure connection to '{}'", endpoint_url);
         self.connection_status = ConnectionStatus::Connecting;
         self.server_url = endpoint_url.to_string();
 
@@ -84,12 +88,14 @@ impl OpcUaClientManager {
         // Connect to the server
         match ConnectionManager::connect_to_server(endpoint_url, &config).await {
             Ok((client, session)) => {
+                log::info!("client: successfully established secure connection to '{}'", endpoint_url);
                 self.client = Some(client);
                 self.session = Some(session);
                 self.connection_status = ConnectionStatus::Connected;
                 Ok(())
             }
             Err(e) => {
+                log::error!("client: secure connection failed to '{}': {}", endpoint_url, e);
                 self.connection_status =
                     ConnectionStatus::Error(format!("Connection failed: {}", e));
                 Err(e)
@@ -98,13 +104,16 @@ impl OpcUaClientManager {
     }
 
     pub async fn disconnect(&mut self) -> Result<()> {
+        log::info!("client: disconnecting from '{}'", self.server_url);
         if let Some(session) = self.session.take() {
             crate::session_utils::SessionUtils::disconnect_session(session).await?;
         }
 
         self.client = None;
         self.connection_status = ConnectionStatus::Disconnected;
+        let server_url = self.server_url.clone();
         self.server_url.clear();
+        log::info!("client: successfully disconnected from '{}'", server_url);
 
         Ok(())
     }

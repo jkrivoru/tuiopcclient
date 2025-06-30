@@ -79,15 +79,18 @@ impl super::BrowseScreen {
         if self.selected_node_index >= self.tree_nodes.len() {
             self.selected_node_index = self.tree_nodes.len().saturating_sub(1);
         }
-    } // Toggle expansion state
+    }    // Toggle expansion state
     pub async fn toggle_node_async(&mut self, index: usize) -> Result<()> {
         if index >= self.tree_nodes.len() {
+            log::warn!("browse: cannot toggle node, index {} out of bounds", index);
             return Ok(());
         }
 
         if self.tree_nodes[index].is_expanded {
+            log::debug!("browse: collapsing node at index {}", index);
             self.collapse_node(index);
         } else {
+            log::debug!("browse: expanding node at index {}", index);
             self.expand_node_async(index).await?;
         }
 
@@ -97,17 +100,20 @@ impl super::BrowseScreen {
     // Move to parent node
     pub fn move_to_parent(&mut self) {
         if self.selected_node_index >= self.tree_nodes.len() {
+            log::warn!("browse: cannot move to parent, selected index out of bounds");
             return;
         }
 
         let current_level = self.tree_nodes[self.selected_node_index].level;
         if current_level == 0 {
+            log::debug!("browse: already at root level, cannot move to parent");
             return; // Already at root level
         }
 
         // Find the immediate parent node
         for i in (0..self.selected_node_index).rev() {
             if self.tree_nodes[i].level == current_level - 1 {
+                log::debug!("browse: moved to parent node at index {}", i);
                 self.selected_node_index = i;
                 self.update_scroll();
                 break;
@@ -159,6 +165,7 @@ impl super::BrowseScreen {
     // Find next sibling at the same level
     pub fn move_to_next_sibling(&mut self) {
         if self.selected_node_index >= self.tree_nodes.len() {
+            log::warn!("browse: cannot move to next sibling, selected index out of bounds");
             return;
         }
 
@@ -172,6 +179,7 @@ impl super::BrowseScreen {
                 break;
             } else if node_level == current_level {
                 // Found next sibling
+                log::debug!("browse: moved to next sibling at index {}", i);
                 self.selected_node_index = i;
                 self.update_scroll();
                 break;
@@ -182,6 +190,7 @@ impl super::BrowseScreen {
     // Find previous sibling at the same level
     pub fn move_to_previous_sibling(&mut self) {
         if self.selected_node_index == 0 {
+            log::debug!("browse: already at first node, cannot move to previous sibling");
             return;
         }
 
@@ -195,6 +204,7 @@ impl super::BrowseScreen {
                 break;
             } else if node_level == current_level {
                 // Found previous sibling
+                log::debug!("browse: moved to previous sibling at index {}", i);
                 self.selected_node_index = i;
                 self.update_scroll();
                 break;
@@ -216,7 +226,7 @@ impl super::BrowseScreen {
             self.expand_real_node(index).await?;
         } else {
             // No real data available
-            log::warn!("Cannot expand node without real OPC UA NodeId");
+            log::warn!("browse: cannot expand node without real OPC UA NodeId");
         }
 
         Ok(())
