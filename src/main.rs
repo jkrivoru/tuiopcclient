@@ -11,6 +11,7 @@ mod components;
 mod config;
 mod connection_manager;
 mod endpoint_utils;
+mod logging;
 mod node_utils;
 mod screens;
 mod session_utils;
@@ -78,45 +79,54 @@ pub struct Args {
 async fn main() -> Result<()> {
     let args = Args::parse();
 
-    // Initialize tui-logger with custom settings
-    tui_logger::init_logger(log::LevelFilter::Info).unwrap();
-    tui_logger::set_default_level(log::LevelFilter::Info);
+    // Initialize our custom dual logger
+    logging::init_logger();
 
     let client_manager = Arc::new(RwLock::new(OpcUaClientManager::new())); // Check if we should connect directly via command line parameters
     if let Some(ref server_url) = args.server_url {
-        println!("Starting OPC UA Client with command line connection...");
-        println!("Server URL: {}", server_url);
-        println!("Security Policy: {}", args.security_policy);
-        println!("Security Mode: {}", args.security_mode);
+        // Use log macros for CLI connection (will be buffered)
+        log::info!("Starting OPC UA Client with command line connection...");
+        log::info!("Server URL: {}", server_url);
+        log::info!("Security Policy: {}", args.security_policy);
+        log::info!("Security Mode: {}", args.security_mode);
 
         if args.use_original_url {
-            println!("Using original URL override");
+            log::info!("Using original URL override");
         }
         match connect_via_command_line(&args, &server_url, client_manager.clone()).await {
             Ok(()) => {
-                println!("Connection successful! Opening browse screen...");
+                log::info!("Connection successful! Opening browse screen...");
+
+                // Switch to TUI logging before creating the app
+                logging::switch_to_tui_logging();
 
                 // Create app in browse mode with the actual server URL
                 let mut app = App::new_with_browse_direct(client_manager, server_url.clone());
 
                 // Initialize the browse screen with tree data
                 if let Err(e) = app.initialize_browse_screen().await {
-                    eprintln!("Warning: Failed to load tree data: {}", e);
+                    log::warn!("Failed to load tree data: {}", e);
                 }
 
                 app.run().await?;
             }
             Err(e) => {
-                eprintln!("Connection failed: {}", e);
+                log::error!("Connection failed: {}", e);
+                // Flush console logs before exiting on connection failure
+                logging::flush_console_logs();
                 std::process::exit(1);
             }
         }
     } else {
-        // Normal TUI mode
+        // Normal TUI mode - switch to TUI logging immediately
+        logging::switch_to_tui_logging();
+        
         let mut app = App::new(client_manager);
         app.run().await?;
     }
 
+    // Flush console logs before normal application exit
+    logging::flush_console_logs();
     Ok(())
 }
 
@@ -125,7 +135,7 @@ async fn connect_via_command_line(
     server_url: &str,
     client_manager: Arc<RwLock<OpcUaClientManager>>,
 ) -> Result<()> {
-    println!("Parsing connection parameters...");
+    log::info!("Parsing connection parameters...");
 
     // Validate security configuration
     if args.security_policy != "None" || args.security_mode != "None" {
@@ -164,15 +174,15 @@ async fn connect_via_command_line(
         "Anonymous"
     };
 
-    println!("Authentication mode: {}", auth_mode);
+    log::info!("Authentication mode: {}", auth_mode);
 
     // Connect using a more detailed implementation
-    println!("Creating endpoint and connecting...");
+    log::info!("Creating endpoint and connecting...");
     let mut client_manager_guard = client_manager.write().await;
 
     match connect_with_cli_params(args, server_url, &mut *client_manager_guard).await {
         Ok(()) => {
-            println!("Successfully connected to OPC UA server");
+            log::info!("Successfully connected to OPC UA server");
             Ok(())
         }
         Err(e) => Err(anyhow::anyhow!("Failed to connect to server: {}", e)),
@@ -196,7 +206,7 @@ async fn connect_with_cli_params(
     // Create identity token based on authentication parameters
     let identity_token = create_identity_token(args)?;
 
-    println!(
+    log::info!(
         "Building client with security policy: {} and mode: {}",
         args.security_policy, args.security_mode
     );
@@ -229,7 +239,7 @@ async fn connect_with_cli_params(
             .with_url_override(args.use_original_url);
 
         config = secure_config;
-        println!("Using secure connection configuration with certificates");
+        log::info!("Using secure connection configuration with certificates");
     }
 
     // Use unified connection manager
@@ -275,7 +285,7 @@ fn convert_security_mode(mode: &str) -> Result<opcua::types::MessageSecurityMode
 fn create_identity_token(args: &Args) -> Result<opcua::client::prelude::IdentityToken> {
     use opcua::client::prelude::IdentityToken;
     if let (Some(username), Some(password)) = (&args.user_name, &args.password) {
-        println!(
+        log::info!(
             "Using username/password authentication for user: {}",
             username
         );
@@ -283,7 +293,7 @@ fn create_identity_token(args: &Args) -> Result<opcua::client::prelude::Identity
     } else if let (Some(cert_path), Some(key_path)) =
         (&args.user_certificate, &args.user_private_key)
     {
-        println!("Using X.509 certificate authentication");
+        log::info!("Using X.509 certificate authentication");
 
         // Validate certificate file exists
         let cert_path = std::path::Path::new(cert_path);
@@ -303,15 +313,15 @@ fn create_identity_token(args: &Args) -> Result<opcua::client::prelude::Identity
             ));
         }
 
-        println!("Certificate: {}", cert_path.display());
-        println!("Private key: {}", key_path.display());
+        log::info!("Certificate: {}", cert_path.display());
+        log::info!("Private key: {}", key_path.display());
 
         Ok(IdentityToken::X509(
             PathBuf::from(cert_path),
             PathBuf::from(key_path),
         ))
     } else {
-        println!("Using anonymous authentication");
+        log::info!("Using anonymous authentication");
         Ok(IdentityToken::Anonymous)
     }
 }

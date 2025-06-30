@@ -25,27 +25,29 @@ impl ConnectScreen {
             ConnectDialogStep::EndpointSelection => self.render_endpoint_step(f, chunks[0]),
             ConnectDialogStep::SecurityConfiguration => self.render_security_step(f, chunks[0]),
             ConnectDialogStep::Authentication => self.render_auth_step(f, chunks[0]),
-        } // Connection logs with scrolling support
+        }        // Connection logs with scrolling support - using TuiLoggerWidget
+        // Move events from hot buffer to main buffer
+        tui_logger::move_events();
+        
         let logger_widget = TuiLoggerWidget::default()
+            .style_error(Style::default().fg(Color::Red))
+            .style_debug(Style::default().fg(Color::Green))
+            .style_warn(Style::default().fg(Color::Yellow))
+            .style_trace(Style::default().fg(Color::Magenta))
+            .style_info(Style::default().fg(Color::Cyan))
+            .output_separator(':')
+            .output_timestamp(Some("%H:%M:%S".to_string()))
+            .output_level(Some(TuiLoggerLevelOutput::Long))
+            .output_target(true)
+            .output_file(false)
+            .output_line(false)
+            .state(&self.logger_widget_state)
             .block(
                 Block::default()
                     .title("Connection Log (PgUp\\PgDown)")
                     .borders(Borders::ALL),
-            )
-            // Custom formatting: datetime + severity only, no callstack
-            .output_timestamp(Some("%Y-%m-%d %H:%M:%S".to_string()))
-            .output_level(Some(TuiLoggerLevelOutput::Long))
-            .output_target(false) // Disable target/module name
-            .output_file(false) // Disable file name
-            .output_line(false) // Disable line number
-            .output_separator(' ') // Use space instead of colon
-            // Color coding: Info - standard (white), Warning - yellow, Error - red
-            .style_info(Style::default().fg(Color::White))
-            .style_warn(Style::default().fg(Color::Yellow))
-            .style_error(Style::default().fg(Color::Red))
-            .style_debug(Style::default().fg(Color::DarkGray))
-            .style_trace(Style::default().fg(Color::Gray))
-            .state(&self.logger_widget_state);
+            );
+
         f.render_widget(logger_widget, chunks[1]);
         // Show connecting popup if discovery or connection is in progress
         if self.connect_in_progress {

@@ -617,7 +617,10 @@ impl super::BrowseScreen {
             log_area.y + 1,
             log_area.width - 2,
             log_area.height.saturating_sub(3), // Leave space for instructions
-        ); // Create the TuiLoggerWidget with proper state management
+        );        // Create the TuiLoggerWidget with proper state management
+        // Move events from hot buffer to main buffer
+        tui_logger::move_events();
+        
         let tui_logger = TuiLoggerWidget::default()
             .style_error(Style::default().fg(Color::Red))
             .style_debug(Style::default().fg(Color::Green))
