@@ -62,7 +62,3 @@ pub fn switch_to_tui_logging() {
 pub fn flush_console_logs() {
     // Flush is handled by the underlying logger
 }
-
-pub fn is_tui_mode() -> bool {
-    TUI_MODE.load(Ordering::Relaxed)
-}

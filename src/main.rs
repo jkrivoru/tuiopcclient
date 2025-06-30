@@ -10,11 +10,9 @@ mod client;
 mod components;
 mod config;
 mod connection_manager;
-mod endpoint_utils;
 mod logging;
 mod node_utils;
 mod screens;
-mod session_utils;
 mod ui;
 mod ui_utils;
 

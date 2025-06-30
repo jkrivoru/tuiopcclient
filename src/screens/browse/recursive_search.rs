@@ -72,8 +72,6 @@ impl BrowseScreen {
             while let Ok(message) = rx.try_recv() {
                 match message {
                     SearchMessage::Progress {
-                        current: _,
-                        total: _,
                         current_node,
                     } => {
                         self.search_progress_message = format!("{}", current_node);
@@ -530,12 +528,8 @@ impl BrowseScreen {
 
             children.push(ChildNodeInfo {
                 opcua_node_id: result.node_id.clone(),
-                node_id: result.node_id.to_string(),
-                browse_name: result.browse_name.clone(),
                 display_name: result.display_name.clone(),
-                node_class: format!("{:?}", result.node_class),
                 node_type,
-                has_children: result.has_children,
             });
         }
 
@@ -640,8 +634,6 @@ impl BrowseScreen {
             // Send progress message with the current node being searched (DisplayName + NodeId)
             let progress_text = format!("{} [{}]", display_name, node_id);
             let _ = message_tx.send(SearchMessage::Progress {
-                current: 0, // Not used anymore
-                total: 0,   // Not used anymore
                 current_node: progress_text,
             });
 
@@ -698,10 +690,6 @@ impl BrowseScreen {
 #[derive(Clone)]
 pub struct ChildNodeInfo {
     pub opcua_node_id: NodeId,
-    pub node_id: String,
-    pub browse_name: String,
     pub display_name: String,
-    pub node_class: String,
     pub node_type: super::types::NodeType,
-    pub has_children: bool,
 }

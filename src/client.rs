@@ -24,7 +24,6 @@ pub struct OpcUaNode {
     pub browse_name: String,
     pub display_name: String,
     pub node_class: NodeClass,
-    pub description: String,
     pub has_children: bool,
 }
 
@@ -32,8 +31,6 @@ pub struct OpcUaNode {
 pub struct OpcUaAttribute {
     pub name: String,
     pub value: String,
-    pub data_type: String,
-    pub status: String,
     pub is_value_good: bool, // True if this is a Value attribute with Good status
 }
 
@@ -46,83 +43,9 @@ impl OpcUaClientManager {
             server_url: String::new(),
         }
     }
-    pub async fn connect(&mut self, endpoint_url: &str) -> Result<()> {
-        use crate::connection_manager::{ConnectionConfig, ConnectionManager};
-
-        log::info!("client: starting connection to '{}'", endpoint_url);
-        self.connection_status = ConnectionStatus::Connecting;
-        self.server_url = endpoint_url.to_string();
-
-        // Create unified connection configuration
-        let config = ConnectionConfig::ui_connection();
-
-        // Connect to the server
-        match ConnectionManager::connect_to_server(endpoint_url, &config).await {
-            Ok((client, session)) => {
-                log::info!("client: successfully connected to '{}'", endpoint_url);
-                self.client = Some(client);
-                self.session = Some(session);
-                self.connection_status = ConnectionStatus::Connected;
-                Ok(())
-            }
-            Err(e) => {
-                log::error!("client: connection failed to '{}': {}", endpoint_url, e);
-                self.connection_status =
-                    ConnectionStatus::Error(format!("Connection failed: {}", e));
-                Err(e)
-            }
-        }
-    }
-
-    /// Connect using secure configuration (with certificates)
-    pub async fn connect_secure(&mut self, endpoint_url: &str) -> Result<()> {
-        use crate::connection_manager::{ConnectionConfig, ConnectionManager};
-
-        log::info!("client: starting secure connection to '{}'", endpoint_url);
-        self.connection_status = ConnectionStatus::Connecting;
-        self.server_url = endpoint_url.to_string();
-
-        // Use secure connection configuration
-        let config = ConnectionConfig::secure_connection();
-
-        // Connect to the server
-        match ConnectionManager::connect_to_server(endpoint_url, &config).await {
-            Ok((client, session)) => {
-                log::info!("client: successfully established secure connection to '{}'", endpoint_url);
-                self.client = Some(client);
-                self.session = Some(session);
-                self.connection_status = ConnectionStatus::Connected;
-                Ok(())
-            }
-            Err(e) => {
-                log::error!("client: secure connection failed to '{}': {}", endpoint_url, e);
-                self.connection_status =
-                    ConnectionStatus::Error(format!("Connection failed: {}", e));
-                Err(e)
-            }
-        }
-    }
-
-    pub async fn disconnect(&mut self) -> Result<()> {
-        log::info!("client: disconnecting from '{}'", self.server_url);
-        if let Some(session) = self.session.take() {
-            crate::session_utils::SessionUtils::disconnect_session(session).await?;
-        }
-
-        self.client = None;
-        self.connection_status = ConnectionStatus::Disconnected;
-        let server_url = self.server_url.clone();
-        self.server_url.clear();
-        log::info!("client: successfully disconnected from '{}'", server_url);
-
-        Ok(())
-    }
 
     pub fn get_connection_status(&self) -> ConnectionStatus {
         self.connection_status.clone()
-    }
-    pub fn get_server_url(&self) -> &str {
-        &self.server_url
     }
 
     pub fn set_connection_status(&mut self, status: ConnectionStatus) {
@@ -182,7 +105,6 @@ impl OpcUaClientManager {
                                         browse_name: browse_name.to_string(),
                                         display_name: display_name.to_string(),
                                         node_class: reference.node_class,
-                                        description: String::new(), // We'd need to read this separately
                                         has_children,
                                     });
                                 }
@@ -282,7 +204,7 @@ impl OpcUaClientManager {
                                 _ => "Unknown Attribute",
                             }
                             .to_string();
-                            let (value, data_type) = match &result.value {
+                            let (value, _data_type) = match &result.value {
                                 Some(val) => {
                                     let (value_str, type_str) = match val {
                                         Variant::Boolean(b) => (b.to_string(), "Boolean"),
@@ -359,15 +281,6 @@ impl OpcUaClientManager {
                                 }
                                 None => ("(null)".to_string(), "Unknown".to_string()),
                             };
-                            let status = if let Some(status_code) = &result.status {
-                                if status_code.is_good() {
-                                    "Good".to_string()
-                                } else {
-                                    format!("Error: {:?}", status_code)
-                                }
-                            } else {
-                                "Unknown".to_string()
-                            };
 
                             // Filter out null/empty attributes (except for Value which is handled separately)
                             let should_include = match &result.value {
@@ -398,8 +311,6 @@ impl OpcUaClientManager {
                                 attributes.push(OpcUaAttribute {
                                     name,
                                     value,
-                                    data_type,
-                                    status,
                                     is_value_good: false,
                                 });
                             }
@@ -435,7 +346,7 @@ impl OpcUaClientManager {
                 match session_guard.read(&[read_value_id], TimestampsToReturn::Both, 0.0) {
                     Ok(results) => {
                         if let Some(data_value) = results.first() {
-                            let (value, data_type) = match &data_value.value {
+                            let (value, _data_type) = match &data_value.value {
                                 Some(val) => {
                                     let (value_str, type_str) = match val {
                                         Variant::Boolean(b) => (b.to_string(), "Boolean"),
@@ -492,22 +403,12 @@ impl OpcUaClientManager {
                                 None => ("(null)".to_string(), "Unknown".to_string()),
                             };
 
-                            let status = if let Some(status_code) = &data_value.status {
-                                if status_code.is_good() {
-                                    "Good".to_string()
-                                } else {
-                                    format!("Error: {:?}", status_code)
-                                }
-                            } else {
-                                "Unknown".to_string()
-                            }; // Use DataValue.is_valid() to determine if value should be colored green
+                            // Use DataValue.is_valid() to determine if value should be colored green
                             let is_value_good = data_value.is_valid();
 
                             attributes.push(OpcUaAttribute {
                                 name: "Value".to_string(),
                                 value,
-                                data_type,
-                                status,
                                 is_value_good,
                             }); // Add custom debug attributes with indentation
                             let value_status_text = if let Some(status_code) = &data_value.status {
@@ -519,8 +420,6 @@ impl OpcUaClientManager {
                             attributes.push(OpcUaAttribute {
                                 name: "   Status".to_string(),
                                 value: value_status_text,
-                                data_type: "Debug".to_string(),
-                                status: "Good".to_string(),
                                 is_value_good: false,
                             });
 
@@ -535,8 +434,6 @@ impl OpcUaClientManager {
                             attributes.push(OpcUaAttribute {
                                 name: "   SourceTimestamp".to_string(),
                                 value: source_timestamp_text,
-                                data_type: "Debug".to_string(),
-                                status: "Good".to_string(),
                                 is_value_good: false,
                             });
 
@@ -551,8 +448,6 @@ impl OpcUaClientManager {
                             attributes.push(OpcUaAttribute {
                                 name: "   ServerTimestamp".to_string(),
                                 value: server_timestamp_text,
-                                data_type: "Debug".to_string(),
-                                status: "Good".to_string(),
                                 is_value_good: false,
                             });
                         }
@@ -563,8 +458,6 @@ impl OpcUaClientManager {
                         attributes.push(OpcUaAttribute {
                             name: "Value".to_string(),
                             value: format!("Read Error: {}", e),
-                            data_type: "Error".to_string(),
-                            status: "Error".to_string(),
                             is_value_good: false,
                         });
                     }

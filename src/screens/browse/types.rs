@@ -1,4 +1,4 @@
-use crate::client::{ConnectionStatus, OpcUaClientManager};
+use crate::client::OpcUaClientManager;
 use opcua::types::NodeId;
 use std::sync::Arc;
 use tokio::sync::{mpsc, RwLock};
@@ -66,14 +66,11 @@ impl NodeType {
 pub enum SearchDialogFocus {
     Input,
     Checkbox,
-    Button,
 }
 
 #[derive(Debug)]
 pub enum SearchMessage {
     Progress {
-        current: usize,
-        total: usize,
         current_node: String,
     },
     Result {
@@ -85,13 +82,11 @@ pub enum SearchMessage {
 
 #[derive(Debug)]
 pub enum SearchCommand {
-    Start { query: String, include_values: bool },
     Cancel,
 }
 
 pub struct BrowseScreen {
     // Tree navigation state
-    pub current_path: Vec<String>,
     pub tree_nodes: Vec<TreeNode>,
     pub selected_node_index: usize,
     pub expanded_nodes: std::collections::HashSet<String>,
@@ -104,7 +99,6 @@ pub struct BrowseScreen {
 
     // Connection info
     pub server_url: String,
-    pub connection_status: ConnectionStatus,
 
     // Mouse state for double-click detection
     pub last_click_time: Option<std::time::Instant>,
@@ -142,7 +136,6 @@ pub struct BrowseScreen {
 impl BrowseScreen {
     pub fn new(server_url: String, client: Arc<RwLock<OpcUaClientManager>>) -> Self {
         let browse_screen = Self {
-            current_path: vec!["Root".to_string()],
             tree_nodes: Vec::new(),
             selected_node_index: 0,
             expanded_nodes: std::collections::HashSet::new(),
@@ -151,7 +144,6 @@ impl BrowseScreen {
             selected_attributes: Vec::new(),
             attribute_scroll_offset: 0,
             server_url,
-            connection_status: ConnectionStatus::Connected,
             last_click_time: None,
             last_click_position: None,
             client,
@@ -174,41 +166,6 @@ impl BrowseScreen {
             logger_widget_state: TuiWidgetState::new(),
         }; // Real data will be loaded asynchronously via load_real_tree() from real_data.rs
         browse_screen
-    }
-    pub fn update_selected_attributes(&mut self) {
-        if self.selected_node_index < self.tree_nodes.len() {
-            let node = &self.tree_nodes[self.selected_node_index];
-            self.selected_attributes = vec![
-                NodeAttribute {
-                    name: "DisplayName".to_string(),
-                    value: node.name.clone(),
-                    is_value_good: false,
-                },
-                NodeAttribute {
-                    name: "NodeId".to_string(),
-                    value: node.node_id.clone(),
-                    is_value_good: false,
-                },
-                NodeAttribute {
-                    name: "BrowseName".to_string(),
-                    value: format!(
-                        "{}:{}",
-                        if node.node_id.starts_with("ns=") {
-                            "2"
-                        } else {
-                            "0"
-                        },
-                        node.name
-                    ),
-                    is_value_good: false,
-                },
-                NodeAttribute {
-                    name: "NodeClass".to_string(),
-                    value: format!("{:?}", node.node_type),
-                    is_value_good: false,
-                },
-            ];
-        }
     }
 }
 

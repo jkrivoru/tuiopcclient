@@ -7,6 +7,7 @@ pub struct LayoutUtils;
 
 impl LayoutUtils {
     /// Create a standard vertical layout with title and content areas
+    #[allow(dead_code)]
     pub fn create_title_content_layout(area: Rect) -> Vec<Rect> {
         Layout::default()
             .direction(Direction::Vertical)
@@ -24,6 +25,7 @@ impl LayoutUtils {
             .block(Block::default().borders(Borders::ALL))
     }
     /// Create a two-column layout for forms
+    #[allow(dead_code)]
     pub fn create_two_column_layout(area: Rect) -> Vec<Rect> {
         Layout::default()
             .direction(Direction::Horizontal)

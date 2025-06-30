@@ -332,6 +332,7 @@ impl ConnectScreen {
         Ok(Some(ConnectionStatus::Connecting))
     }
 
+    #[allow(dead_code)]
     pub async fn disconnect(&mut self) -> Result<()> {
         if let Some(session) = self.session.take() {
             let disconnect_result = tokio::task::spawn_blocking(move || {
@@ -380,14 +381,17 @@ impl ConnectScreen {
         }
     }
 
+    #[allow(dead_code)]
     pub fn get_client(&self) -> Option<&Client> {
         self.client.as_ref()
     }
 
+    #[allow(dead_code)]
     pub fn get_session(&self) -> Option<&Arc<RwLock<Session>>> {
         self.session.as_ref()
     }
 
+    #[allow(dead_code)]
     pub fn is_connected(&self) -> bool {
         self.client.is_some() && self.session.is_some()
     }

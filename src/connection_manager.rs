@@ -39,15 +39,6 @@ impl Default for ConnectionConfig {
 }
 
 impl ConnectionConfig {
-    /// Create configuration for CLI discovery
-    pub fn cli_discovery() -> Self {
-        Self {
-            application_name: "OPC UA TUI Client - CLI Discovery".to_string(),
-            application_uri: "urn:opcua-tui-client-cli-discovery".to_string(),
-            ..Default::default()
-        }
-    }
-
     /// Create configuration for UI discovery
     pub fn ui_discovery() -> Self {
         Self {
@@ -57,20 +48,20 @@ impl ConnectionConfig {
         }
     }
 
-    /// Create configuration for CLI connection
-    pub fn cli_connection() -> Self {
-        Self {
-            application_name: "OPC UA TUI Client - CLI".to_string(),
-            application_uri: "urn:opcua-tui-client-cli".to_string(),
-            ..Default::default()
-        }
-    }
-
     /// Create configuration for UI connection
     pub fn ui_connection() -> Self {
         Self {
             application_name: "OPC UA TUI Client - UI".to_string(),
             application_uri: "urn:opcua-tui-client-ui".to_string(),
+            ..Default::default()
+        }
+    }
+
+    /// Create configuration for CLI connections
+    pub fn cli_connection() -> Self {
+        Self {
+            application_name: "OPC UA TUI Client - CLI".to_string(),
+            application_uri: "urn:opcua-tui-client-cli".to_string(),
             ..Default::default()
         }
     }
@@ -99,22 +90,6 @@ impl ConnectionConfig {
             auto_trust: true,
             client_cert_path: Some(cert_path.to_string()),
             client_key_path: Some(key_path.to_string()),
-            identity_token: IdentityToken::Anonymous,
-            use_original_url: false,
-        }
-    }
-
-    /// Create configuration for secure OPC UA connections with a custom application URI
-    /// If no URI is provided, attempts to extract from certificate
-    pub fn secure_connection_with_uri(application_uri: String) -> Self {
-        Self {
-            application_name: "OPC UA TUI Client - Secure".to_string(),
-            application_uri,
-            security_policy: SecurityPolicy::Basic256Sha256,
-            security_mode: MessageSecurityMode::SignAndEncrypt,
-            auto_trust: true,
-            client_cert_path: Some("./pki/own/OpcPlc.der".to_string()),
-            client_key_path: Some("./pki/private/OpcPlc.pem".to_string()),
             identity_token: IdentityToken::Anonymous,
             use_original_url: false,
         }
@@ -168,12 +143,6 @@ impl ConnectionConfig {
     /// Set authentication
     pub fn with_authentication(mut self, identity_token: IdentityToken) -> Self {
         self.identity_token = identity_token;
-        self
-    }
-
-    /// Set application URI
-    pub fn with_application_uri(mut self, application_uri: String) -> Self {
-        self.application_uri = application_uri;
         self
     }
 

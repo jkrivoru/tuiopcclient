@@ -11,7 +11,6 @@ use ratatui::{
 pub enum ButtonState {
     Normal,
     Hovered,
-    Pressed,
     MouseDown, // New state for mouse down but not released
     Disabled,
 }
@@ -179,11 +178,6 @@ impl Button {
             }
             ButtonState::MouseDown => {
                 let bg = self.get_lighter_background_color();
-                let fg = self.get_text_color();
-                Style::default().fg(fg).bg(bg)
-            }
-            ButtonState::Pressed => {
-                let bg = self.get_background_color();
                 let fg = self.get_text_color();
                 Style::default().fg(fg).bg(bg)
             }

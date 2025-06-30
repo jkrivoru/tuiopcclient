@@ -27,7 +27,6 @@ use crate::screens::{BrowseScreen, ConnectScreen};
 pub struct App {
     client_manager: Arc<RwLock<OpcUaClientManager>>,
     should_quit: bool,
-    test_mode: bool,
 
     // App state
     app_state: AppState,
@@ -52,7 +51,6 @@ impl App {
         Self {
             client_manager,
             should_quit: false,
-            test_mode: false,
             app_state: AppState::Connecting,
             connect_screen: ConnectScreen::new(),
             browse_screen: None,
@@ -67,7 +65,6 @@ impl App {
         Self {
             client_manager: client_manager.clone(),
             should_quit: false,
-            test_mode: false,
             app_state: AppState::Connected(server_url.clone()),
             connect_screen: ConnectScreen::new(),
             browse_screen: Some(BrowseScreen::new(server_url, client_manager)),

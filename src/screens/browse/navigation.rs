@@ -80,6 +80,7 @@ impl super::BrowseScreen {
             self.selected_node_index = self.tree_nodes.len().saturating_sub(1);
         }
     }    // Toggle expansion state
+    #[allow(dead_code)]
     pub async fn toggle_node_async(&mut self, index: usize) -> Result<()> {
         if index >= self.tree_nodes.len() {
             log::warn!("browse: cannot toggle node, index {} out of bounds", index);
@@ -163,6 +164,7 @@ impl super::BrowseScreen {
     }
 
     // Find next sibling at the same level
+    #[allow(dead_code)]
     pub fn move_to_next_sibling(&mut self) {
         if self.selected_node_index >= self.tree_nodes.len() {
             log::warn!("browse: cannot move to next sibling, selected index out of bounds");
@@ -188,6 +190,7 @@ impl super::BrowseScreen {
     }
 
     // Find previous sibling at the same level
+    #[allow(dead_code)]
     pub fn move_to_previous_sibling(&mut self) {
         if self.selected_node_index == 0 {
             log::debug!("browse: already at first node, cannot move to previous sibling");

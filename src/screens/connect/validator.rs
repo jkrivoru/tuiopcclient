@@ -1,7 +1,9 @@
 use super::types::*;
 
+#[allow(dead_code)]
 pub struct ConnectValidator;
 
+#[allow(dead_code)]
 impl ConnectValidator {
     pub fn validate_server_url(url: &str) -> Result<(), String> {
         if url.trim().is_empty() {
@@ -59,6 +61,7 @@ pub struct AuthInputs {
     pub key_path: String,
 }
 
+#[allow(dead_code)]
 pub struct SecurityFields {
     pub auto_trust: bool,
     pub client_cert_path: String,
@@ -76,6 +79,7 @@ impl ConnectScreen {
         }
     }
 
+    #[allow(dead_code)]
     pub fn collect_security_fields(&self) -> SecurityFields {
         SecurityFields {
             auto_trust: self.auto_trust_server_cert,

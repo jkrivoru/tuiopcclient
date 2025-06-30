@@ -383,39 +383,25 @@ impl super::BrowseScreen {
                 Ok(None)
             }
             KeyCode::Tab => {
-                // Cycle through Input -> Checkbox -> Input (button removed from navigation)
+                // Cycle through Input -> Checkbox -> Input (button removed)
                 use super::types::SearchDialogFocus;
                 self.search_dialog_focus = match self.search_dialog_focus {
                     SearchDialogFocus::Input => SearchDialogFocus::Checkbox,
                     SearchDialogFocus::Checkbox => SearchDialogFocus::Input,
-                    SearchDialogFocus::Button => SearchDialogFocus::Input, // If somehow on button, go to input
                 };
                 Ok(None)
             }
             KeyCode::Enter => {
                 use super::types::SearchDialogFocus;
                 match self.search_dialog_focus {
-                    SearchDialogFocus::Button => {
-                        // Find Next button selected
+                    SearchDialogFocus::Input | SearchDialogFocus::Checkbox => {
+                        // Enter pressed - perform search if not empty
                         if !self.search_input.value().trim().is_empty() {
                             self.perform_search().await?;
                             // Dialog is closed inside perform_search()
                         } else {
                             self.close_search_dialog();
                         }
-                    }
-                    SearchDialogFocus::Input => {
-                        // Enter pressed in input field - perform search if not empty
-                        if !self.search_input.value().trim().is_empty() {
-                            self.perform_search().await?;
-                            // Dialog is closed inside perform_search()
-                        } else {
-                            self.close_search_dialog();
-                        }
-                    }
-                    SearchDialogFocus::Checkbox => {
-                        // Enter on checkbox toggles it
-                        self.search_include_values = !self.search_include_values;
                     }
                 }
                 Ok(None)
@@ -433,9 +419,6 @@ impl super::BrowseScreen {
                             .handle_event(&crossterm::event::Event::Key(
                                 crossterm::event::KeyEvent::new(key, modifiers),
                             ));
-                    }
-                    _ => {
-                        // Space on buttons - ignore
                     }
                 }
                 Ok(None)
@@ -940,6 +923,7 @@ impl super::BrowseScreen {
 
     /// Depth-first search that follows the exact tree view sort order
     /// Returns the first matching node ID, or None if no match found
+    #[allow(dead_code)]
     async fn depth_first_search(
         &mut self,
         start_node_id: &opcua::types::NodeId,
@@ -1125,12 +1109,8 @@ impl super::BrowseScreen {
 
                 children.push(ChildNodeInfo {
                     opcua_node_id: result.node_id.clone(),
-                    node_id: result.node_id.to_string(),
-                    browse_name: result.browse_name.clone(),
                     display_name: result.display_name.clone(),
-                    node_class: format!("{:?}", result.node_class),
                     node_type,
-                    has_children: result.has_children,
                 });
             } else {
                 log::debug!("search: skipping child {} DisplayName:'{}' BrowseName:'{}' Type:{:?} (not displayed in tree)", 
@@ -1368,6 +1348,7 @@ impl super::BrowseScreen {
     }
 
     /// Continue search from the current position following tree order
+    #[allow(dead_code)]
     async fn continue_tree_search(&mut self, query: &str) -> Result<Option<String>> {
         log::info!(
             "search: continuing tree search from selected index {}",
@@ -1409,6 +1390,7 @@ impl super::BrowseScreen {
     }
 
     /// Search the remaining tree after the current node
+    #[allow(dead_code)]
     async fn search_remaining_tree(
         &mut self,
         current_node_id: &opcua::types::NodeId,
@@ -1478,6 +1460,7 @@ impl super::BrowseScreen {
     }
 
     /// Find the level-0 parent of a node at the given index
+    #[allow(dead_code)]
     fn find_level_0_parent(&self, node_index: usize) -> Option<opcua::types::NodeId> {
         if let Some(node) = self.tree_nodes.get(node_index) {
             if node.level == 0 {
@@ -1497,6 +1480,7 @@ impl super::BrowseScreen {
     }
 
     /// Wrap search to the beginning when no more matches found
+    #[allow(dead_code)]
     async fn wrap_search_to_beginning(&mut self, query: &str) -> Result<()> {
         log::info!("search: wrapping search to beginning of tree");
 

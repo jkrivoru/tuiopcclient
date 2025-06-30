@@ -11,8 +11,12 @@ pub mod security_policies {
 
 pub mod ui {
     pub const DEFAULT_SERVER_URL: &str = "opc.tcp://localhost:4840";
+    #[allow(dead_code)]
     pub const DISCOVERY_CLIENT_NAME: &str = "OPC UA TUI Client - Discovery";
+    #[allow(dead_code)]
     pub const DISCOVERY_CLIENT_URI: &str = "urn:opcua-tui-client-discovery";
+    #[allow(dead_code)]
     pub const CLIENT_NAME: &str = "OPC UA TUI Client";
+    #[allow(dead_code)]
     pub const CLIENT_URI: &str = "urn:opcua-tui-client";
 }
