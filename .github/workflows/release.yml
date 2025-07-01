@@ -8,68 +8,41 @@ on:
 env:
   CARGO_TERM_COLOR: always
 
+permissions:
+  contents: write
+
 jobs:
-  create-release:
-    name: Create Release
-    runs-on: ubuntu-latest
-    outputs:
-      upload_url: ${{ steps.create_release.outputs.upload_url }}
-      version: ${{ steps.get_version.outputs.version }}
-    steps:
-    - name: Get version from tag
-      id: get_version
-      run: echo "version=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
-
-    - name: Create Release
-      id: create_release
-      uses: actions/create-release@v1
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      with:
-        tag_name: ${{ github.ref }}
-        release_name: Release ${{ steps.get_version.outputs.version }}
-        draft: false
-        prerelease: false
-
-  build-and-upload:
-    name: Build and Upload
-    needs: create-release
+  build:
+    name: Build
     strategy:
+      fail-fast: false
       matrix:
         include:
           # Linux targets
           - target: x86_64-unknown-linux-gnu
             os: ubuntu-latest
             name: opcua-client-linux-x86_64
-            cross: false
           - target: x86_64-unknown-linux-musl
             os: ubuntu-latest
             name: opcua-client-linux-x86_64-musl
-            cross: true
+            use-cross: true
           - target: aarch64-unknown-linux-gnu
             os: ubuntu-latest
             name: opcua-client-linux-aarch64
-            cross: true
+            use-cross: true
           
           # Windows targets
           - target: x86_64-pc-windows-msvc
             os: windows-latest
             name: opcua-client-windows-x86_64
-            cross: false
-          - target: i686-pc-windows-msvc
-            os: windows-latest
-            name: opcua-client-windows-i686
-            cross: true
           
           # macOS targets
           - target: x86_64-apple-darwin
             os: macos-latest
             name: opcua-client-macos-x86_64
-            cross: false
           - target: aarch64-apple-darwin
             os: macos-latest
             name: opcua-client-macos-aarch64
-            cross: true
 
     runs-on: ${{ matrix.os }}
     steps:
@@ -81,50 +54,83 @@ jobs:
       with:
         targets: ${{ matrix.target }}
 
-    - name: Install cross (if needed)
-      if: matrix.cross
-      run: cargo install cross --git https://github.com/cross-rs/cross
+    - name: Install cross
+      if: matrix.use-cross
+      uses: taiki-e/install-action@cross
 
-    - name: Cache cargo registry
+    - name: Cache cargo
       uses: actions/cache@v4
       with:
         path: |
-          ~/.cargo/registry
-          ~/.cargo/git
-          target
-        key: ${{ matrix.os }}-${{ matrix.target }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          ~/.cargo/registry/index/
+          ~/.cargo/registry/cache/
+          ~/.cargo/git/db/
+          target/
+        key: ${{ matrix.target }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+        restore-keys: |
+          ${{ matrix.target }}-cargo-
 
     - name: Build binary
       run: |
-        if [ "${{ matrix.cross }}" = "true" ]; then
+        if [[ "${{ matrix.use-cross }}" == "true" ]]; then
           cross build --release --target ${{ matrix.target }}
         else
           cargo build --release --target ${{ matrix.target }}
         fi
       shell: bash
 
-    - name: Package binary (Unix)
-      if: matrix.os != 'windows-latest'
+    - name: Get binary extension
+      id: binary_ext
       run: |
-        cd target/${{ matrix.target }}/release
-        tar czf ${{ matrix.name }}.tar.gz opcua-client
-        echo "ASSET=${{ matrix.name }}.tar.gz" >> $GITHUB_ENV
-        echo "ASSET_MIME=application/gzip" >> $GITHUB_ENV
+        if [[ "${{ matrix.os }}" == "windows-latest" ]]; then
+          echo "ext=.exe" >> $GITHUB_OUTPUT
+        else
+          echo "ext=" >> $GITHUB_OUTPUT
+        fi
+      shell: bash
 
-    - name: Package binary (Windows)
-      if: matrix.os == 'windows-latest'
+    - name: Package binary
       run: |
+        binary_name="opcua-client${{ steps.binary_ext.outputs.ext }}"
         cd target/${{ matrix.target }}/release
-        7z a ${{ matrix.name }}.zip opcua-client.exe
-        echo "ASSET=${{ matrix.name }}.zip" >> $env:GITHUB_ENV
-        echo "ASSET_MIME=application/zip" >> $env:GITHUB_ENV
+        
+        if [[ "${{ matrix.os }}" == "windows-latest" ]]; then
+          7z a ${{ matrix.name }}.zip $binary_name
+          echo "ASSET=${{ matrix.name }}.zip" >> $GITHUB_ENV
+        else
+          tar czf ${{ matrix.name }}.tar.gz $binary_name
+          echo "ASSET=${{ matrix.name }}.tar.gz" >> $GITHUB_ENV
+        fi
+      shell: bash
 
-    - name: Upload Release Asset
-      uses: actions/upload-release-asset@v1
+    - name: Upload artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: ${{ matrix.name }}
+        path: target/${{ matrix.target }}/release/${{ env.ASSET }}
+        if-no-files-found: error
+
+  release:
+    name: Create Release
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Download all artifacts
+      uses: actions/download-artifact@v4
+      with:
+        path: artifacts
+
+    - name: Display structure of downloaded files
+      run: ls -R artifacts
+
+    - name: Create Release
+      uses: softprops/action-gh-release@v1
+      with:
+        name: Release ${{ github.ref_name }}
+        generate_release_notes: true
+        files: artifacts/*/*
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      with:
-        upload_url: ${{ needs.create-release.outputs.upload_url }}
-        asset_path: ./target/${{ matrix.target }}/release/${{ env.ASSET }}
-        asset_name: ${{ env.ASSET }}
-        asset_content_type: ${{ env.ASSET_MIME }}
