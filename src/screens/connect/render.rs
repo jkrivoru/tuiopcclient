@@ -106,7 +106,7 @@ impl ConnectScreen {
         );
 
         // Render the popup with the provided message
-        let popup = Paragraph::new(format!("\n{}", message))
+        let popup = Paragraph::new(format!("\n{message}"))
             .style(Style::default().fg(Color::White).bg(Color::Blue))
             .alignment(Alignment::Center)
             .block(

@@ -496,9 +496,9 @@ impl super::BrowseScreen {
             super::types::SearchDialogFocus::Checkbox
         );
         let checkbox_text = if checkbox_focused {
-            format!("> {} Also look at values <", checkbox_symbol)
+            format!("> {checkbox_symbol} Also look at values <")
         } else {
-            format!("  {} Also look at values", checkbox_symbol)
+            format!("  {checkbox_symbol} Also look at values")
         };
 
         let checkbox_style = if checkbox_focused {

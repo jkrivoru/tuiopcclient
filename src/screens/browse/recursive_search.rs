@@ -63,7 +63,7 @@ impl BrowseScreen {
             )
             .await
             {
-                log::error!("search: background search task failed: {}", e);
+                log::error!("search: background search task failed: {e}");
                 // Try to send a complete message even on error (using the original sender from the closure)
             }
         });
@@ -96,8 +96,7 @@ impl BrowseScreen {
                         // Store the first result to navigate to it after processing messages
                         if is_first_result {
                             log::info!(
-                                "search: first result found {}, will navigate immediately",
-                                node_id
+                                "search: first result found {node_id}, will navigate immediately"
                             );
                             first_result_found = true;
                             first_result_node_id = Some(node_id);
@@ -137,9 +136,9 @@ impl BrowseScreen {
 
         // Navigate to the first result if we found one
         if let Some(node_id) = first_result_node_id {
-            log::info!("search: navigating to first search result '{}'", node_id);
+            log::info!("search: navigating to first search result '{node_id}'");
             if let Err(e) = self.expand_to_find_node(&node_id).await {
-                log::error!("search: failed to navigate to first search result: {}", e);
+                log::error!("search: failed to navigate to first search result: {e}");
             } else {
                 log::info!("search: successfully navigated to search result");
             }
@@ -224,7 +223,7 @@ impl BrowseScreen {
         if let Some(found_node_id) =
             Self::depth_first_search_algorithm(&options.start_node_id, &mut search_context).await?
         {
-            log::info!("search: found result '{}'", found_node_id);
+            log::info!("search: found result '{found_node_id}'");
             let _ = message_tx.send(SearchMessage::Result {
                 node_id: found_node_id,
             });
@@ -247,7 +246,7 @@ impl BrowseScreen {
         context: &mut SearchContext<'_>,
     ) -> Result<Option<String>> {
         log::debug!("search: starting depth-first algorithm");
-        log::debug!("search: starting from selected node '{}'", selected_node_id);
+        log::debug!("search: starting from selected node '{selected_node_id}'");
 
         // 1️⃣ Search *descendants* of the selected node
         log::debug!("search: step 1 - searching descendants of selected node");
@@ -275,7 +274,7 @@ impl BrowseScreen {
             )
             .await?
             {
-                log::info!("search: found match in descendants '{}'", found);
+                log::info!("search: found match in descendants '{found}'");
                 return Ok(Some(found));
             }
 
@@ -356,8 +355,7 @@ impl BrowseScreen {
                             .await?
                             {
                                 log::info!(
-                                    "search: found match in root sibling subtree '{}'",
-                                    found
+                                    "search: found match in root sibling subtree '{found}'"
                                 );
                                 return Ok(Some(found));
                             }
@@ -382,8 +380,7 @@ impl BrowseScreen {
             }
 
             log::debug!(
-                "search: searching siblings under parent '{}'",
-                parent_node_id
+                "search: searching siblings under parent '{parent_node_id}'"
             );
 
             // Get all visible siblings (children of parent), already sorted
@@ -427,7 +424,7 @@ impl BrowseScreen {
                 )
                 .await?
                 {
-                    log::info!("search: found match in sibling subtree '{}'", found);
+                    log::info!("search: found match in sibling subtree '{found}'");
                     return Ok(Some(found));
                 }
 
@@ -438,7 +435,7 @@ impl BrowseScreen {
 
             // Nothing on this level; climb one level up and loop
             current_node_id = parent_node_id;
-            log::debug!("search: moving up to next level '{}'", current_node_id);
+            log::debug!("search: moving up to next level '{current_node_id}'");
         }
 
         log::info!("search: completed, no matches found");
@@ -465,18 +462,16 @@ impl BrowseScreen {
                 return Ok(None);
             }
 
-            log::debug!("search: searching in node '{}'", current_node_id);
+            log::debug!("search: searching in node '{current_node_id}'");
 
             // Check if this node matches
             if Self::is_match(&current_node_id, query, search_by_value, client, message_tx).await {
                 log::info!(
-                    "🎯 MATCH FOUND: {} matches query '{}'",
-                    current_node_id,
-                    query
+                    "🎯 MATCH FOUND: {current_node_id} matches query '{query}'"
                 );
                 return Ok(Some(current_node_id.to_string()));
             } else {
-                log::debug!("search: no match in node '{}'", current_node_id);
+                log::debug!("search: no match in node '{current_node_id}'");
             }
 
             // Check if this node is a Method - if so, skip its children (Input/Output arguments)
@@ -493,8 +488,7 @@ impl BrowseScreen {
 
             if should_skip_children {
                 log::debug!(
-                    "search: skipping children of Method node '{}'",
-                    current_node_id
+                    "search: skipping children of Method node '{current_node_id}'"
                 );
                 continue; // Skip to next node in stack without adding children
             }
@@ -513,8 +507,7 @@ impl BrowseScreen {
         }
 
         log::info!(
-            "🚫 No match found in subtree starting from {}",
-            start_node_id
+            "🚫 No match found in subtree starting from {start_node_id}"
         );
         Ok(None)
     }
@@ -530,7 +523,7 @@ impl BrowseScreen {
         let browse_results = match client_guard.browse_node(node_id).await {
             Ok(results) => results,
             Err(e) => {
-                log::debug!("search: failed to browse node '{}': {}", node_id, e);
+                log::debug!("search: failed to browse node '{node_id}': {e}");
                 return Ok(Vec::new());
             }
         };
@@ -620,9 +613,7 @@ impl BrowseScreen {
 
                     // If we didn't find a parent in the tree, it might be a root node
                     log::debug!(
-                        "No parent found in tree for node {} at level {}",
-                        target_node_id,
-                        target_level
+                        "No parent found in tree for node {target_node_id} at level {target_level}"
                     );
                     return Ok(None);
                 }
@@ -632,8 +623,7 @@ impl BrowseScreen {
         // Node not found in tree - this shouldn't happen during tree search
         // Fall back to the simplified heuristic
         log::debug!(
-            "Node {} not found in loaded tree, using fallback logic",
-            target_node_id
+            "Node {target_node_id} not found in loaded tree, using fallback logic"
         );
 
         match target_node_id {
@@ -661,7 +651,7 @@ impl BrowseScreen {
             .await
         {
             // Send progress message with the current node being searched (DisplayName + NodeId)
-            let progress_text = format!("{} [{}]", display_name, node_id);
+            let progress_text = format!("{display_name} [{node_id}]");
             let _ = message_tx.send(SearchMessage::Progress {
                 current_node: progress_text,
             });
@@ -670,9 +660,7 @@ impl BrowseScreen {
             let node_id_str = node_id.to_string().to_ascii_lowercase();
             if node_id_str.contains(&query_lower) {
                 log::info!(
-                    "search: NodeId match '{}' contains '{}'",
-                    node_id_str,
-                    query
+                    "search: NodeId match '{node_id_str}' contains '{query}'"
                 );
                 return true;
             }
@@ -681,9 +669,7 @@ impl BrowseScreen {
             let browse_name_lower = browse_name.to_ascii_lowercase();
             if browse_name_lower.contains(&query_lower) {
                 log::info!(
-                    "search: BrowseName match '{}' contains '{}'",
-                    browse_name_lower,
-                    query
+                    "search: BrowseName match '{browse_name_lower}' contains '{query}'"
                 );
                 return true;
             }
@@ -692,9 +678,7 @@ impl BrowseScreen {
             let display_name_lower = display_name.to_ascii_lowercase();
             if display_name_lower.contains(&query_lower) {
                 log::info!(
-                    "search: DisplayName match '{}' contains '{}'",
-                    display_name_lower,
-                    query
+                    "search: DisplayName match '{display_name_lower}' contains '{query}'"
                 );
                 return true;
             }
@@ -705,9 +689,7 @@ impl BrowseScreen {
                     let value_lower = value.to_ascii_lowercase();
                     if value_lower.contains(&query_lower) {
                         log::info!(
-                            "✓ Value attribute match: '{}' contains '{}'",
-                            value_lower,
-                            query
+                            "✓ Value attribute match: '{value_lower}' contains '{query}'"
                         );
                         return true;
                     }

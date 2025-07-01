@@ -274,7 +274,7 @@ impl App {
                         // No change, continue as normal
                     }
                     Err(e) => {
-                        log::error!("Error handling connect screen operations: {}", e);
+                        log::error!("Error handling connect screen operations: {e}");
                     }
                 }
             }
@@ -306,7 +306,7 @@ impl App {
             ConnectionStatus::Connecting => {
                 // Connection was successfully established by ConnectScreen
                 let server_url = self.connect_screen.get_server_url();
-                log::info!("Connection established by ConnectScreen to: {}", server_url);
+                log::info!("Connection established by ConnectScreen to: {server_url}");
 
                 // Transfer the connection from ConnectScreen to ClientManager
                 if let (Some(client), Some(session)) = (
@@ -329,7 +329,7 @@ impl App {
 
                     // Load real tree data asynchronously
                     if let Err(e) = browse_screen.load_real_tree().await {
-                        log::error!("Failed to load real tree data: {}", e);
+                        log::error!("Failed to load real tree data: {e}");
                     }
 
                     self.browse_screen = Some(browse_screen);
@@ -352,7 +352,7 @@ impl App {
 
                 // Load real tree data asynchronously
                 if let Err(e) = browse_screen.load_real_tree().await {
-                    log::error!("Failed to load real tree data: {}", e);
+                    log::error!("Failed to load real tree data: {e}");
                 }
 
                 self.browse_screen = Some(browse_screen);
@@ -363,7 +363,7 @@ impl App {
             }
             ConnectionStatus::Error(error) => {
                 // Connection failed, log error but stay on connect screen at current step
-                log::error!("Connection failed: {}", error);
+                log::error!("Connection failed: {error}");
                 self.connect_screen.clear_connection().await;
                 // Set client manager to error state
                 if let Ok(mut client) = self.client_manager.try_write() {
@@ -429,7 +429,7 @@ impl App {
                         self.connect_screen.server_url_input.value()
                     }
                 };
-                format!("Server: {}", url)
+                format!("Server: {url}")
             }
             ConnectDialogStep::SecurityConfiguration => {
                 // Show server URL and selected endpoint info
@@ -464,7 +464,7 @@ impl App {
                     " | Endpoint: [None, None]".to_string()
                 };
 
-                format!("Server: {}{}", url, endpoint_info)
+                format!("Server: {url}{endpoint_info}")
             }
             ConnectDialogStep::Authentication => {
                 // Show server URL and endpoint info
@@ -499,7 +499,7 @@ impl App {
                     " | Endpoint: [None, None]".to_string()
                 };
 
-                format!("Server: {}{}", url, endpoint_info)
+                format!("Server: {url}{endpoint_info}")
             }
         }; // Always show the status bar
         let status_bar =
@@ -511,7 +511,7 @@ impl App {
         if let Some(browse_screen) = &mut self.browse_screen {
             // Load the tree data automatically for CLI connections
             if let Err(e) = browse_screen.load_real_tree().await {
-                log::error!("Failed to load real tree data: {}", e);
+                log::error!("Failed to load real tree data: {e}");
             }
         }
         Ok(())

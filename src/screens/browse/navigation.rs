@@ -83,15 +83,15 @@ impl super::BrowseScreen {
     #[allow(dead_code)]
     pub async fn toggle_node_async(&mut self, index: usize) -> Result<()> {
         if index >= self.tree_nodes.len() {
-            log::warn!("browse: cannot toggle node, index {} out of bounds", index);
+            log::warn!("browse: cannot toggle node, index {index} out of bounds");
             return Ok(());
         }
 
         if self.tree_nodes[index].is_expanded {
-            log::debug!("browse: collapsing node at index {}", index);
+            log::debug!("browse: collapsing node at index {index}");
             self.collapse_node(index);
         } else {
-            log::debug!("browse: expanding node at index {}", index);
+            log::debug!("browse: expanding node at index {index}");
             self.expand_node_async(index).await?;
         }
 
@@ -114,7 +114,7 @@ impl super::BrowseScreen {
         // Find the immediate parent node
         for i in (0..self.selected_node_index).rev() {
             if self.tree_nodes[i].level == current_level - 1 {
-                log::debug!("browse: moved to parent node at index {}", i);
+                log::debug!("browse: moved to parent node at index {i}");
                 self.selected_node_index = i;
                 self.update_scroll();
                 break;
@@ -177,7 +177,7 @@ impl super::BrowseScreen {
                 break;
             } else if node_level == current_level {
                 // Found next sibling
-                log::debug!("browse: moved to next sibling at index {}", i);
+                log::debug!("browse: moved to next sibling at index {i}");
                 self.selected_node_index = i;
                 self.update_scroll();
                 break;
@@ -203,7 +203,7 @@ impl super::BrowseScreen {
                 break;
             } else if node_level == current_level {
                 // Found previous sibling
-                log::debug!("browse: moved to previous sibling at index {}", i);
+                log::debug!("browse: moved to previous sibling at index {i}");
                 self.selected_node_index = i;
                 self.update_scroll();
                 break;

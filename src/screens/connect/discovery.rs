@@ -56,7 +56,7 @@ impl EndpointConverter {
                 Some(LocalSecurityPolicy::Aes256Sha256RsaPss)
             }
             _ => {
-                warn!("Unknown security policy: {}", uri_str);
+                warn!("Unknown security policy: {uri_str}");
                 None
             }
         }
@@ -68,7 +68,7 @@ impl EndpointConverter {
             MessageSecurityMode::Sign => Some(SecurityMode::Sign),
             MessageSecurityMode::SignAndEncrypt => Some(SecurityMode::SignAndEncrypt),
             _ => {
-                warn!("Unknown security mode: {:?}", mode);
+                warn!("Unknown security mode: {mode:?}");
                 None
             }
         }
@@ -76,7 +76,7 @@ impl EndpointConverter {
     fn create_display_name(&self, policy: &LocalSecurityPolicy, mode: &SecurityMode) -> String {
         match (policy, mode) {
             (LocalSecurityPolicy::None, SecurityMode::None) => "None - No Security".to_string(),
-            (policy, mode) => format!("{:?} - {:?}", policy, mode),
+            (policy, mode) => format!("{policy:?} - {mode:?}"),
         }
     }
 
@@ -99,10 +99,10 @@ impl ConnectScreen {
             return Err(anyhow!("Invalid URL format"));
         }
 
-        info!("Querying OPC UA server for available endpoints: {}", url);
+        info!("Querying OPC UA server for available endpoints: {url}");
 
         if self.use_original_url {
-            info!("Original URL override is enabled - will use '{}' instead of server-provided endpoint URLs", url);
+            info!("Original URL override is enabled - will use '{url}' instead of server-provided endpoint URLs");
         }
 
         let endpoints_result = self.discover_from_server(&url).await?;

@@ -85,7 +85,7 @@ impl ConnectScreen {
             .await;
 
             if let Err(e) = disconnect_result {
-                log::warn!("Error during session cleanup in async_reset: {}", e);
+                log::warn!("Error during session cleanup in async_reset: {e}");
             }
         }
         self.client = None;
@@ -108,7 +108,7 @@ impl ConnectScreen {
             .await;
 
             if let Err(e) = disconnect_result {
-                log::warn!("Error during session disconnect in clear_connection: {}", e);
+                log::warn!("Error during session disconnect in clear_connection: {e}");
             }
         }
 

@@ -263,7 +263,7 @@ impl ConnectScreen {
         let validation_errors = self.validate_authentication_fields();
         if !validation_errors.is_empty() {
             for error in &validation_errors {
-                log::error!("Authentication Validation: {}", error);
+                log::error!("Authentication Validation: {error}");
             }
             return Ok(None);
         }
@@ -315,10 +315,9 @@ impl ConnectScreen {
         {
             Ok(result) => result,
             Err(e) => {
-                error!("Connection failed: {}", e);
+                error!("Connection failed: {e}");
                 return Ok(Some(ConnectionStatus::Error(format!(
-                    "Connection failed: {}",
-                    e
+                    "Connection failed: {e}"
                 ))));
             }
         };
@@ -341,7 +340,7 @@ impl ConnectScreen {
             .await;
 
             if let Err(e) = disconnect_result {
-                warn!("Error during session disconnect: {}", e);
+                warn!("Error during session disconnect: {e}");
             }
         }
 

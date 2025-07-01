@@ -30,7 +30,7 @@ impl super::BrowseScreen {
                 self.tree_nodes = children;
             }
             Ok(Err(e)) => {
-                log::warn!("browse: failed to load real tree data: {}", e);
+                log::warn!("browse: failed to load real tree data: {e}");
                 // Don't fail completely, just leave tree_nodes empty
             }
             Err(_timeout) => {
@@ -142,7 +142,7 @@ impl super::BrowseScreen {
                     .await?;
             }
             Err(e) => {
-                log::error!("browse: failed to load children for node: {}", e);
+                log::error!("browse: failed to load children for node: {e}");
                 // Revert expansion state on error
                 self.update_expansion_state(index, false);
             }
@@ -181,7 +181,7 @@ impl super::BrowseScreen {
                         .collect();
                 }
                 Err(e) => {
-                    log::error!("browse: failed to read node attributes: {}", e);
+                    log::error!("browse: failed to read node attributes: {e}");
                     self.selected_attributes.clear();
                 }
             }

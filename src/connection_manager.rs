@@ -77,14 +77,13 @@ impl ConnectionConfig {
             cert_path,
         )
         .unwrap_or_else(|e| {
-            log::warn!("Failed to extract application URI from certificate: {}", e);
+            log::warn!("Failed to extract application URI from certificate: {e}");
             log::info!("Using default application URI");
             "urn:opcua-tui-client-secure".to_string()
         });
 
         log::info!(
-            "Using application URI from certificate: {}",
-            application_uri
+            "Using application URI from certificate: {application_uri}"
         );
 
         Self {
@@ -121,8 +120,7 @@ impl ConnectionConfig {
                 ConnectionManager::extract_application_uri_from_certificate(cert_path)
             {
                 log::info!(
-                    "Automatically extracted application URI from certificate: {}",
-                    extracted_uri
+                    "Automatically extracted application URI from certificate: {extracted_uri}"
                 );
                 self.application_uri = extracted_uri;
             } else {
@@ -200,7 +198,7 @@ impl ConnectionManager {
                     Ok(endpoints)
                 }
                 Err(e) => {
-                    log::error!("Failed to discover endpoints from {}: {}", url, e);
+                    log::error!("Failed to discover endpoints from {url}: {e}");
                     Err(anyhow!("Failed to discover endpoints: {}", e))
                 }
             }
@@ -218,11 +216,11 @@ impl ConnectionManager {
         // Apply URL override if requested
         if config.use_original_url {
             if let Some(original_url) = endpoint.endpoint_url.value() {
-                log::info!("Using original URL override: {}", original_url);
+                log::info!("Using original URL override: {original_url}");
             }
         }
         tokio::task::spawn_blocking(move || -> Result<(Client, Arc<RwLock<Session>>)> {
-            log::debug!("Building client with config: {:?}", config);
+            log::debug!("Building client with config: {config:?}");
 
             let mut client = match Self::build_client(&config) {
                 Ok(c) => {
@@ -230,7 +228,7 @@ impl ConnectionManager {
                     c
                 }
                 Err(e) => {
-                    log::error!("Failed to build client: {}", e);
+                    log::error!("Failed to build client: {e}");
                     return Err(anyhow!("Client build failed: {}", e));
                 }
             };
@@ -253,8 +251,8 @@ impl ConnectionManager {
                     Ok((client, session))
                 }
                 Ok(Err(e)) => {
-                    log::error!("Failed to connect to endpoint: {}", e);
-                    log::debug!("Connection error details: {:?}", e);
+                    log::error!("Failed to connect to endpoint: {e}");
+                    log::debug!("Connection error details: {e:?}");
 
                     // Provide more specific error analysis
                     let error_msg = e.to_string();
@@ -278,7 +276,7 @@ impl ConnectionManager {
                         "Unknown panic occurred during connection".to_string()
                     };
 
-                    log::error!("Connection attempt panicked: {}", panic_msg);
+                    log::error!("Connection attempt panicked: {panic_msg}");
 
                     Err(anyhow!("Connection failed due to certificate/key issue: {}", panic_msg))
                 }
@@ -292,11 +290,11 @@ impl ConnectionManager {
         server_url: &str,
         config: &ConnectionConfig,
     ) -> Result<(Client, Arc<RwLock<Session>>)> {
-        log::info!("Starting connection process to: {}", server_url);
-        log::debug!("Using config: {:?}", config);
+        log::info!("Starting connection process to: {server_url}");
+        log::debug!("Using config: {config:?}");
 
         // First, discover endpoints
-        log::debug!("Discovering endpoints from: {}", server_url);
+        log::debug!("Discovering endpoints from: {server_url}");
         let endpoints = Self::discover_endpoints(server_url, config).await?;
         log::debug!("Discovered {} endpoints", endpoints.len());
 
@@ -365,16 +363,16 @@ impl ConnectionManager {
             if let (Some(cert_path), Some(key_path)) =
                 (&config.client_cert_path, &config.client_key_path)
             {
-                log::info!("Using client certificate: {}", cert_path);
-                log::info!("Using client private key: {}", key_path);
+                log::info!("Using client certificate: {cert_path}");
+                log::info!("Using client private key: {key_path}");
 
                 // Check if certificate files exist
                 if !std::path::Path::new(cert_path).exists() {
-                    log::error!("Client certificate file not found: {}", cert_path);
+                    log::error!("Client certificate file not found: {cert_path}");
                     return Err(anyhow!("Client certificate file not found: {}", cert_path));
                 }
                 if !std::path::Path::new(key_path).exists() {
-                    log::error!("Client private key file not found: {}", key_path);
+                    log::error!("Client private key file not found: {key_path}");
                     return Err(anyhow!("Client private key file not found: {}", key_path));
                 }
 
@@ -388,18 +386,18 @@ impl ConnectionManager {
                     .and_then(|s| s.to_str())
                     .unwrap_or("private.pem");
 
-                log::debug!("Using certificate file: own/{}", cert_filename);
-                log::debug!("Using private key file: private/{}", key_filename);
+                log::debug!("Using certificate file: own/{cert_filename}");
+                log::debug!("Using private key file: private/{key_filename}");
 
                 // Validate certificate and key files with OpenSSL to catch format and compatibility issues
                 if let Err(e) = Self::test_certificate_with_openssl(cert_path, key_path) {
-                    log::error!("Certificate validation failed: {}", e);
+                    log::error!("Certificate validation failed: {e}");
                     return Err(anyhow!("Certificate validation failed: {}. Please check certificate and private key formats and compatibility.", e));
                 }
 
                 client_builder = client_builder
-                    .certificate_path(format!("own/{}", cert_filename))
-                    .private_key_path(format!("private/{}", key_filename))
+                    .certificate_path(format!("own/{cert_filename}"))
+                    .private_key_path(format!("private/{key_filename}"))
                     .create_sample_keypair(false);
             } else {
                 // Fallback to sample keypair if no certificates provided
@@ -429,7 +427,7 @@ impl ConnectionManager {
                     "Unknown panic during client creation".to_string()
                 };
 
-                log::error!("Client creation panicked: {}", panic_msg);
+                log::error!("Client creation panicked: {panic_msg}");
                 log::error!("This usually indicates certificate/private key loading issues");
                 Err(anyhow!("Client creation failed: {}", panic_msg))
             }
@@ -552,9 +550,7 @@ impl ConnectionManager {
         use std::fs;
 
         log::debug!(
-            "Testing certificate compatibility with OpenSSL for: {} and {}",
-            cert_path,
-            key_path
+            "Testing certificate compatibility with OpenSSL for: {cert_path} and {key_path}"
         );
 
         // Read certificate file
@@ -620,7 +616,7 @@ impl ConnectionManager {
     fn extract_application_uri_from_certificate(cert_path: &str) -> Result<String> {
         use std::fs;
 
-        log::debug!("Extracting application URI from certificate: {}", cert_path);
+        log::debug!("Extracting application URI from certificate: {cert_path}");
 
         // Read certificate file
         let cert_data =
@@ -651,12 +647,12 @@ impl ConnectionManager {
                 // Check if this is a URI entry
                 if let Some(uri) = san.uri() {
                     let uri_str = uri.to_string();
-                    log::debug!("Found URI in SAN: {}", uri_str);
+                    log::debug!("Found URI in SAN: {uri_str}");
 
                     // OPC UA application URIs typically start with "urn:"
                     // and often contain "opcua" or similar identifiers
                     if uri_str.starts_with("urn:") {
-                        log::info!("Found application URI in certificate: {}", uri_str);
+                        log::info!("Found application URI in certificate: {uri_str}");
                         return Ok(uri_str);
                     }
                 }
@@ -670,11 +666,11 @@ impl ConnectionManager {
             if obj.nid() == openssl::nid::Nid::COMMONNAME {
                 if let Ok(data) = entry.data().as_utf8() {
                     let cn = data.to_string();
-                    log::debug!("Found CN in certificate: {}", cn);
+                    log::debug!("Found CN in certificate: {cn}");
 
                     // If CN looks like a URN, use it
                     if cn.starts_with("urn:") {
-                        log::info!("Using CN as application URI: {}", cn);
+                        log::info!("Using CN as application URI: {cn}");
                         return Ok(cn);
                     }
                 }

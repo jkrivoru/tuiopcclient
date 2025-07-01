@@ -219,7 +219,7 @@ impl ConnectScreen {
         if cert_path.is_empty() {
             errors.push("Client certificate path is required".to_string());
         } else if !std::path::Path::new(cert_path).exists() {
-            errors.push(format!("Client certificate file not found: {}", cert_path));
+            errors.push(format!("Client certificate file not found: {cert_path}"));
         } else {
             let ext = std::path::Path::new(cert_path)
                 .extension()
@@ -236,7 +236,7 @@ impl ConnectScreen {
         if key_path.is_empty() {
             errors.push("Client private key path is required".to_string());
         } else if !std::path::Path::new(key_path).exists() {
-            errors.push(format!("Client private key file not found: {}", key_path));
+            errors.push(format!("Client private key file not found: {key_path}"));
         } else {
             let ext = std::path::Path::new(key_path)
                 .extension()
@@ -253,8 +253,7 @@ impl ConnectScreen {
             && !std::path::Path::new(store_path).exists()
         {
             errors.push(format!(
-                "Trusted server store path not found: {}",
-                store_path
+                "Trusted server store path not found: {store_path}"
             ));
         }
 
@@ -397,7 +396,7 @@ impl ConnectScreen {
                 if cert_path.is_empty() {
                     errors.push("User certificate path is required".to_string());
                 } else if !std::path::Path::new(cert_path).exists() {
-                    errors.push(format!("User certificate file not found: {}", cert_path));
+                    errors.push(format!("User certificate file not found: {cert_path}"));
                 } else {
                     let ext = std::path::Path::new(cert_path)
                         .extension()
@@ -414,7 +413,7 @@ impl ConnectScreen {
                 if key_path.is_empty() {
                     errors.push("User private key path is required".to_string());
                 } else if !std::path::Path::new(key_path).exists() {
-                    errors.push(format!("User private key file not found: {}", key_path));
+                    errors.push(format!("User private key file not found: {key_path}"));
                 } else {
                     let ext = std::path::Path::new(key_path)
                         .extension()

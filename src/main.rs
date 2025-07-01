@@ -102,7 +102,7 @@ async fn main() -> Result<()> {
     if let Some(ref server_url) = args.server_url {
         // Use log macros for CLI connection (will be buffered)
         log::info!("Starting OPC UA Client with command line connection...");
-        log::info!("Server URL: {}", server_url);
+        log::info!("Server URL: {server_url}");
         log::info!("Security Policy: {}", args.security_policy);
         log::info!("Security Mode: {}", args.security_mode);
 
@@ -121,13 +121,13 @@ async fn main() -> Result<()> {
 
                 // Initialize the browse screen with tree data
                 if let Err(e) = app.initialize_browse_screen().await {
-                    log::warn!("Failed to load tree data: {}", e);
+                    log::warn!("Failed to load tree data: {e}");
                 }
 
                 app.run().await?;
             }
             Err(e) => {
-                log::error!("Connection failed: {}", e);
+                log::error!("Connection failed: {e}");
                 // Flush console logs before exiting on connection failure
                 logging::flush_console_logs();
                 std::process::exit(1);
@@ -190,7 +190,7 @@ async fn connect_via_command_line(
         "Anonymous"
     };
 
-    log::info!("Authentication mode: {}", auth_mode);
+    log::info!("Authentication mode: {auth_mode}");
 
     // Connect using a more detailed implementation
     log::info!("Creating endpoint and connecting...");
@@ -303,8 +303,7 @@ fn create_identity_token(args: &Args) -> Result<opcua::client::prelude::Identity
     use opcua::client::prelude::IdentityToken;
     if let (Some(username), Some(password)) = (&args.user_name, &args.password) {
         log::info!(
-            "Using username/password authentication for user: {}",
-            username
+            "Using username/password authentication for user: {username}"
         );
         Ok(IdentityToken::UserName(username.clone(), password.clone()))
     } else if let (Some(cert_path), Some(key_path)) =

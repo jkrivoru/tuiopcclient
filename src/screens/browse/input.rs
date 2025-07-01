@@ -109,7 +109,7 @@ impl super::BrowseScreen {
                     self.selected_node_index -= 1;
                     self.update_scroll();
                     if let Err(e) = self.update_selected_attributes_async().await {
-                        log::error!("browse: failed to update attributes: {}", e);
+                        log::error!("browse: failed to update attributes: {e}");
                     }
                 }
                 Ok(None)
@@ -119,7 +119,7 @@ impl super::BrowseScreen {
                     self.selected_node_index += 1;
                     self.update_scroll();
                     if let Err(e) = self.update_selected_attributes_async().await {
-                        log::error!("browse: failed to update attributes: {}", e);
+                        log::error!("browse: failed to update attributes: {e}");
                     }
                 }
                 Ok(None)
@@ -131,10 +131,10 @@ impl super::BrowseScreen {
                     if node.should_show_expand_indicator() && node.has_children && !node.is_expanded
                     {
                         if let Err(e) = self.expand_node_async(self.selected_node_index).await {
-                            log::error!("browse: failed to expand node: {}", e);
+                            log::error!("browse: failed to expand node: {e}");
                         }
                         if let Err(e) = self.update_selected_attributes_async().await {
-                            log::error!("browse: failed to update attributes: {}", e);
+                            log::error!("browse: failed to update attributes: {e}");
                         }
                     }
                 }
@@ -150,13 +150,13 @@ impl super::BrowseScreen {
                         // Collapse the current node
                         self.collapse_node(self.selected_node_index);
                         if let Err(e) = self.update_selected_attributes_async().await {
-                            log::error!("browse: failed to update attributes: {}", e);
+                            log::error!("browse: failed to update attributes: {e}");
                         }
                     } else if node.level > 0 {
                         // Move to immediate parent node
                         self.move_to_parent();
                         if let Err(e) = self.update_selected_attributes_async().await {
-                            log::error!("browse: failed to update attributes: {}", e);
+                            log::error!("browse: failed to update attributes: {e}");
                         }
                     }
                 }
@@ -167,7 +167,7 @@ impl super::BrowseScreen {
                 self.selected_node_index = self.selected_node_index.saturating_sub(page_size);
                 self.update_scroll();
                 if let Err(e) = self.update_selected_attributes_async().await {
-                    log::error!("browse: failed to update attributes: {}", e);
+                    log::error!("browse: failed to update attributes: {e}");
                 }
                 Ok(None)
             }
@@ -177,7 +177,7 @@ impl super::BrowseScreen {
                     .min(self.tree_nodes.len().saturating_sub(1));
                 self.update_scroll();
                 if let Err(e) = self.update_selected_attributes_async().await {
-                    log::error!("browse: failed to update attributes: {}", e);
+                    log::error!("browse: failed to update attributes: {e}");
                 }
                 Ok(None)
             }
@@ -185,7 +185,7 @@ impl super::BrowseScreen {
                 self.selected_node_index = 0;
                 self.scroll_offset = 0;
                 if let Err(e) = self.update_selected_attributes_async().await {
-                    log::error!("browse: failed to update attributes: {}", e);
+                    log::error!("browse: failed to update attributes: {e}");
                 }
                 Ok(None)
             }
@@ -193,7 +193,7 @@ impl super::BrowseScreen {
                 self.selected_node_index = self.tree_nodes.len().saturating_sub(1);
                 self.update_scroll();
                 if let Err(e) = self.update_selected_attributes_async().await {
-                    log::error!("browse: failed to update attributes: {}", e);
+                    log::error!("browse: failed to update attributes: {e}");
                 }
                 Ok(None)
             }
@@ -209,10 +209,10 @@ impl super::BrowseScreen {
             KeyCode::Char('r') => {
                 // Refresh/reload real OPC UA data
                 if let Err(e) = self.load_real_tree().await {
-                    log::error!("browse: failed to load real OPC UA data: {}", e);
+                    log::error!("browse: failed to load real OPC UA data: {e}");
                 }
                 if let Err(e) = self.update_selected_attributes_async().await {
-                    log::error!("browse: failed to update attributes: {}", e);
+                    log::error!("browse: failed to update attributes: {e}");
                 }
                 Ok(None)
             }
@@ -290,7 +290,7 @@ impl super::BrowseScreen {
         self.selected_node_index = index;
         self.update_scroll();
         if let Err(e) = self.update_selected_attributes_async().await {
-            log::error!("browse: failed to update attributes: {}", e);
+            log::error!("browse: failed to update attributes: {e}");
         }
         Ok(None)
     }
@@ -306,10 +306,10 @@ impl super::BrowseScreen {
                 if node.is_expanded {
                     self.collapse_node(index);
                 } else if let Err(e) = self.expand_node_async(index).await {
-                    log::error!("browse: failed to expand node: {}", e);
+                    log::error!("browse: failed to expand node: {e}");
                 }
                 if let Err(e) = self.update_selected_attributes_async().await {
-                    log::error!("browse: failed to update attributes: {}", e);
+                    log::error!("browse: failed to update attributes: {e}");
                 }
             }
         }
@@ -351,8 +351,7 @@ impl super::BrowseScreen {
         if let Some(tx) = &self.search_command_tx {
             if let Err(e) = tx.send(super::types::SearchCommand::Cancel) {
                 log::warn!(
-                    "search: failed to send cancel command to background search: {}",
-                    e
+                    "search: failed to send cancel command to background search: {e}"
                 );
             }
         }
@@ -570,7 +569,7 @@ impl super::BrowseScreen {
             self.search_cancelled = false;
             self.search_progress_current = 0;
             self.search_progress_total = 1;
-            self.search_progress_message = format!("Searching locally for '{}'...", query);
+            self.search_progress_message = format!("Searching locally for '{query}'...");
 
             self.perform_local_search().await?;
         }
@@ -579,7 +578,7 @@ impl super::BrowseScreen {
     }
     async fn perform_local_search(&mut self) -> Result<()> {
         let query = self.search_input.value().trim().to_lowercase();
-        log::info!("search: performing local search for query '{}'", query);
+        log::info!("search: performing local search for query '{query}'");
 
         // Search through currently visible nodes for the first match
         for node in self.tree_nodes.iter() {
@@ -641,11 +640,11 @@ impl super::BrowseScreen {
 
         if result_index < self.search_results.len() {
             let target_node_id = self.search_results[result_index].clone(); // Clone to avoid borrowing issues
-            log::info!("search: looking for node with ID {}", target_node_id);
+            log::info!("search: looking for node with ID {target_node_id}");
 
             // Find the current index of the node with this ID
             let node_index = self.find_node_index_by_id(&target_node_id);
-            log::info!("search: found node at index {:?}", node_index);
+            log::info!("search: found node at index {node_index:?}");
 
             if let Some(node_index) = node_index {
                 // Expand parent nodes if necessary
@@ -653,7 +652,7 @@ impl super::BrowseScreen {
 
                 // Re-find the index after potential tree changes
                 if let Some(updated_node_index) = self.find_node_index_by_id(&target_node_id) {
-                    log::info!("search: navigating to node at index {}", updated_node_index);
+                    log::info!("search: navigating to node at index {updated_node_index}");
 
                     // Select the node
                     self.selected_node_index = updated_node_index;
@@ -666,18 +665,16 @@ impl super::BrowseScreen {
 
                     // Update attributes and set up highlighting
                     if let Err(e) = self.update_selected_attributes_async().await {
-                        log::error!("browse: failed to update attributes: {}", e);
+                        log::error!("browse: failed to update attributes: {e}");
                     }
                 } else {
                     log::error!(
-                        "search: node with ID {} disappeared after ensuring visibility",
-                        target_node_id
+                        "search: node with ID {target_node_id} disappeared after ensuring visibility"
                     );
                 }
             } else {
                 log::warn!(
-                    "search: node with ID {} not found in current tree",
-                    target_node_id
+                    "search: node with ID {target_node_id} not found in current tree"
                 );
                 // Node not currently visible, need to search and expand to find it
                 self.expand_to_find_node(&target_node_id).await?;
@@ -698,16 +695,14 @@ impl super::BrowseScreen {
             .position(|node| node.node_id == target_node_id)
     }
     pub async fn expand_to_find_node(&mut self, target_node_id: &str) -> Result<()> {
-        log::info!("search: navigating to search result {}", target_node_id);
+        log::info!("search: navigating to search result {target_node_id}");
 
         // Parse the target node ID
         let target_opcua_node_id = match opcua::types::NodeId::from_str(target_node_id) {
             Ok(node_id) => node_id,
             Err(e) => {
                 log::error!(
-                    "search: failed to parse target node ID '{}': {}",
-                    target_node_id,
-                    e
+                    "search: failed to parse target node ID '{target_node_id}': {e}"
                 );
                 return Err(anyhow::anyhow!(
                     "Invalid node ID format: {}",
@@ -719,8 +714,7 @@ impl super::BrowseScreen {
         // Check if the target node is already visible in the tree
         if let Some(target_index) = self.find_node_index_by_id(target_node_id) {
             log::info!(
-                "search: target node already visible at index {}",
-                target_index
+                "search: target node already visible at index {target_index}"
             );
             self.selected_node_index = target_index;
             self.update_scroll();
@@ -728,14 +722,14 @@ impl super::BrowseScreen {
 
             // Update attributes
             if let Err(e) = self.update_selected_attributes_async().await {
-                log::error!("browse: failed to update attributes: {}", e);
+                log::error!("browse: failed to update attributes: {e}");
             }
             return Ok(());
         }
 
         // Find the path from the root to the target node
         if let Some(path_to_target) = self.find_path_to_node(&target_opcua_node_id).await? {
-            log::info!("search: found path to target node: {:?}", path_to_target);
+            log::info!("search: found path to target node: {path_to_target:?}");
 
             // Filter out the Objects node (i=85) since it's not displayed in the tree
             let objects_node_id = opcua::types::NodeId::new(0, 85u32);
@@ -745,17 +739,14 @@ impl super::BrowseScreen {
                 .collect();
 
             log::info!(
-                "search: filtered path (excluding Objects node): {:?}",
-                filtered_path
+                "search: filtered path (excluding Objects node): {filtered_path:?}"
             );
 
             // Expand nodes along the filtered path to make the target visible
             for ancestor_node_id in filtered_path {
                 if let Err(e) = self.expand_node_by_opcua_id(&ancestor_node_id).await {
                     log::error!(
-                        "search: failed to expand ancestor node {}: {}",
-                        ancestor_node_id,
-                        e
+                        "search: failed to expand ancestor node {ancestor_node_id}: {e}"
                     );
                     // Continue trying to expand other ancestors
                 }
@@ -763,21 +754,20 @@ impl super::BrowseScreen {
 
             // Now try to find the target node in the expanded tree
             if let Some(target_index) = self.find_node_index_by_id(target_node_id) {
-                log::info!("search: target node now visible at index {}", target_index);
+                log::info!("search: target node now visible at index {target_index}");
                 self.selected_node_index = target_index;
                 self.update_scroll();
 
                 // Update attributes
                 if let Err(e) = self.update_selected_attributes_async().await {
-                    log::error!("browse: failed to update attributes: {}", e);
+                    log::error!("browse: failed to update attributes: {e}");
                 }
             } else {
                 log::error!("search: target node still not visible after expanding path");
             }
         } else {
             log::error!(
-                "search: could not find path to target node {}",
-                target_node_id
+                "search: could not find path to target node {target_node_id}"
             );
         }
 
@@ -789,7 +779,7 @@ impl super::BrowseScreen {
         &self,
         target_node_id: &opcua::types::NodeId,
     ) -> Result<Option<Vec<opcua::types::NodeId>>> {
-        log::info!("search: finding path to node {}", target_node_id);
+        log::info!("search: finding path to node {target_node_id}");
 
         let client_guard = self.client.read().await;
         if !client_guard.is_connected() {
@@ -854,7 +844,7 @@ impl super::BrowseScreen {
         &mut self,
         opcua_node_id: &opcua::types::NodeId,
     ) -> Result<()> {
-        log::info!("search: expanding node by OPC UA ID {}", opcua_node_id);
+        log::info!("search: expanding node by OPC UA ID {opcua_node_id}");
 
         // Find the tree node with this OPC UA node ID
         let node_index = self.tree_nodes.iter().position(|node| {
@@ -866,21 +856,19 @@ impl super::BrowseScreen {
         });
 
         if let Some(index) = node_index {
-            log::info!("search: found tree node at index {}, expanding", index);
+            log::info!("search: found tree node at index {index}, expanding");
 
             if self.can_expand(index) {
                 self.expand_node_async(index).await?;
-                log::info!("search: successfully expanded node at index {}", index);
+                log::info!("search: successfully expanded node at index {index}");
             } else {
                 log::info!(
-                    "search: node at index {} cannot be expanded (already expanded or no children)",
-                    index
+                    "search: node at index {index} cannot be expanded (already expanded or no children)"
                 );
             }
         } else {
             log::warn!(
-                "search: could not find tree node with OPC UA ID {}",
-                opcua_node_id
+                "search: could not find tree node with OPC UA ID {opcua_node_id}"
             );
         }
 
@@ -934,14 +922,11 @@ impl super::BrowseScreen {
         for &index in &nodes_to_expand {
             if self.can_expand(index) {
                 log::info!(
-                    "search: expanding parent node at index {} to make target visible",
-                    index
+                    "search: expanding parent node at index {index} to make target visible"
                 );
                 if let Err(e) = self.expand_node_async(index).await {
                     log::error!(
-                        "search: failed to expand parent node at index {}: {}",
-                        index,
-                        e
+                        "search: failed to expand parent node at index {index}: {e}"
                     );
                 }
             }
@@ -959,8 +944,7 @@ impl super::BrowseScreen {
         query: &str,
     ) -> Result<Option<String>> {
         log::info!(
-            "search: starting depth-first search from node {}",
-            start_node_id
+            "search: starting depth-first search from node {start_node_id}"
         );
 
         // Stack for depth-first traversal: (node_id, depth)
@@ -989,17 +973,14 @@ impl super::BrowseScreen {
                 self.search_progress_current = visited_count;
                 self.search_progress_total = visited_count + stack.len();
                 self.search_progress_message =
-                    format!("Searching node {} (depth {})...", current_node_id, depth);
+                    format!("Searching node {current_node_id} (depth {depth})...");
 
                 // Yield to allow UI updates (non-blocking)
                 tokio::task::yield_now().await;
             }
 
             log::info!(
-                "search: processing node {} at depth {} (visit #{})",
-                current_node_id,
-                depth,
-                visited_count
+                "search: processing node {current_node_id} at depth {depth} (visit #{visited_count})"
             );
 
             // Check if this node matches the search criteria
@@ -1007,7 +988,7 @@ impl super::BrowseScreen {
                 .node_matches_opcua_node(&current_node_id, query)
                 .await?
             {
-                log::info!("search: found match at node {}", current_node_id);
+                log::info!("search: found match at node {current_node_id}");
                 return Ok(Some(current_node_id.to_string()));
             }
 
@@ -1037,8 +1018,7 @@ impl super::BrowseScreen {
                 }
             } else {
                 log::debug!(
-                    "search: skipping children of node {} (not expandable in tree view)",
-                    current_node_id
+                    "search: skipping children of node {current_node_id} (not expandable in tree view)"
                 );
             }
 
@@ -1050,8 +1030,7 @@ impl super::BrowseScreen {
         }
 
         log::info!(
-            "search: depth-first search completed, no matches found (visited {} nodes)",
-            visited_count
+            "search: depth-first search completed, no matches found (visited {visited_count} nodes)"
         );
         Ok(None)
     }
@@ -1095,7 +1074,7 @@ impl super::BrowseScreen {
         let browse_results = match client_guard.browse_node(node_id).await {
             Ok(results) => results,
             Err(e) => {
-                log::debug!("search: failed to browse node {}: {}", node_id, e);
+                log::debug!("search: failed to browse node {node_id}: {e}");
                 return Ok(Vec::new());
             }
         };
@@ -1211,13 +1190,10 @@ impl super::BrowseScreen {
 
         // Check NodeId string representation
         let node_id_str = node_id.to_string().to_lowercase();
-        log::debug!("search: checking node {} NodeId '{}'", node_id, node_id_str);
+        log::debug!("search: checking node {node_id} NodeId '{node_id_str}'");
         if node_id_str.contains(query) {
             log::info!(
-                "search: node {} matches on NodeId '{}' contains '{}'",
-                node_id,
-                node_id_str,
-                query
+                "search: node {node_id} matches on NodeId '{node_id_str}' contains '{query}'"
             );
             return Ok(true);
         }
@@ -1229,13 +1205,10 @@ impl super::BrowseScreen {
                 // Check BrowseName attribute
                 if attr.name.to_lowercase() == "browsename" {
                     let browse_name = attr.value.to_lowercase();
-                    log::debug!("search: node {} BrowseName '{}'", node_id, browse_name);
+                    log::debug!("search: node {node_id} BrowseName '{browse_name}'");
                     if browse_name.contains(query) {
                         log::info!(
-                            "search: node {} matches on BrowseName '{}' contains '{}'",
-                            node_id,
-                            browse_name,
-                            query
+                            "search: node {node_id} matches on BrowseName '{browse_name}' contains '{query}'"
                         );
                         return Ok(true);
                     }
@@ -1244,13 +1217,10 @@ impl super::BrowseScreen {
                 // Check DisplayName attribute
                 if attr.name.to_lowercase() == "displayname" {
                     let display_name = attr.value.to_lowercase();
-                    log::debug!("search: node {} DisplayName '{}'", node_id, display_name);
+                    log::debug!("search: node {node_id} DisplayName '{display_name}'");
                     if display_name.contains(query) {
                         log::info!(
-                            "search: node {} matches on DisplayName '{}' contains '{}'",
-                            node_id,
-                            display_name,
-                            query
+                            "search: node {node_id} matches on DisplayName '{display_name}' contains '{query}'"
                         );
                         return Ok(true);
                     }
@@ -1259,13 +1229,10 @@ impl super::BrowseScreen {
                 // If "Also look at values" is checked, search in other attribute values
                 if self.search_include_values && attr.name.to_lowercase() == "value" {
                     let value_str = attr.value.to_lowercase();
-                    log::debug!("search: node {} Value attribute '{}'", node_id, value_str);
+                    log::debug!("search: node {node_id} Value attribute '{value_str}'");
                     if value_str.contains(query) {
                         log::info!(
-                            "search: node {} matches on Value attribute '{}' contains '{}'",
-                            node_id,
-                            value_str,
-                            query
+                            "search: node {node_id} matches on Value attribute '{value_str}' contains '{query}'"
                         );
                         return Ok(true);
                     }
@@ -1274,8 +1241,7 @@ impl super::BrowseScreen {
         } else {
             // Fallback: try browsing to get basic info if read_node_attributes fails
             log::debug!(
-                "search: failed to read attributes for node {}, trying browse fallback",
-                node_id
+                "search: failed to read attributes for node {node_id}, trying browse fallback"
             );
 
             // Get the parent of this node and browse it to find this node's info
@@ -1286,24 +1252,20 @@ impl super::BrowseScreen {
                             // Check BrowseName
                             let browse_name = result.browse_name.to_lowercase();
                             log::debug!(
-                                "search: node {} BrowseName (from browse) '{}'",
-                                node_id,
-                                browse_name
+                                "search: node {node_id} BrowseName (from browse) '{browse_name}'"
                             );
                             if browse_name.contains(query) {
-                                log::info!("search: node {} matches on BrowseName (from browse) '{}' contains '{}'", node_id, browse_name, query);
+                                log::info!("search: node {node_id} matches on BrowseName (from browse) '{browse_name}' contains '{query}'");
                                 return Ok(true);
                             }
 
                             // Check DisplayName
                             let display_name = result.display_name.to_lowercase();
                             log::debug!(
-                                "search: node {} DisplayName (from browse) '{}'",
-                                node_id,
-                                display_name
+                                "search: node {node_id} DisplayName (from browse) '{display_name}'"
                             );
                             if display_name.contains(query) {
-                                log::info!("search: node {} matches on DisplayName (from browse) '{}' contains '{}'", node_id, display_name, query);
+                                log::info!("search: node {node_id} matches on DisplayName (from browse) '{display_name}' contains '{query}'");
                                 return Ok(true);
                             }
                             break;
@@ -1313,7 +1275,7 @@ impl super::BrowseScreen {
             }
         }
 
-        log::debug!("search: node {} does not match query '{}'", node_id, query);
+        log::debug!("search: node {node_id} does not match query '{query}'");
         Ok(false)
     }
 
@@ -1331,7 +1293,7 @@ impl super::BrowseScreen {
     /// Continue searching from the currently selected node (like Windows F3)
     async fn continue_search(&mut self) -> Result<()> {
         let query = self.last_search_query.clone();
-        log::info!("search: continuing search for query '{}'", query);
+        log::info!("search: continuing search for query '{query}'");
 
         if query.is_empty() {
             log::info!("search: no previous search query");
@@ -1414,8 +1376,7 @@ impl super::BrowseScreen {
         if let Some(current_node) = self.tree_nodes.get(self.selected_node_index) {
             if current_node.should_show_expand_indicator() && current_node.has_children {
                 log::info!(
-                    "search: searching in children of current node {}",
-                    start_node_id
+                    "search: searching in children of current node {start_node_id}"
                 );
                 if let Some(found_id) = self.depth_first_search(&start_node_id, query).await? {
                     return Ok(Some(found_id));
@@ -1437,8 +1398,7 @@ impl super::BrowseScreen {
         query: &str,
     ) -> Result<Option<String>> {
         log::info!(
-            "search: searching remaining tree after node {}",
-            current_node_id
+            "search: searching remaining tree after node {current_node_id}"
         );
 
         // Start from the root and perform a full DFS, but skip nodes until we're past the current node
@@ -1531,10 +1491,10 @@ impl super::BrowseScreen {
         let root_node_id = opcua::types::ObjectId::ObjectsFolder.into();
 
         // Update progress message to show wrapping
-        self.search_progress_message = format!("Wrapping search for '{}'...", query);
+        self.search_progress_message = format!("Wrapping search for '{query}'...");
 
         if let Some(found_node_id) = self.depth_first_search(&root_node_id, query).await? {
-            log::info!("search: found match after wrapping {}", found_node_id);
+            log::info!("search: found match after wrapping {found_node_id}");
             self.search_results.push(found_node_id.clone());
 
             // Navigate to the found node
@@ -1542,7 +1502,7 @@ impl super::BrowseScreen {
         } else {
             log::info!("search: no matches found in entire tree");
             // Update progress message to show no results
-            self.search_progress_message = format!("No matches found for '{}'", query);
+            self.search_progress_message = format!("No matches found for '{query}'");
 
             // Keep the progress dialog open for a moment so user can see the "no matches" message
             tokio::time::sleep(tokio::time::Duration::from_millis(1000)).await;

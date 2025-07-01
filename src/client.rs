@@ -115,12 +115,12 @@ impl OpcUaClientManager {
                 }
                 Ok(Err(e)) => {
                     // Browse operation failed
-                    log::warn!("Failed to browse node {}: {}", node_id, e);
+                    log::warn!("Failed to browse node {node_id}: {e}");
                     Err(anyhow::anyhow!("Browse operation failed: {}", e))
                 }
                 Err(_timeout) => {
                     // Browse operation timed out
-                    log::warn!("Browse operation timed out for node {}", node_id);
+                    log::warn!("Browse operation timed out for node {node_id}");
                     Err(anyhow::anyhow!("Browse operation timed out"))
                 }
             }
@@ -273,9 +273,9 @@ impl OpcUaClientManager {
                                             "LocalizedText",
                                         ),
                                         Variant::StatusCode(sc) => {
-                                            (format!("{:?}", sc), "StatusCode")
+                                            (format!("{sc:?}"), "StatusCode")
                                         }
-                                        _ => (format!("{:?}", val), "Unknown"),
+                                        _ => (format!("{val:?}"), "Unknown"),
                                     };
                                     (value_str, type_str.to_string())
                                 }
@@ -318,10 +318,7 @@ impl OpcUaClientManager {
                     }
                     Err(e) => {
                         log::warn!(
-                            "Failed to read attribute {:?} for node {}: {}",
-                            attr_id,
-                            node_id,
-                            e
+                            "Failed to read attribute {attr_id:?} for node {node_id}: {e}"
                         );
                     }
                 }
@@ -394,9 +391,9 @@ impl OpcUaClientManager {
                                             "LocalizedText",
                                         ),
                                         Variant::StatusCode(sc) => {
-                                            (format!("{:?}", sc), "StatusCode")
+                                            (format!("{sc:?}"), "StatusCode")
                                         }
-                                        _ => (format!("{:?}", val), "Unknown"),
+                                        _ => (format!("{val:?}"), "Unknown"),
                                     };
                                     (value_str, type_str.to_string())
                                 }
@@ -412,7 +409,7 @@ impl OpcUaClientManager {
                                 is_value_good,
                             }); // Add custom debug attributes with indentation
                             let value_status_text = if let Some(status_code) = &data_value.status {
-                                format!("{:?}", status_code)
+                                format!("{status_code:?}")
                             } else {
                                 "Good".to_string()
                             };
@@ -453,11 +450,11 @@ impl OpcUaClientManager {
                         }
                     }
                     Err(e) => {
-                        log::warn!("Failed to read Value attribute for node {}: {}", node_id, e);
+                        log::warn!("Failed to read Value attribute for node {node_id}: {e}");
                         // Add a placeholder Value attribute with error status
                         attributes.push(OpcUaAttribute {
                             name: "Value".to_string(),
-                            value: format!("Read Error: {}", e),
+                            value: format!("Read Error: {e}"),
                             is_value_good: false,
                         });
                     }
@@ -468,7 +465,7 @@ impl OpcUaClientManager {
 
             // If we couldn't read any real attributes, return error
             if attributes.is_empty() {
-                log::warn!("No attributes found for node {}", node_id);
+                log::warn!("No attributes found for node {node_id}");
                 Err(anyhow::anyhow!("No attributes found for node"))
             } else {
                 Ok(attributes)
@@ -579,7 +576,7 @@ impl OpcUaClientManager {
                     let value_attr = if include_value {
                         if let Some(result) = results.get(3) {
                             // Check if the status is good and value is present
-                            result.value.as_ref().map(|variant| format!("{}", variant))
+                            result.value.as_ref().map(|variant| format!("{variant}"))
                         } else {
                             None
                         }
@@ -591,9 +588,7 @@ impl OpcUaClientManager {
                 }
                 Err(e) => {
                     log::debug!(
-                        "Failed to read search attributes for node {}: {}",
-                        node_id,
-                        e
+                        "Failed to read search attributes for node {node_id}: {e}"
                     );
                     // Return empty strings and default NodeClass if we can't read the attributes
                     Ok((String::new(), String::new(), None, NodeClass::Unspecified))
@@ -624,7 +619,7 @@ impl OpcUaClientManager {
             32 => "ReferenceType".to_string(),
             64 => "DataType".to_string(),
             128 => "View".to_string(),
-            _ => format!("Unknown NodeClass ({})", node_class_value),
+            _ => format!("Unknown NodeClass ({node_class_value})"),
         }
     }
 
@@ -655,7 +650,7 @@ impl OpcUaClientManager {
         }
 
         if permissions.is_empty() {
-            format!("None ({})", access_level)
+            format!("None ({access_level})")
         } else {
             format!("{} ({})", permissions.join(" | "), access_level)
         }
@@ -695,7 +690,7 @@ impl OpcUaClientManager {
             "i=28" => "UInteger".to_string(),
             "i=29" => "Enumeration".to_string(),
             "i=30" => "Image".to_string(),
-            _ => format!("Custom DataType ({})", data_type_id),
+            _ => format!("Custom DataType ({data_type_id})"),
         }
     }
 

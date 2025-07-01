@@ -13,7 +13,7 @@ pub fn init_logger(log_level: log::LevelFilter) {
         log::LevelFilter::Trace => "trace",
         log::LevelFilter::Off => "off",
     };
-    std::env::set_var("RUST_LOG", format!("{},opcua={}", level_str, level_str));
+    std::env::set_var("RUST_LOG", format!("{level_str},opcua={level_str}"));
 
     if TUI_MODE.load(Ordering::Relaxed) {
         // In TUI mode, use tui-logger directly
@@ -38,10 +38,10 @@ pub fn init_logger(log_level: log::LevelFilter) {
 
                     // Show target (module path) for better context
                     let formatted_message =
-                        format!("[{}] {} [{}]: {}", timestamp, level, target, message);
+                        format!("[{timestamp}] {level} [{target}]: {message}");
 
                     // Return formatted output for console
-                    writeln!(buf, "{}", formatted_message)
+                    writeln!(buf, "{formatted_message}")
                 } else {
                     // In TUI mode, don't output to console (just return Ok)
                     Ok(())
@@ -51,7 +51,7 @@ pub fn init_logger(log_level: log::LevelFilter) {
     }
 
     // Log a test message to confirm our logger is working
-    log::debug!("Logger initialized with {} level", level_str);
+    log::debug!("Logger initialized with {level_str} level");
 }
 
 pub fn switch_to_tui_logging() {

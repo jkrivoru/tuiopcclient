@@ -52,7 +52,7 @@ impl ConnectScreen {
                     self.pending_discovery = true;
                     self.input_mode = InputMode::Normal;
                 } else if let Some(ref error) = self.server_url_validation_error {
-                    error!("URL Validation: {}", error);
+                    error!("URL Validation: {error}");
                 }
                 Ok(())
             }
@@ -83,7 +83,7 @@ impl ConnectScreen {
                 let validation_errors = self.validate_security_fields();
                 if !validation_errors.is_empty() {
                     for error in &validation_errors {
-                        error!("Security Validation: {}", error);
+                        error!("Security Validation: {error}");
                     }
                     return Ok(());
                 }

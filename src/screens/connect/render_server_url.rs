@@ -71,8 +71,7 @@ impl ConnectScreen {
         } // Render "Use Original URL" checkbox (without borders)
         let checkbox_symbol = if self.use_original_url { "☑" } else { "☐" };
         let checkbox_text = format!(
-            "{} Use original URL (ignore server endpoint URLs)",
-            checkbox_symbol
+            "{checkbox_symbol} Use original URL (ignore server endpoint URLs)"
         );
         let checkbox_style = Style::default().fg(Color::White);
 
@@ -82,7 +81,7 @@ impl ConnectScreen {
         // Show validation error if present (now use chunk[3])
         if let Some(ref error) = self.server_url_validation_error {
             let error_text =
-                Paragraph::new(format!("⚠ {}", error)).style(Style::default().fg(Color::Red));
+                Paragraph::new(format!("⚠ {error}")).style(Style::default().fg(Color::Red));
             f.render_widget(error_text, chunks[3]);
         } // Buttons (2 buttons for step 1) - now use chunk[5] to prevent jumping
         let button_chunks = crate::ui_utils::LayoutUtils::create_button_layout(chunks[5]); // Update button states based on current progress and validation
