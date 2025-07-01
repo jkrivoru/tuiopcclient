@@ -70,9 +70,8 @@ impl ConnectScreen {
             f.set_cursor_position((chunks[1].x + cursor_x as u16, chunks[1].y + 1));
         } // Render "Use Original URL" checkbox (without borders)
         let checkbox_symbol = if self.use_original_url { "☑" } else { "☐" };
-        let checkbox_text = format!(
-            "{checkbox_symbol} Use original URL (ignore server endpoint URLs)"
-        );
+        let checkbox_text =
+            format!("{checkbox_symbol} Use original URL (ignore server endpoint URLs)");
         let checkbox_style = Style::default().fg(Color::White);
 
         let checkbox_paragraph = Paragraph::new(checkbox_text).style(checkbox_style);

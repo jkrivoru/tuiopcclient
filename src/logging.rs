@@ -37,8 +37,7 @@ pub fn init_logger(log_level: log::LevelFilter) {
                     let target = record.target();
 
                     // Show target (module path) for better context
-                    let formatted_message =
-                        format!("[{timestamp}] {level} [{target}]: {message}");
+                    let formatted_message = format!("[{timestamp}] {level} [{target}]: {message}");
 
                     // Return formatted output for console
                     writeln!(buf, "{formatted_message}")

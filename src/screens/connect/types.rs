@@ -252,9 +252,7 @@ impl ConnectScreen {
             && !store_path.is_empty()
             && !std::path::Path::new(store_path).exists()
         {
-            errors.push(format!(
-                "Trusted server store path not found: {store_path}"
-            ));
+            errors.push(format!("Trusted server store path not found: {store_path}"));
         }
 
         errors

@@ -350,9 +350,7 @@ impl super::BrowseScreen {
         // Send cancel command to background search task
         if let Some(tx) = &self.search_command_tx {
             if let Err(e) = tx.send(super::types::SearchCommand::Cancel) {
-                log::warn!(
-                    "search: failed to send cancel command to background search: {e}"
-                );
+                log::warn!("search: failed to send cancel command to background search: {e}");
             }
         }
 
@@ -673,9 +671,7 @@ impl super::BrowseScreen {
                     );
                 }
             } else {
-                log::warn!(
-                    "search: node with ID {target_node_id} not found in current tree"
-                );
+                log::warn!("search: node with ID {target_node_id} not found in current tree");
                 // Node not currently visible, need to search and expand to find it
                 self.expand_to_find_node(&target_node_id).await?;
             }
@@ -701,9 +697,7 @@ impl super::BrowseScreen {
         let target_opcua_node_id = match opcua::types::NodeId::from_str(target_node_id) {
             Ok(node_id) => node_id,
             Err(e) => {
-                log::error!(
-                    "search: failed to parse target node ID '{target_node_id}': {e}"
-                );
+                log::error!("search: failed to parse target node ID '{target_node_id}': {e}");
                 return Err(anyhow::anyhow!(
                     "Invalid node ID format: {}",
                     target_node_id
@@ -713,9 +707,7 @@ impl super::BrowseScreen {
 
         // Check if the target node is already visible in the tree
         if let Some(target_index) = self.find_node_index_by_id(target_node_id) {
-            log::info!(
-                "search: target node already visible at index {target_index}"
-            );
+            log::info!("search: target node already visible at index {target_index}");
             self.selected_node_index = target_index;
             self.update_scroll();
             log::info!("search: navigation completed - node selected and scrolled into view");
@@ -738,16 +730,12 @@ impl super::BrowseScreen {
                 .filter(|node_id| *node_id != objects_node_id)
                 .collect();
 
-            log::info!(
-                "search: filtered path (excluding Objects node): {filtered_path:?}"
-            );
+            log::info!("search: filtered path (excluding Objects node): {filtered_path:?}");
 
             // Expand nodes along the filtered path to make the target visible
             for ancestor_node_id in filtered_path {
                 if let Err(e) = self.expand_node_by_opcua_id(&ancestor_node_id).await {
-                    log::error!(
-                        "search: failed to expand ancestor node {ancestor_node_id}: {e}"
-                    );
+                    log::error!("search: failed to expand ancestor node {ancestor_node_id}: {e}");
                     // Continue trying to expand other ancestors
                 }
             }
@@ -766,9 +754,7 @@ impl super::BrowseScreen {
                 log::error!("search: target node still not visible after expanding path");
             }
         } else {
-            log::error!(
-                "search: could not find path to target node {target_node_id}"
-            );
+            log::error!("search: could not find path to target node {target_node_id}");
         }
 
         Ok(())
@@ -867,9 +853,7 @@ impl super::BrowseScreen {
                 );
             }
         } else {
-            log::warn!(
-                "search: could not find tree node with OPC UA ID {opcua_node_id}"
-            );
+            log::warn!("search: could not find tree node with OPC UA ID {opcua_node_id}");
         }
 
         Ok(())
@@ -921,13 +905,9 @@ impl super::BrowseScreen {
         nodes_to_expand.reverse();
         for &index in &nodes_to_expand {
             if self.can_expand(index) {
-                log::info!(
-                    "search: expanding parent node at index {index} to make target visible"
-                );
+                log::info!("search: expanding parent node at index {index} to make target visible");
                 if let Err(e) = self.expand_node_async(index).await {
-                    log::error!(
-                        "search: failed to expand parent node at index {index}: {e}"
-                    );
+                    log::error!("search: failed to expand parent node at index {index}: {e}");
                 }
             }
         }
@@ -943,9 +923,7 @@ impl super::BrowseScreen {
         start_node_id: &opcua::types::NodeId,
         query: &str,
     ) -> Result<Option<String>> {
-        log::info!(
-            "search: starting depth-first search from node {start_node_id}"
-        );
+        log::info!("search: starting depth-first search from node {start_node_id}");
 
         // Stack for depth-first traversal: (node_id, depth)
         let mut stack = Vec::new();
@@ -1375,9 +1353,7 @@ impl super::BrowseScreen {
         // First, search in the children of the current node (if it has expandable children)
         if let Some(current_node) = self.tree_nodes.get(self.selected_node_index) {
             if current_node.should_show_expand_indicator() && current_node.has_children {
-                log::info!(
-                    "search: searching in children of current node {start_node_id}"
-                );
+                log::info!("search: searching in children of current node {start_node_id}");
                 if let Some(found_id) = self.depth_first_search(&start_node_id, query).await? {
                     return Ok(Some(found_id));
                 }
@@ -1397,9 +1373,7 @@ impl super::BrowseScreen {
         current_node_id: &opcua::types::NodeId,
         query: &str,
     ) -> Result<Option<String>> {
-        log::info!(
-            "search: searching remaining tree after node {current_node_id}"
-        );
+        log::info!("search: searching remaining tree after node {current_node_id}");
 
         // Start from the root and perform a full DFS, but skip nodes until we're past the current node
         let root_node_id = opcua::types::ObjectId::ObjectsFolder.into();

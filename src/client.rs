@@ -317,9 +317,7 @@ impl OpcUaClientManager {
                         }
                     }
                     Err(e) => {
-                        log::warn!(
-                            "Failed to read attribute {attr_id:?} for node {node_id}: {e}"
-                        );
+                        log::warn!("Failed to read attribute {attr_id:?} for node {node_id}: {e}");
                     }
                 }
             } // Check if this node can have a Value attribute by examining its NodeClass
@@ -587,9 +585,7 @@ impl OpcUaClientManager {
                     Ok((browse_name, display_name, value_attr, node_class))
                 }
                 Err(e) => {
-                    log::debug!(
-                        "Failed to read search attributes for node {node_id}: {e}"
-                    );
+                    log::debug!("Failed to read search attributes for node {node_id}: {e}");
                     // Return empty strings and default NodeClass if we can't read the attributes
                     Ok((String::new(), String::new(), None, NodeClass::Unspecified))
                 }

@@ -302,9 +302,7 @@ fn convert_security_mode(mode: &str) -> Result<opcua::types::MessageSecurityMode
 fn create_identity_token(args: &Args) -> Result<opcua::client::prelude::IdentityToken> {
     use opcua::client::prelude::IdentityToken;
     if let (Some(username), Some(password)) = (&args.user_name, &args.password) {
-        log::info!(
-            "Using username/password authentication for user: {username}"
-        );
+        log::info!("Using username/password authentication for user: {username}");
         Ok(IdentityToken::UserName(username.clone(), password.clone()))
     } else if let (Some(cert_path), Some(key_path)) =
         (&args.user_certificate, &args.user_private_key)

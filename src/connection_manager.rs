@@ -82,9 +82,7 @@ impl ConnectionConfig {
             "urn:opcua-tui-client-secure".to_string()
         });
 
-        log::info!(
-            "Using application URI from certificate: {application_uri}"
-        );
+        log::info!("Using application URI from certificate: {application_uri}");
 
         Self {
             application_name: "OPC UA TUI Client - Secure".to_string(),
