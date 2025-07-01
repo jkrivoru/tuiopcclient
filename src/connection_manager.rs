@@ -73,14 +73,19 @@ impl ConnectionConfig {
         let key_path = "./pki/private/OpcPlc.pem";
 
         // Try to extract application URI from certificate, fallback to default
-        let application_uri = ConnectionManager::extract_application_uri_from_certificate(cert_path)
-            .unwrap_or_else(|e| {
-                log::warn!("Failed to extract application URI from certificate: {}", e);
-                log::info!("Using default application URI");
-                "urn:opcua-tui-client-secure".to_string()
-            });
+        let application_uri = ConnectionManager::extract_application_uri_from_certificate(
+            cert_path,
+        )
+        .unwrap_or_else(|e| {
+            log::warn!("Failed to extract application URI from certificate: {}", e);
+            log::info!("Using default application URI");
+            "urn:opcua-tui-client-secure".to_string()
+        });
 
-        log::info!("Using application URI from certificate: {}", application_uri);
+        log::info!(
+            "Using application URI from certificate: {}",
+            application_uri
+        );
 
         Self {
             application_name: "OPC UA TUI Client - Secure".to_string(),
@@ -112,11 +117,19 @@ impl ConnectionConfig {
 
         // Try to extract application URI from certificate if path is provided
         if let Some(cert_path) = &client_cert {
-            if let Ok(extracted_uri) = ConnectionManager::extract_application_uri_from_certificate(cert_path) {
-                log::info!("Automatically extracted application URI from certificate: {}", extracted_uri);
+            if let Ok(extracted_uri) =
+                ConnectionManager::extract_application_uri_from_certificate(cert_path)
+            {
+                log::info!(
+                    "Automatically extracted application URI from certificate: {}",
+                    extracted_uri
+                );
                 self.application_uri = extracted_uri;
             } else {
-                log::warn!("Failed to extract application URI from certificate, using current URI: {}", self.application_uri);
+                log::warn!(
+                    "Failed to extract application URI from certificate, using current URI: {}",
+                    self.application_uri
+                );
             }
         }
 
@@ -192,7 +205,7 @@ impl ConnectionManager {
                 }
             }
         })
-            .await?
+        .await?
     }
 
     /// Connect to an OPC UA server using a discovered endpoint
@@ -304,8 +317,11 @@ impl ConnectionManager {
         }
 
         // Find matching endpoint
-        log::debug!("Looking for endpoint with policy {:?} and mode {:?}", 
-                   config.security_policy, config.security_mode);
+        log::debug!(
+            "Looking for endpoint with policy {:?} and mode {:?}",
+            config.security_policy,
+            config.security_mode
+        );
         let selected_endpoint = Self::find_matching_endpoint(
             &endpoints,
             config.security_policy,
@@ -327,15 +343,18 @@ impl ConnectionManager {
 
     /// Build a configured OPC UA client for regular connections
     fn build_client(config: &ConnectionConfig) -> Result<Client> {
-        log::debug!("Building client with application URI: {}", config.application_uri);
+        log::debug!(
+            "Building client with application URI: {}",
+            config.application_uri
+        );
 
         let mut client_builder = ClientBuilder::new()
             .application_name(&config.application_name)
-            .application_uri(&config.application_uri)  // Use config URI, not hardcoded
+            .application_uri(&config.application_uri) // Use config URI, not hardcoded
             .session_retry_limit(1)
             .pki_dir("pki")
             .session_retry_interval(1000)
-            .verify_server_certs(false);  // Disable hostname verification for secure connections
+            .verify_server_certs(false); // Disable hostname verification for secure connections
 
         // Configure security
         if config.security_mode != MessageSecurityMode::None {
@@ -344,7 +363,9 @@ impl ConnectionManager {
                 client_builder = client_builder.trust_server_certs(true);
             }
 
-            if let (Some(cert_path), Some(key_path)) = (&config.client_cert_path, &config.client_key_path) {
+            if let (Some(cert_path), Some(key_path)) =
+                (&config.client_cert_path, &config.client_key_path)
+            {
                 log::info!("Using client certificate: {}", cert_path);
                 log::info!("Using client private key: {}", key_path);
 
@@ -391,9 +412,7 @@ impl ConnectionManager {
         }
 
         // Wrap client creation in panic handler
-        match std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-            client_builder.client()
-        })) {
+        match std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| client_builder.client())) {
             Ok(Some(client)) => {
                 log::debug!("Client created successfully");
                 Ok(client)
@@ -533,11 +552,15 @@ impl ConnectionManager {
     fn test_certificate_with_openssl(cert_path: &str, key_path: &str) -> Result<()> {
         use std::fs;
 
-        log::debug!("Testing certificate compatibility with OpenSSL for: {} and {}", cert_path, key_path);
+        log::debug!(
+            "Testing certificate compatibility with OpenSSL for: {} and {}",
+            cert_path,
+            key_path
+        );
 
         // Read certificate file
-        let cert_data = fs::read(cert_path)
-            .map_err(|e| anyhow!("Cannot read certificate file: {}", e))?;
+        let cert_data =
+            fs::read(cert_path).map_err(|e| anyhow!("Cannot read certificate file: {}", e))?;
 
         if cert_data.is_empty() {
             return Err(anyhow!("Certificate file is empty"));
@@ -557,8 +580,8 @@ impl ConnectionManager {
         log::debug!("Certificate parsed successfully with OpenSSL");
 
         // Read private key file
-        let key_data = fs::read(key_path)
-            .map_err(|e| anyhow!("Cannot read private key file: {}", e))?;
+        let key_data =
+            fs::read(key_path).map_err(|e| anyhow!("Cannot read private key file: {}", e))?;
 
         if key_data.is_empty() {
             return Err(anyhow!("Private key file is empty"));
@@ -571,17 +594,22 @@ impl ConnectionManager {
         log::debug!("Private key parsed successfully with OpenSSL");
 
         // Test if the private key matches the certificate's public key
-        let cert_public_key = cert.public_key()
+        let cert_public_key = cert
+            .public_key()
             .map_err(|e| anyhow!("Failed to extract public key from certificate: {}", e))?;
 
         // Compare the public keys (this validates that the private key matches the certificate)
-        let private_key_public = private_key.public_key_to_pem()
+        let private_key_public = private_key
+            .public_key_to_pem()
             .map_err(|e| anyhow!("Failed to extract public key from private key: {}", e))?;
-        let cert_key_public = cert_public_key.public_key_to_pem()
+        let cert_key_public = cert_public_key
+            .public_key_to_pem()
             .map_err(|e| anyhow!("Failed to convert certificate public key to PEM: {}", e))?;
 
         if private_key_public != cert_key_public {
-            return Err(anyhow!("Private key does not match the certificate's public key"));
+            return Err(anyhow!(
+                "Private key does not match the certificate's public key"
+            ));
         }
 
         log::info!("Certificate and private key validation successful - they are compatible");
@@ -596,8 +624,8 @@ impl ConnectionManager {
         log::debug!("Extracting application URI from certificate: {}", cert_path);
 
         // Read certificate file
-        let cert_data = fs::read(cert_path)
-            .map_err(|e| anyhow!("Cannot read certificate file: {}", e))?;
+        let cert_data =
+            fs::read(cert_path).map_err(|e| anyhow!("Cannot read certificate file: {}", e))?;
 
         if cert_data.is_empty() {
             return Err(anyhow!("Certificate file is empty"));
@@ -626,7 +654,7 @@ impl ConnectionManager {
                     let uri_str = uri.to_string();
                     log::debug!("Found URI in SAN: {}", uri_str);
 
-                    // OPC UA application URIs typically start with "urn:" 
+                    // OPC UA application URIs typically start with "urn:"
                     // and often contain "opcua" or similar identifiers
                     if uri_str.starts_with("urn:") {
                         log::info!("Found application URI in certificate: {}", uri_str);
@@ -654,6 +682,8 @@ impl ConnectionManager {
             }
         }
 
-        Err(anyhow!("No application URI found in certificate Subject Alternative Name or Common Name"))
+        Err(anyhow!(
+            "No application URI found in certificate Subject Alternative Name or Common Name"
+        ))
     }
 }

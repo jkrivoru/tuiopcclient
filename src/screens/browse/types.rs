@@ -70,12 +70,8 @@ pub enum SearchDialogFocus {
 
 #[derive(Debug)]
 pub enum SearchMessage {
-    Progress {
-        current_node: String,
-    },
-    Result {
-        node_id: String,
-    },
+    Progress { current_node: String },
+    Result { node_id: String },
     Complete,
     Cancelled,
 }

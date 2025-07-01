@@ -2,10 +2,7 @@ name: Nightly Build
 
 on:
   schedule:
-    # Run ever    - name: Setup Rust
-      uses: dtolnay/rust-toolchain@stable
-      with:
-        targets: ${{ matrix.target }} at 2 AM UTC
+    # Run every day at 2 AM UTC
     - cron: '0 2 * * *'
   workflow_dispatch:
 
@@ -59,7 +56,6 @@ jobs:
     - name: Setup Rust
       uses: dtolnay/rust-toolchain@stable
       with:
-        toolchain: 1.77
         targets: ${{ matrix.target }}
 
     - name: Cache cargo registry

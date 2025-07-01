@@ -136,7 +136,7 @@ async fn main() -> Result<()> {
     } else {
         // Normal TUI mode - switch to TUI logging immediately
         logging::switch_to_tui_logging();
-        
+
         let mut app = App::new(client_manager);
         app.run().await?;
     }
@@ -224,7 +224,8 @@ async fn connect_with_cli_params(
 
     log::info!(
         "Building client with security policy: {} and mode: {}",
-        args.security_policy, args.security_mode
+        args.security_policy,
+        args.security_mode
     );
 
     // Create unified connection configuration

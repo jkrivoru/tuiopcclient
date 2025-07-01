@@ -1,5 +1,5 @@
-use std::sync::atomic::{AtomicBool, Ordering};
 use std::io::Write;
+use std::sync::atomic::{AtomicBool, Ordering};
 
 static TUI_MODE: AtomicBool = AtomicBool::new(false);
 
@@ -7,14 +7,14 @@ pub fn init_logger(log_level: log::LevelFilter) {
     // Set environment variable to enable logging from opcua crate
     let level_str = match log_level {
         log::LevelFilter::Error => "error",
-        log::LevelFilter::Warn => "warn", 
+        log::LevelFilter::Warn => "warn",
         log::LevelFilter::Info => "info",
         log::LevelFilter::Debug => "debug",
         log::LevelFilter::Trace => "trace",
         log::LevelFilter::Off => "off",
     };
     std::env::set_var("RUST_LOG", format!("{},opcua={}", level_str, level_str));
-    
+
     if TUI_MODE.load(Ordering::Relaxed) {
         // In TUI mode, use tui-logger directly
         tui_logger::init_logger(log_level).ok();
@@ -27,7 +27,7 @@ pub fn init_logger(log_level: log::LevelFilter) {
             .format(move |buf, record| {
                 // Always forward to tui-logger for potential TUI use later
                 drain.log(record);
-                
+
                 // Only output to console if not in TUI mode
                 if !TUI_MODE.load(Ordering::Relaxed) {
                     // Format for console output with module path
@@ -35,10 +35,11 @@ pub fn init_logger(log_level: log::LevelFilter) {
                     let level = record.level().to_string();
                     let message = record.args().to_string();
                     let target = record.target();
-                    
+
                     // Show target (module path) for better context
-                    let formatted_message = format!("[{}] {} [{}]: {}", timestamp, level, target, message);
-                    
+                    let formatted_message =
+                        format!("[{}] {} [{}]: {}", timestamp, level, target, message);
+
                     // Return formatted output for console
                     writeln!(buf, "{}", formatted_message)
                 } else {
@@ -48,7 +49,7 @@ pub fn init_logger(log_level: log::LevelFilter) {
             })
             .init();
     }
-    
+
     // Log a test message to confirm our logger is working
     log::debug!("Logger initialized with {} level", level_str);
 }

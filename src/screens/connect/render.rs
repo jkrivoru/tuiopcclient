@@ -25,10 +25,10 @@ impl ConnectScreen {
             ConnectDialogStep::EndpointSelection => self.render_endpoint_step(f, chunks[0]),
             ConnectDialogStep::SecurityConfiguration => self.render_security_step(f, chunks[0]),
             ConnectDialogStep::Authentication => self.render_auth_step(f, chunks[0]),
-        }        // Connection logs with scrolling support - using TuiLoggerWidget
-        // Move events from hot buffer to main buffer
+        } // Connection logs with scrolling support - using TuiLoggerWidget
+          // Move events from hot buffer to main buffer
         tui_logger::move_events();
-        
+
         let logger_widget = TuiLoggerWidget::default()
             .style_error(Style::default().fg(Color::Red))
             .style_debug(Style::default().fg(Color::Green))

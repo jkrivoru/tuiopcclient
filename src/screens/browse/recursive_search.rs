@@ -71,9 +71,7 @@ impl BrowseScreen {
         if let Some(rx) = &mut self.search_message_rx {
             while let Ok(message) = rx.try_recv() {
                 match message {
-                    SearchMessage::Progress {
-                        current_node,
-                    } => {
+                    SearchMessage::Progress { current_node } => {
                         self.search_progress_message = format!("{}", current_node);
                     }
                     SearchMessage::Result { node_id } => {
@@ -97,7 +95,9 @@ impl BrowseScreen {
                             // Stop the search after finding the first result (Windows behavior)
                             if let Some(tx) = &self.search_command_tx {
                                 let _ = tx.send(super::types::SearchCommand::Cancel);
-                                log::info!("search: sent cancel command to stop search after first result");
+                                log::info!(
+                                    "search: sent cancel command to stop search after first result"
+                                );
                             }
                         }
 
@@ -247,7 +247,10 @@ impl BrowseScreen {
         // 1️⃣ Search *descendants* of the selected node
         log::debug!("search: step 1 - searching descendants of selected node");
         let children = Self::get_visible_children_sorted(selected_node_id, client).await?;
-        log::debug!("search: found {} visible children to search", children.len());
+        log::debug!(
+            "search: found {} visible children to search",
+            children.len()
+        );
 
         for child in children.iter() {
             // Check for cancellation
@@ -297,7 +300,9 @@ impl BrowseScreen {
                     Some(parent) => parent,
                     None => {
                         // We're at root level - search remaining siblings at root level
-                        log::debug!("search: at root level, searching remaining root-level siblings");
+                        log::debug!(
+                            "search: at root level, searching remaining root-level siblings"
+                        );
 
                         // Find all root level nodes (level 0) and search the ones after current
                         let root_siblings: Vec<_> = tree_nodes
@@ -343,7 +348,10 @@ impl BrowseScreen {
                                 )
                                 .await?
                                 {
-                                    log::info!("search: found match in root sibling subtree '{}'", found);
+                                    log::info!(
+                                        "search: found match in root sibling subtree '{}'",
+                                        found
+                                    );
                                     return Ok(Some(found));
                                 }
 
@@ -366,7 +374,10 @@ impl BrowseScreen {
                 break;
             }
 
-            log::debug!("search: searching siblings under parent '{}'", parent_node_id);
+            log::debug!(
+                "search: searching siblings under parent '{}'",
+                parent_node_id
+            );
 
             // Get all visible siblings (children of parent), already sorted
             let siblings = Self::get_visible_children_sorted(&parent_node_id, client).await?;
@@ -385,7 +396,10 @@ impl BrowseScreen {
 
             // Start with the sibling *after* the one we just finished
             let remaining_siblings = &siblings[(current_position + 1)..];
-            log::debug!("search: searching {} remaining siblings", remaining_siblings.len());
+            log::debug!(
+                "search: searching {} remaining siblings",
+                remaining_siblings.len()
+            );
 
             for sibling in remaining_siblings.iter() {
                 // Check for cancellation
@@ -470,7 +484,10 @@ impl BrowseScreen {
             drop(client_guard);
 
             if should_skip_children {
-                log::debug!("search: skipping children of Method node '{}'", current_node_id);
+                log::debug!(
+                    "search: skipping children of Method node '{}'",
+                    current_node_id
+                );
                 continue; // Skip to next node in stack without adding children
             }
 
@@ -549,7 +566,11 @@ impl BrowseScreen {
             }
         });
 
-        log::debug!("search: sorted {} children for node '{}'", children.len(), node_id);
+        log::debug!(
+            "search: sorted {} children for node '{}'",
+            children.len(),
+            node_id
+        );
         Ok(children)
     }
 
@@ -640,7 +661,11 @@ impl BrowseScreen {
             // Check NodeId
             let node_id_str = node_id.to_string().to_ascii_lowercase();
             if node_id_str.contains(&query_lower) {
-                log::info!("search: NodeId match '{}' contains '{}'", node_id_str, query);
+                log::info!(
+                    "search: NodeId match '{}' contains '{}'",
+                    node_id_str,
+                    query
+                );
                 return true;
             }
 

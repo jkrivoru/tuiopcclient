@@ -79,7 +79,7 @@ impl super::BrowseScreen {
         if self.selected_node_index >= self.tree_nodes.len() {
             self.selected_node_index = self.tree_nodes.len().saturating_sub(1);
         }
-    }    // Toggle expansion state
+    } // Toggle expansion state
     #[allow(dead_code)]
     pub async fn toggle_node_async(&mut self, index: usize) -> Result<()> {
         if index >= self.tree_nodes.len() {
