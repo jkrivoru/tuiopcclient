@@ -53,10 +53,10 @@ A modern, terminal-based OPC UA client built with Rust that provides an intuitiv
 
 ### Download Pre-built Binaries
 
-[![Release](https://img.shields.io/github/v/release/yourusername/jk-opc-client)](https://github.com/yourusername/jk-opc-client/releases)
-[![CI](https://github.com/yourusername/jk-opc-client/workflows/CI/badge.svg)](https://github.com/yourusername/jk-opc-client/actions)
+[![Release](https://img.shields.io/github/v/release/jkrivoru/tuiopcclient)](https://github.com/jkrivoru/tuiopcclient/releases)
+[![CI](https://github.com/jkrivoru/tuiopcclient/workflows/CI/badge.svg)](https://github.com/jkrivoru/tuiopcclient/actions)
 
-Download the latest release for your platform from the [Releases page](https://github.com/yourusername/jk-opc-client/releases).
+Download the latest release for your platform from the [Releases page](https://github.com/jkrivoru/tuiopcclient/releases).
 
 #### Available Platforms:
 - **Linux**:
