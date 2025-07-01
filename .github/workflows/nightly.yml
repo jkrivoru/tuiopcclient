@@ -12,7 +12,7 @@ env:
 jobs:
   check-changes:
     name: Check for changes
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-20.04
     outputs:
       should_build: ${{ steps.check.outputs.should_build }}
     steps:
@@ -39,7 +39,7 @@ jobs:
       matrix:
         include:
           - target: x86_64-unknown-linux-gnu
-            os: ubuntu-latest
+            os: ubuntu-20.04
             name: opcua-client-nightly-linux-x86_64
           - target: x86_64-pc-windows-msvc
             os: windows-latest

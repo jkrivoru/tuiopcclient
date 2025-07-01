@@ -20,7 +20,7 @@ jobs:
         include:
           # Linux targets
           - target: x86_64-unknown-linux-gnu
-            os: ubuntu-latest
+            os: ubuntu-20.04
             name: opcua-client-linux-x86_64
             
           # Windows targets  
@@ -82,7 +82,7 @@ jobs:
   # Separate job for cross-compilation builds
   cross-build:
     name: Cross Build
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-20.04
     strategy:
       fail-fast: false
       matrix:
@@ -130,7 +130,7 @@ jobs:
   release:
     name: Create Release
     needs: [build, cross-build]
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-20.04
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
