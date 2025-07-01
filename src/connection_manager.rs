@@ -214,7 +214,6 @@ impl ConnectionManager {
         config: &ConnectionConfig,
     ) -> Result<(Client, Arc<RwLock<Session>>)> {
         let config = config.clone();
-        let endpoint = endpoint;
 
         // Apply URL override if requested
         if config.use_original_url {

@@ -331,10 +331,10 @@ impl OpcUaClientManager {
                 .find(|attr| attr.name == "NodeClass")
                 .map(|attr| attr.value.as_str());
 
-            let can_have_value = match node_class_from_attributes {
-                Some("Variable") | Some("VariableType") => true,
-                _ => false,
-            }; // Only read Value attribute for Variable and VariableType nodes
+            let can_have_value = matches!(
+                node_class_from_attributes,
+                Some("Variable") | Some("VariableType")
+            ); // Only read Value attribute for Variable and VariableType nodes
             if can_have_value {
                 let read_value_id = ReadValueId {
                     node_id: node_id.clone(),
@@ -523,7 +523,7 @@ impl OpcUaClientManager {
 
             match session_guard.read(&read_values, TimestampsToReturn::Neither, 0.0) {
                 Ok(results) => {
-                    let browse_name = if let Some(result) = results.get(0) {
+                    let browse_name = if let Some(result) = results.first() {
                         if let Some(Variant::QualifiedName(qname)) = &result.value {
                             qname
                                 .name
@@ -579,11 +579,7 @@ impl OpcUaClientManager {
                     let value_attr = if include_value {
                         if let Some(result) = results.get(3) {
                             // Check if the status is good and value is present
-                            if let Some(variant) = &result.value {
-                                Some(format!("{}", variant))
-                            } else {
-                                None // No value present
-                            }
+                            result.value.as_ref().map(|variant| format!("{}", variant))
                         } else {
                             None
                         }

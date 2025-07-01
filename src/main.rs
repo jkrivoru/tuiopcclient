@@ -109,7 +109,7 @@ async fn main() -> Result<()> {
         if args.use_original_url {
             log::info!("Using original URL override");
         }
-        match connect_via_command_line(&args, &server_url, client_manager.clone()).await {
+        match connect_via_command_line(&args, server_url, client_manager.clone()).await {
             Ok(()) => {
                 log::info!("Connection successful! Opening browse screen...");
 
@@ -196,7 +196,7 @@ async fn connect_via_command_line(
     log::info!("Creating endpoint and connecting...");
     let mut client_manager_guard = client_manager.write().await;
 
-    match connect_with_cli_params(args, server_url, &mut *client_manager_guard).await {
+    match connect_with_cli_params(args, server_url, &mut client_manager_guard).await {
         Ok(()) => {
             log::info!("Successfully connected to OPC UA server");
             Ok(())

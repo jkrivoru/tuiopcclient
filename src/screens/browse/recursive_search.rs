@@ -11,6 +11,16 @@ pub struct RecursiveSearchOptions {
     pub start_node_id: NodeId,
 }
 
+pub struct SearchContext<'a> {
+    pub query: &'a str,
+    pub search_by_value: bool,
+    pub client: &'a Arc<RwLock<OpcUaClientManager>>,
+    pub tree_nodes: &'a [super::types::TreeNode],
+    pub message_tx: &'a mpsc::UnboundedSender<SearchMessage>,
+    pub command_rx: &'a mut mpsc::UnboundedReceiver<SearchCommand>,
+    pub cancelled: &'a mut bool,
+}
+
 impl BrowseScreen {
     /// Start a background search task that communicates via channels
     pub fn start_background_search(&mut self, options: RecursiveSearchOptions) -> Result<()> {
@@ -72,7 +82,7 @@ impl BrowseScreen {
             while let Ok(message) = rx.try_recv() {
                 match message {
                     SearchMessage::Progress { current_node } => {
-                        self.search_progress_message = format!("{}", current_node);
+                        self.search_progress_message = current_node.to_string();
                     }
                     SearchMessage::Result { node_id } => {
                         let is_first_result = self.search_results.is_empty();
@@ -201,17 +211,18 @@ impl BrowseScreen {
         );
 
         // Start the depth-first search following the exact algorithm
-        if let Some(found_node_id) = Self::depth_first_search_algorithm(
-            &options.start_node_id,
-            &query_lower,
-            options.include_values,
-            &client,
-            &tree_nodes,
-            &message_tx,
+        let mut search_context = SearchContext {
+            query: &query_lower,
+            search_by_value: options.include_values,
+            client: &client,
+            tree_nodes: &tree_nodes,
+            message_tx: &message_tx,
             command_rx,
-            &mut cancelled,
-        )
-        .await?
+            cancelled: &mut cancelled,
+        };
+
+        if let Some(found_node_id) =
+            Self::depth_first_search_algorithm(&options.start_node_id, &mut search_context).await?
         {
             log::info!("search: found result '{}'", found_node_id);
             let _ = message_tx.send(SearchMessage::Result {
@@ -233,20 +244,14 @@ impl BrowseScreen {
     /// Implements the exact depth-first search algorithm from the pseudocode
     async fn depth_first_search_algorithm(
         selected_node_id: &NodeId,
-        query: &str,
-        search_by_value: bool,
-        client: &Arc<RwLock<OpcUaClientManager>>,
-        tree_nodes: &[super::types::TreeNode],
-        message_tx: &mpsc::UnboundedSender<SearchMessage>,
-        command_rx: &mut mpsc::UnboundedReceiver<SearchCommand>,
-        cancelled: &mut bool,
+        context: &mut SearchContext<'_>,
     ) -> Result<Option<String>> {
         log::debug!("search: starting depth-first algorithm");
         log::debug!("search: starting from selected node '{}'", selected_node_id);
 
         // 1️⃣ Search *descendants* of the selected node
         log::debug!("search: step 1 - searching descendants of selected node");
-        let children = Self::get_visible_children_sorted(selected_node_id, client).await?;
+        let children = Self::get_visible_children_sorted(selected_node_id, context.client).await?;
         log::debug!(
             "search: found {} visible children to search",
             children.len()
@@ -254,19 +259,19 @@ impl BrowseScreen {
 
         for child in children.iter() {
             // Check for cancellation
-            if let Ok(SearchCommand::Cancel) = command_rx.try_recv() {
-                *cancelled = true;
+            if let Ok(SearchCommand::Cancel) = context.command_rx.try_recv() {
+                *context.cancelled = true;
                 return Ok(None);
             }
 
             if let Some(found) = Self::search_in_node_recursive(
                 &child.opcua_node_id,
-                query,
-                search_by_value,
-                client,
-                message_tx,
-                command_rx,
-                cancelled,
+                context.query,
+                context.search_by_value,
+                context.client,
+                context.message_tx,
+                context.command_rx,
+                context.cancelled,
             )
             .await?
             {
@@ -274,7 +279,7 @@ impl BrowseScreen {
                 return Ok(Some(found));
             }
 
-            if *cancelled {
+            if *context.cancelled {
                 return Ok(None);
             }
         }
@@ -287,85 +292,87 @@ impl BrowseScreen {
 
         loop {
             // Check for cancellation
-            if let Ok(SearchCommand::Cancel) = command_rx.try_recv() {
-                *cancelled = true;
+            if let Ok(SearchCommand::Cancel) = context.command_rx.try_recv() {
+                *context.cancelled = true;
                 return Ok(None);
             }
 
             // Find parent of current node
-            let parent_node_id =
-                match Self::find_parent_node_id_in_tree(&current_node_id, client, tree_nodes)
-                    .await?
-                {
-                    Some(parent) => parent,
-                    None => {
-                        // We're at root level - search remaining siblings at root level
-                        log::debug!(
-                            "search: at root level, searching remaining root-level siblings"
-                        );
+            let parent_node_id = match Self::find_parent_node_id_in_tree(
+                &current_node_id,
+                context.client,
+                context.tree_nodes,
+            )
+            .await?
+            {
+                Some(parent) => parent,
+                None => {
+                    // We're at root level - search remaining siblings at root level
+                    log::debug!("search: at root level, searching remaining root-level siblings");
 
-                        // Find all root level nodes (level 0) and search the ones after current
-                        let root_siblings: Vec<_> = tree_nodes
-                            .iter()
-                            .filter(|node| node.level == 0 && node.opcua_node_id.is_some())
-                            .collect();
+                    // Find all root level nodes (level 0) and search the ones after current
+                    let root_siblings: Vec<_> = context
+                        .tree_nodes
+                        .iter()
+                        .filter(|node| node.level == 0 && node.opcua_node_id.is_some())
+                        .collect();
 
-                        // Find current position among root siblings
-                        let current_position = root_siblings
-                            .iter()
-                            .position(|node| {
-                                if let Some(opcua_id) = &node.opcua_node_id {
-                                    *opcua_id == current_node_id
-                                } else {
-                                    false
-                                }
-                            })
-                            .unwrap_or(0);
-
-                        // Search remaining root siblings
-                        let remaining_root_siblings = &root_siblings[(current_position + 1)..];
-                        log::info!(
-                            "Searching {} remaining root-level siblings",
-                            remaining_root_siblings.len()
-                        );
-
-                        for sibling in remaining_root_siblings.iter() {
-                            // Check for cancellation
-                            if let Ok(SearchCommand::Cancel) = command_rx.try_recv() {
-                                *cancelled = true;
-                                return Ok(None);
+                    // Find current position among root siblings
+                    let current_position = root_siblings
+                        .iter()
+                        .position(|node| {
+                            if let Some(opcua_id) = &node.opcua_node_id {
+                                *opcua_id == current_node_id
+                            } else {
+                                false
                             }
+                        })
+                        .unwrap_or(0);
 
-                            if let Some(sibling_opcua_id) = &sibling.opcua_node_id {
-                                if let Some(found) = Self::search_in_node_recursive(
-                                    sibling_opcua_id,
-                                    query,
-                                    search_by_value,
-                                    client,
-                                    message_tx,
-                                    command_rx,
-                                    cancelled,
-                                )
-                                .await?
-                                {
-                                    log::info!(
-                                        "search: found match in root sibling subtree '{}'",
-                                        found
-                                    );
-                                    return Ok(Some(found));
-                                }
+                    // Search remaining root siblings
+                    let remaining_root_siblings = &root_siblings[(current_position + 1)..];
+                    log::info!(
+                        "Searching {} remaining root-level siblings",
+                        remaining_root_siblings.len()
+                    );
 
-                                if *cancelled {
-                                    return Ok(None);
-                                }
-                            }
+                    for sibling in remaining_root_siblings.iter() {
+                        // Check for cancellation
+                        if let Ok(SearchCommand::Cancel) = context.command_rx.try_recv() {
+                            *context.cancelled = true;
+                            return Ok(None);
                         }
 
-                        // Finished searching all root siblings, we're done
-                        log::debug!("search: finished searching all root-level siblings");
-                        break;
+                        if let Some(sibling_opcua_id) = &sibling.opcua_node_id {
+                            if let Some(found) = Self::search_in_node_recursive(
+                                sibling_opcua_id,
+                                context.query,
+                                context.search_by_value,
+                                context.client,
+                                context.message_tx,
+                                context.command_rx,
+                                context.cancelled,
+                            )
+                            .await?
+                            {
+                                log::info!(
+                                    "search: found match in root sibling subtree '{}'",
+                                    found
+                                );
+                                return Ok(Some(found));
+                            }
+
+                            if *context.cancelled {
+                                return Ok(None);
+                            }
+                        }
                     }
-                };
+
+                    // Finished searching all root siblings, we're done
+                    log::debug!("search: finished searching all root-level siblings");
+                    break;
+                }
+            };
 
             // Don't go ABOVE the Objects folder ("i=85") - but we can search its siblings
             let objects_node_id = opcua::types::NodeId::new(0, 85u32);
@@ -380,7 +387,8 @@ impl BrowseScreen {
             );
 
             // Get all visible siblings (children of parent), already sorted
-            let siblings = Self::get_visible_children_sorted(&parent_node_id, client).await?;
+            let siblings =
+                Self::get_visible_children_sorted(&parent_node_id, context.client).await?;
 
             // Find the position of current node in siblings
             let current_position = siblings
@@ -403,19 +411,19 @@ impl BrowseScreen {
 
             for sibling in remaining_siblings.iter() {
                 // Check for cancellation
-                if let Ok(SearchCommand::Cancel) = command_rx.try_recv() {
-                    *cancelled = true;
+                if let Ok(SearchCommand::Cancel) = context.command_rx.try_recv() {
+                    *context.cancelled = true;
                     return Ok(None);
                 }
 
                 if let Some(found) = Self::search_in_node_recursive(
                     &sibling.opcua_node_id,
-                    query,
-                    search_by_value,
-                    client,
-                    message_tx,
-                    command_rx,
-                    cancelled,
+                    context.query,
+                    context.search_by_value,
+                    context.client,
+                    context.message_tx,
+                    context.command_rx,
+                    context.cancelled,
                 )
                 .await?
                 {
@@ -423,7 +431,7 @@ impl BrowseScreen {
                     return Ok(Some(found));
                 }
 
-                if *cancelled {
+                if *context.cancelled {
                     return Ok(None);
                 }
             }

@@ -181,11 +181,9 @@ impl ConnectScreen {
         }
 
         // Calculate the ideal scroll offset to center the selected item
-        let ideal_center_offset = if self.selected_endpoint_index >= visible_items / 2 {
-            self.selected_endpoint_index - visible_items / 2
-        } else {
-            0
-        };
+        let ideal_center_offset = self
+            .selected_endpoint_index
+            .saturating_sub(visible_items / 2);
 
         // Ensure we don't scroll past the end
         let max_scroll = if self.discovered_endpoints.len() > visible_items {

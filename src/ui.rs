@@ -150,12 +150,9 @@ impl App {
                     if let Some(connection_result) =
                         browse_screen.handle_input(key, modifiers).await?
                     {
-                        match connection_result {
-                            ConnectionStatus::Disconnected => {
-                                // User wants to quit
-                                self.should_quit = true;
-                            }
-                            _ => {}
+                        if connection_result == ConnectionStatus::Disconnected {
+                            // User wants to quit
+                            self.should_quit = true;
                         }
                     }
                 }
@@ -253,11 +250,8 @@ impl App {
                         )
                         .await?
                     {
-                        match connection_result {
-                            ConnectionStatus::Disconnected => {
-                                self.should_quit = true;
-                            }
-                            _ => {}
+                        if connection_result == ConnectionStatus::Disconnected {
+                            self.should_quit = true;
                         }
                     }
                 }
@@ -441,35 +435,34 @@ impl App {
                 // Show server URL and selected endpoint info
                 let url = if self.connect_screen.use_original_url {
                     self.connect_screen.server_url_input.value()
+                } else if let Some(endpoint) = self.connect_screen.get_selected_endpoint() {
+                    endpoint.original_endpoint.endpoint_url.as_ref()
                 } else {
-                    if let Some(endpoint) = self.connect_screen.get_selected_endpoint() {
-                        endpoint.original_endpoint.endpoint_url.as_ref()
-                    } else {
-                        self.connect_screen.server_url_input.value()
-                    }
+                    self.connect_screen.server_url_input.value()
                 };
 
-                let endpoint_info =
-                    if let Some(endpoint) = self.connect_screen.get_selected_endpoint() {
-                        format!(
-                            " | Endpoint: [{}, {}]",
-                            match &endpoint.security_policy {
-                                crate::screens::connect::SecurityPolicy::None => "None",
-                                crate::screens::connect::SecurityPolicy::Basic128Rsa15 =>
-                                    "Basic128Rsa15",
-                                crate::screens::connect::SecurityPolicy::Basic256 => "Basic256",
-                                crate::screens::connect::SecurityPolicy::Basic256Sha256 =>
-                                    "Basic256Sha256",
-                                crate::screens::connect::SecurityPolicy::Aes128Sha256RsaOaep =>
-                                    "Aes128Sha256RsaOaep",
-                                crate::screens::connect::SecurityPolicy::Aes256Sha256RsaPss =>
-                                    "Aes256Sha256RsaPss",
-                            },
-                            format!("{:?}", endpoint.security_mode)
-                        )
-                    } else {
-                        " | Endpoint: [None, None]".to_string()
+                let endpoint_info = if let Some(endpoint) =
+                    self.connect_screen.get_selected_endpoint()
+                {
+                    let security_policy_str = match &endpoint.security_policy {
+                        crate::screens::connect::SecurityPolicy::None => "None",
+                        crate::screens::connect::SecurityPolicy::Basic128Rsa15 => "Basic128Rsa15",
+                        crate::screens::connect::SecurityPolicy::Basic256 => "Basic256",
+                        crate::screens::connect::SecurityPolicy::Basic256Sha256 => "Basic256Sha256",
+                        crate::screens::connect::SecurityPolicy::Aes128Sha256RsaOaep => {
+                            "Aes128Sha256RsaOaep"
+                        }
+                        crate::screens::connect::SecurityPolicy::Aes256Sha256RsaPss => {
+                            "Aes256Sha256RsaPss"
+                        }
                     };
+                    format!(
+                        " | Endpoint: [{}, {:?}]",
+                        security_policy_str, endpoint.security_mode
+                    )
+                } else {
+                    " | Endpoint: [None, None]".to_string()
+                };
 
                 format!("Server: {}{}", url, endpoint_info)
             }
@@ -477,35 +470,34 @@ impl App {
                 // Show server URL and endpoint info
                 let url = if self.connect_screen.use_original_url {
                     self.connect_screen.server_url_input.value()
+                } else if let Some(endpoint) = self.connect_screen.get_selected_endpoint() {
+                    endpoint.original_endpoint.endpoint_url.as_ref()
                 } else {
-                    if let Some(endpoint) = self.connect_screen.get_selected_endpoint() {
-                        endpoint.original_endpoint.endpoint_url.as_ref()
-                    } else {
-                        self.connect_screen.server_url_input.value()
-                    }
+                    self.connect_screen.server_url_input.value()
                 };
 
-                let endpoint_info =
-                    if let Some(endpoint) = self.connect_screen.get_selected_endpoint() {
-                        format!(
-                            " | Endpoint: [{}, {}]",
-                            match &endpoint.security_policy {
-                                crate::screens::connect::SecurityPolicy::None => "None",
-                                crate::screens::connect::SecurityPolicy::Basic128Rsa15 =>
-                                    "Basic128Rsa15",
-                                crate::screens::connect::SecurityPolicy::Basic256 => "Basic256",
-                                crate::screens::connect::SecurityPolicy::Basic256Sha256 =>
-                                    "Basic256Sha256",
-                                crate::screens::connect::SecurityPolicy::Aes128Sha256RsaOaep =>
-                                    "Aes128Sha256RsaOaep",
-                                crate::screens::connect::SecurityPolicy::Aes256Sha256RsaPss =>
-                                    "Aes256Sha256RsaPss",
-                            },
-                            format!("{:?}", endpoint.security_mode)
-                        )
-                    } else {
-                        " | Endpoint: [None, None]".to_string()
+                let endpoint_info = if let Some(endpoint) =
+                    self.connect_screen.get_selected_endpoint()
+                {
+                    let security_policy_str = match &endpoint.security_policy {
+                        crate::screens::connect::SecurityPolicy::None => "None",
+                        crate::screens::connect::SecurityPolicy::Basic128Rsa15 => "Basic128Rsa15",
+                        crate::screens::connect::SecurityPolicy::Basic256 => "Basic256",
+                        crate::screens::connect::SecurityPolicy::Basic256Sha256 => "Basic256Sha256",
+                        crate::screens::connect::SecurityPolicy::Aes128Sha256RsaOaep => {
+                            "Aes128Sha256RsaOaep"
+                        }
+                        crate::screens::connect::SecurityPolicy::Aes256Sha256RsaPss => {
+                            "Aes256Sha256RsaPss"
+                        }
                     };
+                    format!(
+                        " | Endpoint: [{}, {:?}]",
+                        security_policy_str, endpoint.security_mode
+                    )
+                } else {
+                    " | Endpoint: [None, None]".to_string()
+                };
 
                 format!("Server: {}{}", url, endpoint_info)
             }

@@ -35,7 +35,7 @@ impl super::BrowseScreen {
     }
 
     // Simplified method to restore expansion states
-    pub fn restore_child_expansion_states(&self, child_nodes: &mut Vec<TreeNode>) {
+    pub fn restore_child_expansion_states(&self, child_nodes: &mut [TreeNode]) {
         for child in child_nodes.iter_mut() {
             let child_path = self.get_node_path(child);
 
@@ -138,11 +138,7 @@ impl super::BrowseScreen {
         let bottom_25_percent = visible_height.saturating_sub(visible_height / 4);
 
         // Get the current position of selected item relative to visible area
-        let current_visible_position = if self.selected_node_index >= self.scroll_offset {
-            self.selected_node_index - self.scroll_offset
-        } else {
-            0
-        };
+        let current_visible_position = self.selected_node_index.saturating_sub(self.scroll_offset);
 
         // Check if item is outside visible area or in the 25% zones
         if self.selected_node_index < self.scroll_offset {

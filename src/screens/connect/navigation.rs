@@ -51,10 +51,8 @@ impl ConnectScreen {
                     self.connect_in_progress = true;
                     self.pending_discovery = true;
                     self.input_mode = InputMode::Normal;
-                } else {
-                    if let Some(ref error) = self.server_url_validation_error {
-                        error!("URL Validation: {}", error);
-                    }
+                } else if let Some(ref error) = self.server_url_validation_error {
+                    error!("URL Validation: {}", error);
                 }
                 Ok(())
             }

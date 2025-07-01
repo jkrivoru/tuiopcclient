@@ -305,10 +305,8 @@ impl super::BrowseScreen {
             if node.should_show_expand_indicator() && node.has_children {
                 if node.is_expanded {
                     self.collapse_node(index);
-                } else {
-                    if let Err(e) = self.expand_node_async(index).await {
-                        log::error!("browse: failed to expand node: {}", e);
-                    }
+                } else if let Err(e) = self.expand_node_async(index).await {
+                    log::error!("browse: failed to expand node: {}", e);
                 }
                 if let Err(e) = self.update_selected_attributes_async().await {
                     log::error!("browse: failed to update attributes: {}", e);
@@ -475,7 +473,7 @@ impl super::BrowseScreen {
                                 if self.search_dialog_focus != SearchDialogFocus::Input {
                                     self.search_dialog_focus = SearchDialogFocus::Input;
                                 }
-                            } else if relative_x >= input_width + 1 && relative_y == 1 {
+                            } else if relative_x > input_width && relative_y == 1 {
                                 // Clicked in button area (after spacing) and on the middle line
                                 // Always perform search if input is not empty, regardless of current focus
                                 if !self.search_input.value().trim().is_empty() {
@@ -584,7 +582,7 @@ impl super::BrowseScreen {
         log::info!("search: performing local search for query '{}'", query);
 
         // Search through currently visible nodes for the first match
-        for (_index, node) in self.tree_nodes.iter().enumerate() {
+        for node in self.tree_nodes.iter() {
             if self.node_matches_query(node, &query).await? {
                 log::debug!("search: local search found match {}", node.node_id);
                 self.search_results.push(node.node_id.clone());

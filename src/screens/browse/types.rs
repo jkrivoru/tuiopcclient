@@ -131,7 +131,8 @@ pub struct BrowseScreen {
 
 impl BrowseScreen {
     pub fn new(server_url: String, client: Arc<RwLock<OpcUaClientManager>>) -> Self {
-        let browse_screen = Self {
+        // Real data will be loaded asynchronously via load_real_tree() from real_data.rs
+        Self {
             tree_nodes: Vec::new(),
             selected_node_index: 0,
             expanded_nodes: std::collections::HashSet::new(),
@@ -160,8 +161,7 @@ impl BrowseScreen {
             search_message_rx: None,
             log_viewer_open: false,
             logger_widget_state: TuiWidgetState::new(),
-        }; // Real data will be loaded asynchronously via load_real_tree() from real_data.rs
-        browse_screen
+        }
     }
 }
 
