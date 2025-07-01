@@ -1,0 +1,20 @@
+[build.env]
+passthrough = [
+    "GITHUB_TOKEN",
+    "RUST_LOG",
+]
+
+[target.x86_64-unknown-linux-musl]
+pre-build = [
+    "dpkg --add-architecture amd64",
+    "apt-get update && apt-get install -y musl-tools musl-dev",
+]
+
+[target.aarch64-unknown-linux-gnu]
+pre-build = [
+    "dpkg --add-architecture arm64",
+    "apt-get update && apt-get install -y gcc-aarch64-linux-gnu libc6-dev-arm64-cross",
+]
+
+[target.i686-pc-windows-msvc]
+# Windows cross-compilation handled by native toolchain

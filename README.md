@@ -51,18 +51,45 @@ A modern, terminal-based OPC UA client built with Rust that provides an intuitiv
 
 ## Installation
 
-### Prerequisites
+### Download Pre-built Binaries
+
+[![Release](https://img.shields.io/github/v/release/yourusername/jk-opc-client)](https://github.com/yourusername/jk-opc-client/releases)
+[![CI](https://github.com/yourusername/jk-opc-client/workflows/CI/badge.svg)](https://github.com/yourusername/jk-opc-client/actions)
+
+Download the latest release for your platform from the [Releases page](https://github.com/yourusername/jk-opc-client/releases).
+
+#### Available Platforms:
+- **Linux**:
+  - `opcua-client-linux-x86_64.tar.gz` - Standard Linux x86_64
+  - `opcua-client-linux-x86_64-musl.tar.gz` - Static binary (musl)
+  - `opcua-client-linux-aarch64.tar.gz` - ARM64/AArch64
+- **Windows**:
+  - `opcua-client-windows-x86_64.zip` - Windows 64-bit
+  - `opcua-client-windows-i686.zip` - Windows 32-bit
+- **macOS**:
+  - `opcua-client-macos-x86_64.tar.gz` - Intel Mac
+  - `opcua-client-macos-aarch64.tar.gz` - Apple Silicon Mac
+
+#### Installation Steps:
+1. Download the appropriate archive for your platform
+2. Extract the archive: `tar -xzf opcua-client-*.tar.gz` (Linux/macOS) or use your preferred archive tool (Windows)
+3. Make the binary executable (Linux/macOS): `chmod +x opcua-client`
+4. Optionally, move to a directory in your PATH: `sudo mv opcua-client /usr/local/bin/`
+
+### Building from Source
+
+#### Prerequisites
 - **Rust**: Install from [rustup.rs](https://rustup.rs/)
 - **OpenSSL**: Required for secure connections (automatically handled with vendored feature)
 
-### Building from Source
+#### Build Commands
 ```bash
 git clone <repository-url>
 cd jk-opc-client
 cargo build --release
 ```
 
-### Quick Start Scripts
+#### Quick Start Scripts
 - **Windows**: Run `run.bat` or `run.ps1`
 - **Cross-platform**: Use `cargo run --release`
 
@@ -72,6 +99,10 @@ cargo build --release
 Launch the application to use the interactive terminal interface:
 
 ```bash
+# Using pre-built binary
+./opcua-client
+
+# Or building from source
 cargo run --release
 ```
 
@@ -79,11 +110,14 @@ cargo run --release
 Connect directly to an OPC UA server:
 
 ```bash
-# Basic connection
+# Basic connection (using pre-built binary)
+./opcua-client --server-url "opc.tcp://localhost:4840"
+
+# Basic connection (building from source)
 cargo run --release -- --server-url "opc.tcp://localhost:4840"
 
 # Secure connection with certificates
-cargo run --release -- \
+./opcua-client \
   --server-url "opc.tcp://localhost:4840" \
   --security-policy "Basic256Sha256" \
   --security-mode "SignAndEncrypt" \
@@ -92,13 +126,13 @@ cargo run --release -- \
   --trusted-store "./pki/trusted"
 
 # Username/password authentication
-cargo run --release -- \
+./opcua-client \
   --server-url "opc.tcp://localhost:4840" \
   --user-name "admin" \
   --password "password"
 
 # X.509 certificate authentication
-cargo run --release -- \
+./opcua-client \
   --server-url "opc.tcp://localhost:4840" \
   --user-certificate "./pki/user/user_cert.pem" \
   --user-private-key "./pki/user/user_key.pem"

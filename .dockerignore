@@ -1,0 +1,56 @@
+# Git and version control
+.git
+.gitignore
+.gitattributes
+
+# Documentation
+*.md
+docs/
+README*
+CHANGELOG*
+LICENSE*
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Build artifacts
+target/
+
+# Don't exclude Cargo.lock as it's needed for reproducible builds
+# Cargo.lock
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Log files
+*.log
+docker-test-*.log
+
+# Temporary files
+*.tmp
+*.temp
+
+# Scripts that aren't needed in container
+scripts/release.*
+scripts/test*
+run.bat
+run.ps1
+
+# Analysis and development tools
+analysis/
+
+# Docker files (avoid recursion)
+dockerfile
+Dockerfile*
+docker-compose*
+.dockerignore

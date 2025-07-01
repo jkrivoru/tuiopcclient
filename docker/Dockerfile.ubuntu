@@ -1,0 +1,65 @@
+# Ubuntu-based testing environment with comprehensive tooling
+FROM ubuntu:22.04 as base
+
+# Prevent interactive prompts during package installation
+ENV DEBIAN_FRONTEND=noninteractive
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    curl \
+    build-essential \
+    pkg-config \
+    libssl-dev \
+    git \
+    file \
+    gcc-aarch64-linux-gnu \
+    libc6-dev-arm64-cross \
+    musl-tools \
+    musl-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install Rust
+RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+ENV PATH="/root/.cargo/bin:${PATH}"
+
+# Install cross for cross-compilation
+RUN cargo install cross --git https://github.com/cross-rs/cross
+
+WORKDIR /app
+
+# Copy source code
+COPY . .
+
+# Install all Linux targets
+RUN rustup target add x86_64-unknown-linux-gnu && \
+    rustup target add x86_64-unknown-linux-musl && \
+    rustup target add aarch64-unknown-linux-gnu
+
+# Test all Linux builds
+RUN echo "Testing native x86_64 build..." && \
+    cargo build --release --target x86_64-unknown-linux-gnu
+
+RUN echo "Testing musl build..." && \
+    cross build --release --target x86_64-unknown-linux-musl
+
+RUN echo "Testing ARM64 build..." && \
+    cross build --release --target aarch64-unknown-linux-gnu
+
+# Verify binaries
+RUN echo "Verifying native binary..." && \
+    file target/x86_64-unknown-linux-gnu/release/opcua-client && \
+    ./target/x86_64-unknown-linux-gnu/release/opcua-client --help
+
+RUN echo "Verifying musl binary..." && \
+    file target/x86_64-unknown-linux-musl/release/opcua-client
+
+RUN echo "Verifying ARM64 binary..." && \
+    file target/aarch64-unknown-linux-gnu/release/opcua-client
+
+# Test cross compilation setup
+COPY Cross.toml .
+RUN echo "Cross.toml configuration:" && cat Cross.toml
+
+# Run the test script
+COPY scripts/test-builds.sh .
+RUN chmod +x test-builds.sh && ./test-builds.sh

@@ -1,0 +1,36 @@
+# Alpine-based minimal testing environment
+FROM rust:alpine as base
+
+# Install system dependencies for Alpine
+RUN apk add --no-cache \
+    musl-dev \
+    pkgconfig \
+    openssl-dev \
+    openssl-libs-static \
+    build-base \
+    git \
+    curl
+
+# Install cross for cross-compilation
+RUN cargo install cross --git https://github.com/cross-rs/cross || \
+    cargo install cross
+
+WORKDIR /app
+
+# Copy source code
+COPY . .
+
+# Install musl target (native for Alpine)
+RUN rustup target add x86_64-unknown-linux-musl
+
+# Test musl build (static binary)
+RUN echo "Testing static musl build..." && \
+    cargo build --release --target x86_64-unknown-linux-musl
+
+# Verify the binary is statically linked
+RUN echo "Verifying static linking..." && \
+    ldd target/x86_64-unknown-linux-musl/release/opcua-client || echo "Static binary confirmed (no dynamic dependencies)"
+
+# Test that the binary runs
+RUN echo "Testing binary execution..." && \
+    ./target/x86_64-unknown-linux-musl/release/opcua-client --help

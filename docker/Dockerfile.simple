@@ -1,0 +1,50 @@
+# Simplified Dockerfile for basic cross-compilation testing without cross tool
+FROM rust:latest as base
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    pkg-config \
+    libssl-dev \
+    build-essential \
+    curl \
+    git \
+    file \
+    gcc-aarch64-linux-gnu \
+    libc6-dev-arm64-cross \
+    musl-tools \
+    musl-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+# Copy dependency manifests first for better layer caching
+COPY Cargo.toml Cargo.lock ./
+
+# Copy source code
+COPY . .
+
+# Install required targets
+RUN rustup target add x86_64-unknown-linux-gnu && \
+    rustup target add x86_64-unknown-linux-musl && \
+    rustup target add aarch64-unknown-linux-gnu
+
+# Set up cross-compilation environment variables
+ENV CC_aarch64_unknown_linux_gnu=aarch64-linux-gnu-gcc
+ENV CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER=aarch64-linux-gnu-gcc
+
+# Test builds without cross tool
+FROM base as test-simple
+RUN echo "Testing simple cross-compilation..." && \
+    cargo build --release --target x86_64-unknown-linux-gnu && \
+    PKG_CONFIG_ALLOW_CROSS=1 cargo build --release --target x86_64-unknown-linux-musl && \
+    PKG_CONFIG_ALLOW_CROSS=1 cargo build --release --target aarch64-unknown-linux-gnu
+
+# Verify the binaries
+RUN echo "Verifying binaries..." && \
+    file target/x86_64-unknown-linux-gnu/release/opcua-client && \
+    file target/x86_64-unknown-linux-musl/release/opcua-client && \
+    file target/aarch64-unknown-linux-gnu/release/opcua-client
+
+# Test binary execution (native only)
+RUN echo "Testing native binary..." && \
+    ./target/x86_64-unknown-linux-gnu/release/opcua-client --help

@@ -1,0 +1,65 @@
+version: '3.8'
+
+services:
+  # Test Linux builds
+  test-linux:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.test
+      target: test-linux
+    volumes:
+      - build-cache:/app/target
+    environment:
+      - RUST_LOG=info
+
+  # Simple cross-compilation test without cross tool
+  test-simple:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.simple
+      target: test-simple
+    volumes:
+      - build-cache:/app/target
+    environment:
+      - RUST_LOG=info
+
+  # Test build verification script
+  test-verify:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.test
+      target: verify
+    volumes:
+      - build-cache:/app/target
+    environment:
+      - RUST_LOG=info
+
+  # Alpine-based minimal test
+  test-alpine:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.alpine
+    volumes:
+      - build-cache:/app/target
+
+  # Ubuntu-based test with more tools
+  test-ubuntu:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.ubuntu
+    volumes:
+      - build-cache:/app/target
+
+  # Test with specific Rust version
+  test-rust-stable:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.test
+      args:
+        RUST_VERSION: "latest"
+      target: verify
+    volumes:
+      - build-cache:/app/target
+
+volumes:
+  build-cache:
